@@ -291,7 +291,7 @@ const VERDICTS: ReadonlyArray<{
     coexisted: true,
     verdict: 'NO SUCCESSOR',
     why:
-      'Advanced Wand has Mage Orb’s exact statline and sat five rows above it in the same ' +
+      'Advanced Wand has Mage Orb’s exact statline and sat NINE rows above it in the same ' +
       'SRD 1 table. Mage Orb was "Advanced Wand plus Powerful"; the Wand did not replace it.',
   },
   {

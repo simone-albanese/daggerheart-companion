@@ -47,10 +47,32 @@ contenuto dell'intero dataset.**
 **Restano nel dataset come sono.** Nessun campo nuovo, nessuna modifica al selettore. Un personaggio
 che ne ha una equipaggiata non cambia. Questa è una decisione **rinviata e non risolta**: le tre
 strade vere restano «marcarle come eredità», «lasciarle sparire e affidarsi al riferimento
-irrisolto», «rimapparle ai successori». La terza richiede una prova che oggi **non esiste**: l'SRD 2
-sembra averle sostituite con famiglie scalate per livello (Shadowblade, Bloodstaff, Wand of Essek),
-ma la corrispondenza uno-a-uno non è verificata, e rimappare senza prova cambierebbe le statistiche
-di un'arma su una scheda esistente senza dirlo.
+irrisolto», «rimapparle ai successori». La terza è **refutata**, e il paragrafo che segue era sbagliato.
+
+> ~~«L'SRD 2 sembra averle sostituite con famiglie scalate per livello (Shadowblade, Bloodstaff,
+> Wand of Essek), ma la corrispondenza uno-a-uno non è verificata.»~~
+
+**Due di quei tre nomi sono già nell'SRD 1.0.** Bloodstaff e Wand of Essek sono armi magiche di
+livello 4 sul folio 51 — due folio *dopo* le nove — e attraversano nell'SRD 2 immutate. Portavano
+`Painful` e `Timebending` da sempre: è per questo che una ricerca per etichetta di capacità li
+trova, ed è esattamente per questo che una ricerca per etichetta **non è una prova**. Magus Revolver
+e Advanced Wand rispondono a Ilmari's Rifle e Mage Orb allo stesso modo; Advanced Wand ha la
+statistica identica a Mage Orb ed era nove righe sopra di lui, nella stessa tabella. Solo
+Shadowblade è davvero nuova, ed è una delle sei famiglie base che l'SRD 2 aggiunge.
+
+**Verdetto misurato: 0 provate, 1 plausibile, 8 senza erede.** L'unica plausibile —
+Ghostblade → Advanced Shadowblade — coincide in 7 campi su 9 con la frase della capacità identica,
+e fallisce lo stesso: porterebbe il danno da `d10+7` a `d8+6` in silenzio, in una collezione dove
+**195 armi su 195 sopravvissute non cambiano un solo campo**. «Rinominata e riscalata» non ha un
+precedente nel libro.
+
+Tre etichette lasciano il libro del tutto: `Lucky`, `Healing`, `Self-Correcting`. Nulla nell'SRD 2
+porta quelle meccaniche su un'arma.
+
+**Decisione del proprietario, 1 settembre 2026: spariscono.** Non tenute, non marcate eredità, non
+rimappate. Un personaggio che ne ha una equipaggiata ottiene un riferimento non risolto — e siccome
+la misura ha mostrato che un'arma sparita **non lasciava alcuna traccia sullo schermo** (dove
+un'armatura stampa `ARMOR NOT IN THIS BUILD`), quel segno è stato costruito.
 
 ## 4. Provenienza Core Set / Hope & Fear: registrata **e** filtrabile
 
@@ -64,7 +86,11 @@ bersaglio, e la distinzione fra ciò che si legge e ciò che si tocca, argomenta
 
 ## 5. I moduli opzionali: dentro, marcati
 
-*Everyday Hero*, *Western*, *Monster Hunting* portano 43 armi e 4 armature. Entrano nelle stesse
+*Everyday Hero*, *Western*, *Monster Hunting* portano 43 righe d'arma e **7** righe d'armatura —
+non 4. Le 4 sono la sola tabella di Everyday Hero (folio 192); Monster Hunting ne stampa altre tre
+sul folio 201. Contate a mano sulle coordinate della pagina, due volte. Dopo l'espansione dei
+livelli — una riga che stampa quattro livelli in una cella sola diventa quattro record — sono
+**76 record d'arma e 16 d'armatura**. Entrano nelle stesse
 collezioni con un campo che dice da quale modulo vengono. Il dataset resta fedele al libro, e chi
 disegnerà il selettore ha di che raggrupparle o nasconderle.
 
