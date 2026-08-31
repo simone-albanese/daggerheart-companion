@@ -217,16 +217,35 @@ const full = (patch: Partial<Campaign> = {}): Campaign => ({
  * holds two records that have BOTH been through `readCampaignRecord`, since
  * its subject is what `applyCampaignImport` does on the copy path. No reader
  * mutant can reach it, and that is right for what it is for. The two new cases
- * below are the only ones here that hold a record off a file against the
- * fixture that went into it, so they are where the per-row shape earns its
- * keep.
+ * below are the only ones whose comparison runs through `idsOf`, and so the
+ * only ones this shape can flip.
+ *
+ * They are not the only tests here that mutant kills, which is worth knowing
+ * before reading a failure list. `does not call a write unverified for a key-
+ * order difference` hands the RAW fixture back out of `deps.read` and lets
+ * `applyCampaignImport` `stable()`-compare it against the post-reader record,
+ * so every reader edit fails it, this one included - and it fails identically
+ * with the pairs and with a flat list, which is exactly why it cannot stand in
+ * for them. It catches the move by accident and calls it `not-verified`, naming
+ * neither the row nor the body. `npx vitest run
+ * tests/store/campaignImport.test.ts` with that mutant in gives
+ * `3 failed | 27 passed (30)` with these pairs and `1 failed | 29 passed (30)`
+ * flattened, the survivor being that control both times, third in file order.
  *
  * `boardCombatants` is gone rather than renamed, because the space it named is
  * gone: the board holds the encounter builder's roster and no bodies at all.
  * The ids that used to be in it are in `combatantsByRow` now, which is the
  * whole of what schema 5 did to this record.
+ *
+ * No return annotation, and that is not a style. `Record<string, unknown>`
+ * reads well and costs the one assertion below that names a key: it turns
+ * `idsOf(stored).combatantsByRow` into an index-signature lookup, so renaming
+ * this key here and nowhere else would leave that line as
+ * `expect(undefined).toEqual(undefined)` - measured in a copy at this commit,
+ * green under the reader mutant above with `npx tsc --noEmit` at 0. Inferred,
+ * the same rename is two TS2339 errors on that line instead.
  */
-const idsOf = (c: Campaign): Record<string, unknown> => ({
+const idsOf = (c: Campaign) => ({
   rows: c.session.map((i) => i.id),
   countdowns: c.session.flatMap((i) => (i.kind === 'countdown' ? [i.countdown.id] : [])),
   combatantsByRow: c.session.flatMap((i) =>
@@ -457,16 +476,20 @@ describe('the id spaces that are not the key', () => {
      * the rows at campaign schema 5, so they travel with the row whatever its
      * id says, which is `campaignImport.ts`'s own argument for why the
      * prohibition survived the rename.
+     *
+     * The empty list is the whole of it. Two `not.toMatch` lines used to stand
+     * under it, one per warning, and both are gone for the same reason rather
+     * than for two: with `warnings` already pinned to `[]` the string they
+     * searched is `''`, so they could only restate the line above - and on the
+     * run where that line fails, they never get to run at all.
      */
     const arriving = fileOf(full());
     const store = fakeStore();
 
     const { preview, outcome } = await run(arriving, store, here());
     const stored = store.records.get(landed(outcome).campaign.id) as Campaign;
-    const said = preview.warnings.join(' ');
 
     expect(preview.warnings).toEqual([]);
-    expect(said).not.toMatch(/belonged to a scene this campaign no longer has/);
     expect(stored.board.openScene).toBe('s2');
     const clock = stored.session.find((i) => i.id === 'i1');
     expect(clock?.kind === 'countdown' && clock.sceneId).toBe('s1');
@@ -495,9 +518,11 @@ describe('the id spaces that are not the key', () => {
      *
      * The second case is the one an id test is for. `i1` is a row this campaign
      * really has, so a reader that checked the pointer against every row id -
-     * which is exactly what a countdown's `sceneId` is checked against, three
-     * lines away in the same pass - would keep it and open the runner on a
-     * countdown row: an empty scene with no explanation on it and no way back.
+     * which is exactly the set a countdown's `sceneId` is checked against, in
+     * this same repair pass - would keep it and open the runner on a countdown
+     * row: an empty scene with no explanation on it and no way back. The two
+     * sets differ on purpose, and the comment standing over the second repair
+     * in `readCampaignRecord` is where that difference is argued.
      *
      * Both fights are asserted still on their rows afterwards, because
      * "silent" is only safe if it is also true.

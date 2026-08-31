@@ -685,8 +685,11 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
      * An evening, written to the disk the ordinary way. The row arrives
      * holding its fight, because that is where a fight is: `addSessionItem`
      * and `showScene` are two verbs doing two things - one puts a scene on the
-     * plan, the other points the runner at it - where schema 4 needed
-     * `runScene` to do both and to move the bodies as well.
+     * plan, the other points the runner at it. Schema 4 spelled the first one
+     * the same way and needed `runScene` for the second; what `runScene` did
+     * that `showScene` does not is empty the row into `board.combatants` on the
+     * way past, and that is the job with no verb now, because there is nowhere
+     * left to move the bodies to.
      */
     gm.useGm.getState().setFear(3);
     gm.useGm.getState().importParty([SHEET], 'file');
