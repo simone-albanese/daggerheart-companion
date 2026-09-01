@@ -96,3 +96,104 @@ describe('the tray', () => {
     expect(useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.sides)).toEqual([10]);
   });
 });
+
+/**
+ * THE DIE THAT COSTS SOMETHING, and the two states it must not be able to reach.
+ *
+ * A Warlock spends a Favor to roll their Patron Die into an action roll. Armed
+ * without paying, and paid without a die, are both states the book does not
+ * have - and both were reachable by a caller that did `pay()` and `add()` in
+ * some order, which is why `buy` takes the payment instead of trusting the
+ * order. These tests are the two orders, driven against the tray rather than
+ * against the screen: the screen can be rewritten, and this property cannot
+ * move with it.
+ *
+ * The charge is a spy that COUNTS, not one that records. "It was not called" is
+ * the assertion in both directions, because a `charge` that ran and wrote
+ * nothing is indistinguishable from one that never ran only if you look at the
+ * result, and the result is the thing under test.
+ */
+describe('a die that has to be bought', () => {
+  /** A purse: says yes while it has something, and only spends when it says yes. */
+  const purse = (start: number): { charge: () => boolean; left: () => number; calls: () => number } => {
+    let left = start;
+    let calls = 0;
+    return {
+      charge: () => {
+        calls += 1;
+        if (left <= 0) return false;
+        left -= 1;
+        return true;
+      },
+      left: () => left,
+      calls: () => calls,
+    };
+  };
+
+  it('takes the payment and hands over the die, in one call', async () => {
+    const { useHeldDice } = await reload();
+    const p = purse(3);
+    expect(useHeldDice.getState().buy('kaelith', 6, p.charge)).toBe(true);
+    expect(useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.sides)).toEqual([6]);
+    expect(p.left(), 'the die arrived without the payment being taken').toBe(2);
+    expect(p.calls(), 'the charge was asked more than once for one die').toBe(1);
+  });
+
+  it('puts no die in the tray when the payment is refused', async () => {
+    const { useHeldDice } = await reload();
+    const p = purse(0);
+    expect(useHeldDice.getState().buy('kaelith', 8, p.charge)).toBe(false);
+    expect(
+      useHeldDice.getState().byCharacter['kaelith'],
+      'an empty purse still put a die in the roll',
+    ).toBeUndefined();
+    expect(p.calls(), 'the charge was never even asked').toBe(1);
+  });
+
+  it('charges nothing when the tray is full, which is the half nobody sees', async () => {
+    /*
+     * `add` drops the die on the floor at `MAX_HELD` and returns nothing, so a
+     * caller doing `pay(); add()` pays for a die that never arrives and cannot
+     * tell. This is the direction that costs a resource rather than granting a
+     * free one, and it is the reason the room check comes FIRST in `buy`.
+     */
+    const { useHeldDice, MAX_HELD } = await reload();
+    for (let i = 0; i < MAX_HELD; i += 1) useHeldDice.getState().add('kaelith', 6);
+    const p = purse(3);
+
+    expect(useHeldDice.getState().buy('kaelith', 6, p.charge)).toBe(false);
+    expect(p.calls(), 'a Favor was taken for a die the tray had no room for').toBe(0);
+    expect(p.left()).toBe(3);
+    expect(useHeldDice.getState().byCharacter['kaelith']).toHaveLength(MAX_HELD);
+  });
+
+  it('buys as many as the purse holds and not one more', async () => {
+    const { useHeldDice } = await reload();
+    const p = purse(2);
+    const results = [
+      useHeldDice.getState().buy('kaelith', 6, p.charge),
+      useHeldDice.getState().buy('kaelith', 6, p.charge),
+      useHeldDice.getState().buy('kaelith', 6, p.charge),
+    ];
+    expect(results).toEqual([true, true, false]);
+    // The count in the tray and the count taken from the purse are the same
+    // number, which is the whole property in one line.
+    expect(useHeldDice.getState().byCharacter['kaelith']).toHaveLength(2);
+    expect(p.left()).toBe(0);
+  });
+
+  it('keeps one character`s purchase off another character`s roll', async () => {
+    const { useHeldDice } = await reload();
+    const p = purse(1);
+    useHeldDice.getState().buy('kaelith', 8, p.charge);
+    expect(useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.sides)).toEqual([8]);
+    expect(useHeldDice.getState().byCharacter['brann']).toBeUndefined();
+  });
+
+  it('survives a reload like any other die, because it is one', async () => {
+    const first = await reload();
+    first.useHeldDice.getState().buy('kaelith', 8, purse(1).charge);
+    const second = await reload();
+    expect(second.useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.sides)).toEqual([8]);
+  });
+});
