@@ -26,12 +26,47 @@ const body = (rules: RulesSection[], id: string): string => {
 };
 
 describe.skipIf(path(0) === undefined || path(1) === undefined)('the rules on both books', () => {
-  it('reads the same 69 sections, in the same order, out of both', async () => {
+  /*
+   * The two books share sixty-nine sections in the same order, and SRD 2.0
+   * prints FIVE MORE that SRD 1.0 does not have at all - the Martial Stances
+   * chapter on folio 13. It is the first place the two books' rules diverge,
+   * and the assertion says so in both directions rather than dropping to a
+   * subset check: SRD 1.0's list must be exactly SRD 2.0's minus those five,
+   * in order, so a section going missing from the older book still fails here.
+   */
+  const STANCE_RULES = [
+    'martial-stances',
+    'stances',
+    'focus',
+    'shifting-into-stances',
+    'dropping-out-of-stances',
+  ];
+
+  it('reads the same sixty-nine out of both, and five more out of SRD 2.0 only', async () => {
     const one = await read(0);
     const two = await read(1);
     expect(one).toHaveLength(69);
-    expect(two.map((r) => r.id)).toEqual(one.map((r) => r.id));
-    expect(two.map((r) => r.title)).toEqual(one.map((r) => r.title));
+    expect(two).toHaveLength(74);
+    expect(two.filter((r) => STANCE_RULES.includes(r.id)).map((r) => r.id)).toEqual(STANCE_RULES);
+    expect(one.some((r) => STANCE_RULES.includes(r.id))).toBe(false);
+    const shared = two.filter((r) => !STANCE_RULES.includes(r.id));
+    expect(shared.map((r) => r.id)).toEqual(one.map((r) => r.id));
+    expect(shared.map((r) => r.title)).toEqual(one.map((r) => r.title));
+  });
+
+  it('puts the five on folio 13, and stops before the stance cards', async () => {
+    const two = await read(1);
+    for (const id of STANCE_RULES) {
+      expect(two.find((r) => r.id === id)?.sourcePage, id).toBe(13);
+    }
+    // `close: STANCE FEATURES` is what keeps `parseStances`' cards out of the
+    // rules. Without it the whole right column arrives here.
+    const all = STANCE_RULES.map((id) => body(two, id)).join(' ');
+    expect(all).not.toContain('STANCE FEATURES');
+    expect(all).not.toContain('Favored');
+    // And the sentences the app had a Focus stepper without.
+    expect(body(two, 'focus')).toContain('maximum of 6 Focus');
+    expect(body(two, 'shifting-into-stances')).toContain('spend a Focus to shift');
   });
 
   it('finds each island on the folio the second book actually prints it on', async () => {

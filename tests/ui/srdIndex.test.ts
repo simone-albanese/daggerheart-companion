@@ -88,9 +88,39 @@ describe('the index of everything shipped', () => {
     // The two figures the plan and the file's header both quote. Derived, so
     // that a folio which adds a weapon moves them here instead of leaving two
     // documents quoting a number the dataset stopped carrying.
-    expect(total).toBe(1438);
+    // 1438 + the five Martial Stances rules sections SRD 2.0 prints on folio 13.
+    expect(total).toBe(1443);
     expect(beyondRules).toHaveLength(1369);
-    expect(of('rules')).toHaveLength(69);
+    expect(of('rules')).toHaveLength(74);
+  });
+
+  /*
+   * THE REACHABILITY THIS BRANCH SHIPPED A STEPPER WITHOUT, and it is asserted
+   * here rather than in `tests/tools/rules.test.ts` because that file needs the
+   * owner's PDFs and skips in CI. This one reads the committed dataset, so the
+   * runner actually checks it.
+   *
+   * Measured before folio 13's rules were parsed, by the critic that found it:
+   * "maximum of 6 Focus" 0 records, "Clear your Focus" 0, "active stance" 0 -
+   * while the app drew a Focus track with a `+` on it. The only route to Focus
+   * a player could find was one stance's d4.
+   */
+  it('answers a player who asks how the Focus track they can see gets filled', () => {
+    const found = (query: string): string[] =>
+      searchSrd(index, query)
+        .filter((hit) => hit.kind === 'rules')
+        .map((hit) => hit.id);
+
+    expect(found('maximum of 6 Focus')).toContain('focus');
+    expect(found('clear your Focus track')).toContain('focus');
+    expect(found('spend a Focus to shift')).toContain('shifting-into-stances');
+    expect(found('active stance')).toContain('dropping-out-of-stances');
+
+    // And the sentence itself is on the record, not merely matched by a word.
+    const focus = dataset.rules.find((r) => r.id === 'focus');
+    expect(focus?.sourcePage).toBe(13);
+    expect(focus?.body).toContain('roll a number of d6s equal to your Instinct');
+    expect(focus?.body).toContain('You can hold a maximum of 6 Focus.');
   });
 
   it('names every record the way the dataset names it, and stamps its own page', () => {

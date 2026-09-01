@@ -55,6 +55,18 @@ export const SECTION_MOMENTS: Readonly<Record<Ref, readonly Moment[]>> = {
   'the-golden-rule': ['before-the-roll', 'between-scenes'],
   'rulings-over-rules': ['before-the-roll', 'damage'],
   'character-creation': ['before-the-roll'],
+  /*
+   * Folio 13, ratified in `BALLOT-MOMENTI-SRD-2-2026-09-01.json` - a second
+   * ballot rather than five rows added to the first, so that the document of
+   * 26 August still says what was decided on 26 August.
+   *
+   * Two of the five are excused instead: `martial-stances` is a sheet set up
+   * once, `stances` is a choice taken at a level-up. Both are in that ballot
+   * with their reason, and in `MOMENTLESS` in the test that guards this table.
+   */
+  focus: ['between-scenes'],
+  'shifting-into-stances': ['my-turn'],
+  'dropping-out-of-stances': ['damage'],
   'beastform-options': ['my-turn', 'before-the-roll'],
   'working-with-your-companion': ['my-turn', 'before-the-roll'],
   'companion-taking-damage': ['damage', 'between-scenes'],

@@ -1,0 +1,52 @@
+[
+ {
+  "index": 0,
+  "id": "martial-stances",
+  "title": "Martial Stances",
+  "page": 13,
+  "moments": [],
+  "why": "\"When you choose the Martial Artist subclass, take the Martial Stances sheet to track which stances your character knows.\" That is an instruction about setting a sheet up, and it is carried out once.",
+  "confidence": "obvious",
+  "note": "TRUE ORPHAN, and of the same kind as `ranger-companion`: a sheet built before play. Nobody reads this while four people wait — by the time a stance matters, the sheet already exists. It shares the property the other eight were excused for."
+ },
+ {
+  "index": 1,
+  "id": "stances",
+  "title": "Stances",
+  "page": 13,
+  "moments": [],
+  "why": "\"You choose two stances from Tier 1 when you first take the Martial Artist's subclass foundation card... Mark a new stance from your tier or below each time you gain a level.\"",
+  "confidence": "obvious",
+  "note": "TRUE ORPHAN, and the same shape as `multiclassing`: a choice taken at a level-up, away from the table. The paragraph that opens it does define what a stance IS, but a definition is what the search box answers, not what a GM reaches for mid-scene."
+ },
+ {
+  "index": 2,
+  "id": "focus",
+  "title": "Focus",
+  "page": 13,
+  "moments": ["between-scenes"],
+  "why": "\"ONCE PER REST during a moment of calm, you can clear your mind and refocus your martial instincts. Clear your Focus track, then roll a number of d6s equal to your Instinct and gain Focus equal to the highest result rolled.\"",
+  "confidence": "obvious",
+  "note": "The section names its own moment. A rest is the between-scenes beat, and this is the only place in the product that says how the track refills — the app shipped the stepper before it shipped this sentence, which is why the section is here at all."
+ },
+ {
+  "index": 3,
+  "id": "shifting-into-stances",
+  "title": "Shifting into Stances",
+  "page": 13,
+  "moments": ["my-turn"],
+  "why": "\"You can SPEND A FOCUS to shift into a martial stance and gain its effects... You can't shift into or have more than one active stance at a time.\"",
+  "confidence": "obvious",
+  "note": "A spend and a choice, made on your own turn, with a restriction that is checked at the moment of making it. `beastform-options` is the nearest neighbour already in the table and it holds `my-turn` for the same reason."
+ },
+ {
+  "index": 4,
+  "id": "dropping-out-of-stances",
+  "title": "Dropping out of Stances",
+  "page": 13,
+  "moments": ["damage"],
+  "why": "\"You also drop out of your active stance when you TAKE SEVERE DAMAGE or MARK YOUR LAST HIT POINT.\"",
+  "confidence": "argued",
+  "note": "ARGUED, not obvious, and the argument is worth recording because the section names two triggers and they fall in different moments. The one that surprises a table is the damage one: a Martial Artist who has just taken Severe damage has silently lost the stance they were counting on, and that is the sentence somebody needs read aloud. The other trigger — \"at the end of the scene\" — is housekeeping nobody has to be told. So this takes `damage` alone rather than `damage` and `between-scenes`, on the rule the ballot of 26 August used throughout: a moment is where the section is NEEDED, not everywhere it is true."
+ }
+]

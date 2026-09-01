@@ -1471,8 +1471,9 @@ describe('the results', () => {
      * quietly in a docblock, which is how this file lost figures before.
      */
     const single = rules.filter((r) => ruleSection(rules, r.id)!.blocks.length === 1);
-    expect(rules).toHaveLength(69);
-    expect(single).toHaveLength(34);
+    expect(rules).toHaveLength(74);
+    // 34 of 69 before folio 13's rules arrived; all five of those are single-block.
+    expect(single).toHaveLength(39);
     // Not vacuous the other way either: most sections do have subheads to land
     // on, which is what makes the landing worth having at all.
     expect(rules.length - single.length).toBe(35);
@@ -1777,9 +1778,11 @@ describe('the results', () => {
         }
       }
     }
+    // Folio 13's five sections add seven body lines and NO heading: each is a
+    // single block, so none of them carries a subheading of its own.
     expect(headings).toBe(158);
-    expect(body).toBe(620);
-    expect(headings + body).toBe(778);
+    expect(body).toBe(627);
+    expect(headings + body).toBe(785);
     expect(fallback).toBe(0);
   });
 

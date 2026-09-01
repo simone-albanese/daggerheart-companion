@@ -172,15 +172,45 @@ function bannerFolio(pages: readonly BookPage[], text: string): number {
   return hits[0]!.folio!;
 }
 
+/**
+ * The same, for a chapter one book prints and the other does not.
+ *
+ * `null` when NO page carries the banner - but an ambiguous banner is still
+ * fatal, because two pages printing it is a parser that has lost its place, not
+ * a book that lacks a chapter. Absence is only ever believed from zero.
+ */
+function bannerFolioOptional(pages: readonly BookPage[], text: string): number | null {
+  const hits = pages.filter((p) => p.folio !== null && p.lines.some((l) => l.text.trim() === text));
+  if (hits.length === 0) return null;
+  if (hits.length > 1) {
+    throw new ParseError(
+      `"${text}" is printed on ${hits.length} pages, not one`,
+      hits.map((p) => `folio ${p.folio}`).join(', '),
+    );
+  }
+  return hits[0]!.folio!;
+}
+
 // ---------------------------------------------------------------------------
-// The eight islands
+// The islands
 // ---------------------------------------------------------------------------
+
+/** The display head folio 13 prints, and the banner that ends its rules. */
+const MARTIAL_STANCES_HEAD = 'MARTIAL STANCES';
+const STANCE_FEATURES = 'STANCE FEATURES';
 
 interface Island {
   /** What this island is, for an error message. */
   what: string;
-  /** Its folios, read off this book's contents page and banners. */
-  folios: (entries: ChapterEntry[], pages: readonly BookPage[]) => { from: number; to: number };
+  /**
+   * Its folios, read off this book's contents page and banners - or `null` for
+   * a chapter THIS BOOK DOES NOT PRINT. An island that may be absent must also
+   * declare `provides`, and must cross-examine the absence itself.
+   */
+  folios: (
+    entries: ChapterEntry[],
+    pages: readonly BookPage[],
+  ) => { from: number; to: number } | null;
   /**
    * The banner that opens it. Units before it on the first page are not rules
    * - SRD 2.0 sets `BEASTFORM OPTIONS` in the second column of a page whose
@@ -189,6 +219,13 @@ interface Island {
   open?: string;
   /** The banner that closes it; it and everything after are not rules. */
   close?: string;
+  /**
+   * The section headings this island supplies. Named only by an island that can
+   * return `null`: when it does, exactly these are struck from the sequence for
+   * that book, and every other heading is still demanded. Without it, a book
+   * missing the chapter would fail on `section heading never found`.
+   */
+  provides?: readonly string[];
 }
 
 /**
@@ -215,6 +252,46 @@ const ISLANDS: readonly Island[] = [
   {
     what: 'character creation',
     folios: (e) => rangeBetween(e, ['CHARACTER CREATION'], ['CORE MATERIALS']),
+  },
+  /*
+   * Folio 13 in SRD 2.0, and NOWHERE in SRD 1.0 - the first island in this list
+   * that one book prints and the other does not.
+   *
+   * The page is two columns: the left is rules prose under four banners, the
+   * right is the stance cards, which are `parseStances`'s. `close` cuts at
+   * `STANCE FEATURES`, so the cards never flow into the rules - the same job
+   * `{ start: 'TIER 1', drop: true }` does after the Beastform preamble.
+   *
+   * THE ABSENCE IS CROSS-EXAMINED, not assumed. A book with no `MARTIAL
+   * STANCES` head that nevertheless prints a `STANCE FEATURES` banner is a
+   * parser that has lost the chapter, not a book without one. That is the same
+   * pairing `shared/parsers/stances.ts` makes, in the same direction, and it is
+   * why `folios` and not the caller does the asking: only this entry knows what
+   * the chapter cannot be printed without.
+   */
+  {
+    what: 'the Martial Stances rules',
+    folios: (e, p) => {
+      const f = bannerFolioOptional(p, MARTIAL_STANCES_HEAD);
+      if (f !== null) return { from: f, to: f };
+      const listed = p.filter((q) => q.lines.some((l) => l.text.trim() === STANCE_FEATURES));
+      if (listed.length > 0) {
+        throw new ParseError(
+          `no "${MARTIAL_STANCES_HEAD}" head, but ${listed.length} page(s) print "${STANCE_FEATURES}"`,
+          listed.map((q) => `folio ${q.folio ?? '?'}`).join(', '),
+        );
+      }
+      return null;
+    },
+    open: MARTIAL_STANCES_HEAD,
+    close: STANCE_FEATURES,
+    provides: [
+      MARTIAL_STANCES_HEAD,
+      'STANCES',
+      'FOCUS',
+      'SHIFTING INTO STANCES',
+      'DROPPING OUT OF STANCES',
+    ],
   },
   /*
    * Two pages out of the class chapter that are rules and not stat blocks.
@@ -306,6 +383,21 @@ const SPECS: readonly Spec[] = [
   { id: 'rulings-over-rules', title: 'Rulings Over Rules', start: 'RULINGS OVER RULES' },
 
   { id: 'character-creation', title: 'Character Creation', start: 'CHARACTER CREATION' },
+
+  /*
+   * Folio 13, SRD 2.0 only - struck from the sequence for a book whose island
+   * answered `null`. The display head carries a preamble of its own before the
+   * first banner, so it is a section and not just an opening.
+   */
+  { id: 'martial-stances', title: 'Martial Stances', start: MARTIAL_STANCES_HEAD },
+  { id: 'stances', title: 'Stances', start: 'STANCES' },
+  { id: 'focus', title: 'Focus', start: 'FOCUS' },
+  { id: 'shifting-into-stances', title: 'Shifting into Stances', start: 'SHIFTING INTO STANCES' },
+  {
+    id: 'dropping-out-of-stances',
+    title: 'Dropping out of Stances',
+    start: 'DROPPING OUT OF STANCES',
+  },
 
   // Folio 12. The preamble only; `TIER 1` opens the stat cards, which are
   // `parseBeastforms`'s and would otherwise flow into this section.
@@ -768,15 +860,32 @@ interface Unit {
 export function parseRules(pages: BookPage[]): RulesSection[] {
   const entries = parseContents(pages);
 
-  const islands = ISLANDS.map((island) => {
-    const { from, to } = island.folios(entries, pages);
+  /*
+   * An island that answers `null` is a chapter this book does not print. It
+   * contributes no pages AND strikes its own headings from the sequence below;
+   * every other heading is still demanded by name. The absence itself is
+   * cross-examined inside `folios`, not here, because only that function knows
+   * what the chapter cannot be printed without.
+   */
+  const absentStarts = new Set<string>();
+  const islands = ISLANDS.flatMap((island) => {
+    const range = island.folios(entries, pages);
+    if (range === null) {
+      if (island.provides === undefined) {
+        throw new ParseError(`${island.what} is absent and declares no headings`, island.what);
+      }
+      for (const start of island.provides) absentStarts.add(start);
+      return [];
+    }
+    const { from, to } = range;
     if (to < from) throw new ParseError(`${island.what} runs backwards`, `folios ${from}-${to}`);
     const inRange = pages
       .filter((p) => p.folio !== null && p.folio >= from && p.folio <= to)
       .sort((a, b) => a.index - b.index);
     if (inRange.length === 0) throw new ParseError(`no pages for ${island.what}`, `folios ${from}-${to}`);
-    return { island, pages: inRange };
+    return [{ island, pages: inRange }];
   });
+  const specs = absentStarts.size === 0 ? SPECS : SPECS.filter((s) => !absentStarts.has(s.start));
   const streamPages = islands.flatMap((i) => i.pages);
 
   const grid = gutterGrid(streamPages);
@@ -813,7 +922,7 @@ export function parseRules(pages: BookPage[]): RulesSection[] {
   };
 
   for (const unit of stream) {
-    const next = SPECS[spec];
+    const next = specs[spec];
     if (next && unit.heading && unit.text === next.start) {
       close();
       current = next;
@@ -825,8 +934,8 @@ export function parseRules(pages: BookPage[]): RulesSection[] {
   }
   close();
 
-  if (spec !== SPECS.length) {
-    throw new ParseError('section heading never found', SPECS[spec]!.start);
+  if (spec !== specs.length) {
+    throw new ParseError('section heading never found', specs[spec]!.start);
   }
 
   const seen = new Set<string>();

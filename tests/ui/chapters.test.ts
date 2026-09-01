@@ -111,7 +111,8 @@ const computed = (page: number | undefined): SrdChapter => {
 const SHAPE: Record<SrdChapter, number> = {
   introduction: 4,
   'character-creation': 1,
-  'core-materials': 5,
+  // 5 + the five Martial Stances sections SRD 2.0 prints on folio 13.
+  'core-materials': 10,
   'core-mechanics': 24,
   'running-an-adventure': 35,
 };

@@ -556,7 +556,7 @@ describe('the sections a GM opens mid-scene', () => {
     // "a GM opens this during a scene" would have stopped being a claim.
     expect(MID_SCENE.length).toBeLessThan(rules.length);
     expect(MID_SCENE).toHaveLength(35);
-    expect(rules).toHaveLength(69);
+    expect(rules).toHaveLength(74);
   });
 
   it('has no entry yet for exactly these, which is the catalogue’s own to-do list', () => {
