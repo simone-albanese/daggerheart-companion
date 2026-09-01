@@ -390,6 +390,27 @@ export interface RevisionCounts {
    */
   transformations: number | null;
   /**
+   * Martial stances. Zero is a MEASUREMENT here, exactly as it is for
+   * `transformations` above, and it has to be: neither book's contents page
+   * names this chapter, so there is no entry whose absence could stand in for a
+   * count, and a parser that selects by a banner cannot tell "this book prints
+   * none" from "I looked in the wrong place" without something outside itself
+   * to fail against.
+   *
+   * Sixteen was counted three ways on SRD 2.0 before it was written down: the
+   * four `TIER n` heads on folio 13 with four bold `Name:` entries under each;
+   * the sixteen names read off the printed page (Favored, Invigorating, Quick,
+   * Reliable / Aggressive, Anchored, Defensive, Otherworldly / Grappling,
+   * Scary, Stable, Vigilant / Crushing, Exacting, Honed, Isolating); and the
+   * parser. SRD 1.0 prints no `MARTIAL STANCES` head, no `STANCE FEATURES`
+   * banner and no bold-sans `TIER n` head anywhere inside its Classes range.
+   *
+   * No printed sentence states the number, the way `beastforms` and
+   * `environments` can be derived from a roster - folio 13 says "The following
+   * section lists all martial stances by tier" and never says how many.
+   */
+  stances: number | null;
+  /**
    * Adversaries as a range, because the chapter's own roster - not the contents
    * page - is the thing that actually pins the count, and it is checked where
    * it is readable: `shared/parsers/adversaries.ts` refuses a stat block that
@@ -421,6 +442,16 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
     beastforms: 22,
     environments: 19,
     transformations: 0,
+    /*
+     * Zero, measured rather than assumed absent. Every page of SRD 1.0 was
+     * checked for each of the three signals the chapter cannot be printed
+     * without: a display line reading MARTIAL STANCES (none), a bold-sans
+     * STANCE FEATURES banner (none), and a bold-sans `TIER n` head inside the
+     * Classes range, folios 8-27 (none). The WORD "stance" is on 25 of its
+     * folios - inside `circumstance` and `substance` - which is why the word is
+     * not the test.
+     */
+    stances: 0,
     adversariesMin: 120,
     adversariesMax: 140,
     /*
@@ -458,6 +489,18 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
     beastforms: 22,
     environments: 47,
     transformations: 6,
+    /*
+     * 16, on one page: folio 13, four tiers of four.
+     *
+     * Counted on the page first and by two routes that do not share the
+     * parser's selection rule. The four `TIER n` heads carry four bold
+     * `Name:` entries each; and the sixteen names read straight off the printed
+     * column are Favored, Invigorating, Quick and Reliable (Tier 1);
+     * Aggressive, Anchored, Defensive and Otherworldly (Tier 2); Grappling,
+     * Scary, Stable and Vigilant (Tier 3); Crushing, Exacting, Honed and
+     * Isolating (Tier 4). The parser then agreed with them.
+     */
+    stances: 16,
     /*
      * 264, exactly, where SRD 1.0 carries a 20-wide band.
      *
@@ -618,9 +661,10 @@ export function validate(ds: Dataset): Issue[] {
       message:
         `no counts for revision "${ds.revision}". Add an entry to REVISION_COUNTS in ` +
         `tools/validate.ts keyed by that exact string, with domainCardsPerDomain, beastforms, ` +
-        `environments, transformations, adversariesMin and adversariesMax measured on THIS ` +
+        `environments, transformations, stances, adversariesMin and adversariesMax measured on THIS ` +
         `printing. This build produced beastforms ${ds.beastforms.length}, environments ` +
         `${ds.environments.length}, transformations ${ds.transformations.length}, ` +
+        `stances ${ds.stances.length}, ` +
         `adversaries ${ds.adversaries.length} - check each against the book before writing it ` +
         `down. domains, classes, subclasses, ancestries and communities need no entry: they are ` +
         `read from the book's own Character Creation text.`,
@@ -800,6 +844,60 @@ export function validate(ds: Dataset): Issue[] {
       checkText(issues, `transformations/${t.id}/${f.name}/name`, f.name);
     }
     for (const q of t.questions) checkText(issues, `transformations/${t.id}/questions`, q);
+  }
+
+  if (counts !== undefined && counts.stances === null) {
+    issues.push({
+      severity: 'error',
+      where: 'stances',
+      message: UNMEASURED(ds.revision, 'stances', `${ds.stances.length}`),
+    });
+  } else if (counts !== undefined && counts.stances !== null) {
+    expectCount(issues, 'stances', ds.stances.length, counts.stances, `counted in ${ds.revision}`);
+  }
+
+  /*
+   * Shape, not a number - the same split the transformations block above makes.
+   * A count of sixteen cannot see a stance whose text stopped at the tier head,
+   * and it cannot see four stances filed under one tier while another has none.
+   *
+   * The per-tier count is here rather than in a test because it is the one
+   * thing that catches a MISSED tier head: `splitOn` welds the missed tier's
+   * four stances onto the tier above it, which leaves the total at sixteen and
+   * every record well-formed.
+   */
+  const perTier = new Map<number, number>();
+  for (const s of ds.stances) {
+    perTier.set(s.tier, (perTier.get(s.tier) ?? 0) + 1);
+    if (s.text.trim().length < 10) {
+      issues.push({
+        severity: 'error',
+        where: `stances/${s.id}`,
+        message: `text is only ${s.text.trim().length} characters - the parser probably stopped early`,
+      });
+    }
+    if (![1, 2, 3, 4].includes(s.tier)) {
+      issues.push({
+        severity: 'error',
+        where: `stances/${s.id}`,
+        message: `tier ${String(s.tier)} is not one of the four the book prints`,
+      });
+    }
+    checkText(issues, `stances/${s.id}`, s.text);
+    checkText(issues, `stances/${s.id}/name`, s.name);
+  }
+  if (ds.stances.length > 0) {
+    const sizes = [...perTier.entries()].sort((a, b) => a[0] - b[0]);
+    const uneven = sizes.filter(([, n]) => n !== sizes[0]![1]);
+    if (uneven.length > 0) {
+      issues.push({
+        severity: 'error',
+        where: 'stances',
+        message:
+          `the tiers are uneven: ${sizes.map(([t, n]) => `tier ${t} has ${n}`).join(', ')}. ` +
+          `A missed TIER head welds its stances onto the tier above and leaves the total right.`,
+      });
+    }
   }
 
   if (counts !== undefined && (counts.adversariesMin === null || counts.adversariesMax === null)) {
@@ -1164,6 +1262,19 @@ export function validate(ds: Dataset): Issue[] {
      * resolvable by renaming a card the book names.
      */
     ['transformations', ds.transformations],
+    /*
+     * `stances` is in this list, and unlike `transformations` it found NOTHING.
+     * Measured, because the guess was the other way: all sixteen slugs were
+     * checked against every id in both committed datasets and not one collides,
+     * nor does any near-miss beyond `unstable-arcane-shard` containing
+     * `stable`, which is a different slug and not a collision at all.
+     *
+     * That is a reason to put the collection in this walk, not to leave it out.
+     * A collection exempt from the dataset's own uniqueness check is the silent
+     * hole this file exists to close, and today's answer being clean is exactly
+     * the state a future printing can end without anyone noticing.
+     */
+    ['stances', ds.stances],
     ['weapons', ds.weapons],
     ['armors', ds.armors],
     ['loot', ds.loot],

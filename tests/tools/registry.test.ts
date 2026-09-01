@@ -199,7 +199,7 @@ describe('the numbers did not move', () => {
     // Not vacuous: some rows really are retired, and some really are not.
     const retired = Object.keys(file.ids).filter((k) => !owners.has(parseRegistryKey(k)!.slug));
     expect(retired).toHaveLength(9);
-    expect(Object.keys(file.ids)).toHaveLength(1352);
+    expect(Object.keys(file.ids)).toHaveLength(1368);
     expect(file.version).toBe(REGISTRY_VERSION);
   });
 });
@@ -395,8 +395,19 @@ describe('the transformations band', () => {
     expect(file.ids['transformations/vampire']).toBeLessThan(werewolf);
   });
 
-  it('is last in the precedence, because nothing on a character points at one', () => {
-    expect(BANDED_COLLECTIONS[BANDED_COLLECTIONS.length - 1]).toBe('transformations');
+  it('sorts below every collection whose bare name it could take', () => {
+    /*
+     * This read "is last in the precedence, because nothing on a character
+     * points at one" and asserted the LAST entry. Both halves have been
+     * overtaken: `Character.transformationRef` exists (schema 7), and
+     * `stances` was appended below this one (schema 8). What the position is
+     * actually for survives both - `transformations` must not outrank
+     * `adversaries`, or `vampire` stops meaning the stat block for the rest of
+     * the app - so that is what is asserted now, and it goes red for the same
+     * change it always would have.
+     */
+    const rank = (c: string): number => (BANDED_COLLECTIONS as readonly string[]).indexOf(c);
+    expect(rank('transformations')).toBeGreaterThan(rank('adversaries'));
     const r = createRegistry({
       version: REGISTRY_VERSION,
       ids: { 'transformations/vampire': 14_001, 'domainCards/vampire': 5601 },

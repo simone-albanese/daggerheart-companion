@@ -1352,6 +1352,22 @@
     "transformations/reanimated": 14003,
     "transformations/shapeshifter": 14004,
     "transformations/vampire": 14005,
-    "transformations/werewolf": 14006
+    "transformations/werewolf": 14006,
+    "stances/aggressive": 15001,
+    "stances/anchored": 15002,
+    "stances/crushing": 15003,
+    "stances/defensive": 15004,
+    "stances/exacting": 15005,
+    "stances/favored": 15006,
+    "stances/grappling": 15007,
+    "stances/honed": 15008,
+    "stances/invigorating": 15009,
+    "stances/isolating": 15010,
+    "stances/otherworldly": 15011,
+    "stances/quick": 15012,
+    "stances/reliable": 15013,
+    "stances/scary": 15014,
+    "stances/stable": 15015,
+    "stances/vigilant": 15016
   }
 }

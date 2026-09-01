@@ -157,6 +157,9 @@ export function wizard(patch: Partial<Character> = {}): Character {
     // is `tests/transformations.test.ts`'s to build, against a registry that
     // has the band.
     transformationRef: null,
+    // Empty for the same reason: SRD 1.0 prints no Martial Stances chapter, and
+    // a sheet that knows one is `tests/stances.test.tsx`'s to build.
+    stanceRefs: [],
     multiclassRef: null,
     multiclassDomain: null,
 
@@ -167,6 +170,9 @@ export function wizard(patch: Partial<Character> = {}): Character {
     hp: { marked: 2, max: 7 },
     stress: { marked: 3, max: 7 },
     hope: { marked: 4, max: 6 },
+    // A wizard holds no Focus: the track exists on every sheet and only a
+    // Martial Artist ever moves it.
+    focus: { marked: 0, max: 6 },
     armorSlots: { marked: 1, max: 4 },
 
     evasionOverride: null,

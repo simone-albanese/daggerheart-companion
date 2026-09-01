@@ -140,6 +140,8 @@ export const makeDataset = (p: Partial<Dataset> = {}): Dataset => ({
   communities: [],
   // SRD 1.0 has no Transformations chapter, and no test needs one yet.
   transformations: [],
+  // Nor a Martial Stances chapter. `tests/stances.test.tsx` builds its own.
+  stances: [],
   weapons: [makeWeapon()],
   armors: [makeArmor()],
   loot: [],

@@ -385,7 +385,7 @@ describe('the committed data/registry.json', () => {
        * earlier: the shipped book really does put cards in the second band, so
        * a check that only ever looked at the first was passing by luck.
        */
-      expect(checked).toBe(1343);
+      expect(checked).toBe(1359);
       expect(continuation).toHaveLength(21);
       expect(continuation.every((k) => k.startsWith('domainCards/'))).toBe(true);
     });

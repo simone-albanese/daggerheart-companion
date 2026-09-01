@@ -1,0 +1,138 @@
+{
+  "format": "dhbackup",
+  "schemaVersion": 8,
+  "app": "0.6.0",
+  "exportedAt": "2026-09-01T12:00:00.000Z",
+  "characters": [
+    {
+      "id": "0f3b6e1a-9d21-4c7e-8a55-1f2c3d4e5a6b",
+      "schemaVersion": 8,
+      "name": "Fixture",
+      "pronouns": "they/them",
+      "classRef": "bard",
+      "subclassRefs": [
+        "troubadour"
+      ],
+      "ancestryRefs": [
+        "clank"
+      ],
+      "communityRef": "highborne",
+      "transformationRef": null,
+      "stanceRefs": [
+        "favored",
+        "reliable"
+      ],
+      "focus": {
+        "marked": 3,
+        "max": 6
+      },
+      "multiclassRef": null,
+      "multiclassDomain": null,
+      "level": 3,
+      "traits": {
+        "agility": 1,
+        "strength": 2,
+        "finesse": 0,
+        "instinct": 1,
+        "presence": 0,
+        "knowledge": -1
+      },
+      "traitMarks": {},
+      "hp": {
+        "marked": 2,
+        "max": 5
+      },
+      "stress": {
+        "marked": 3,
+        "max": 6
+      },
+      "hope": {
+        "marked": 4,
+        "max": 5
+      },
+      "armorSlots": {
+        "marked": 1,
+        "max": 3
+      },
+      "evasionOverride": null,
+      "thresholdOverride": null,
+      "loadout": [
+        "book-of-ava",
+        "book-of-illiat",
+        "book-of-tyfar"
+      ],
+      "vault": [
+        "book-of-sitil",
+        "book-of-vagras",
+        "book-of-korvax"
+      ],
+      "activePrimaryWeapon": "broadsword",
+      "activeSecondaryWeapon": "shortsword",
+      "activeArmor": "gambeson-armor",
+      "inventory": [
+        {
+          "ref": "stride-potion",
+          "name": "Minor Health Potion",
+          "quantity": 2,
+          "note": "Clears 1d4 HP."
+        },
+        {
+          "ref": null,
+          "name": "A rope, forty feet",
+          "quantity": 1
+        }
+      ],
+      "experiences": [
+        {
+          "id": "5c1f8a90-3b2d-4e6f-9a71-0d8c2b4e6f13",
+          "name": "Ran with the wolves",
+          "bonus": 2
+        },
+        {
+          "id": "7e2a4b60-8c5d-41f2-b3a9-6d0e1f7c2a48",
+          "name": "",
+          "bonus": 2
+        }
+      ],
+      "gold": {
+        "handfuls": 4,
+        "bags": 1,
+        "chests": 0
+      },
+      "connections": [
+        "Owes the innkeeper an apology"
+      ],
+      "notes": "Notes that reach the sheet.",
+      "levelUpHistory": [],
+      "companion": {
+        "name": "Ash",
+        "description": "A one-eyed raven",
+        "evasion": 12,
+        "stress": {
+          "marked": 1,
+          "max": 3
+        },
+        "damage": "d6+2",
+        "range": "Close",
+        "damageType": "mag",
+        "experiences": [
+          {
+            "id": "c0ffee00-1111-4222-8333-444455556666",
+            "name": "Sharp eyes",
+            "bonus": 2
+          }
+        ],
+        "upgrades": [
+          "aware"
+        ]
+      },
+      "beastform": null,
+      "scars": [
+        "A ledger of names"
+      ],
+      "consecutiveShortRests": 0,
+      "createdAt": "2026-02-14T19:04:00.000Z",
+      "updatedAt": "2026-02-14T21:37:00.000Z"
+    }
+  ]
+}

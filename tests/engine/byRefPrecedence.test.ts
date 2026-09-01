@@ -85,11 +85,13 @@ describe('byRef precedence when one slug names two records', () => {
   });
 
   it('mirrors BANDED_COLLECTIONS rather than holding a second opinion', () => {
-    // `transformations` is the one banded collection `indexDataset` has never
-    // carried. Everything else must be in the same order, so the registry's
-    // bare-name winner and `byRef`'s are the same record.
+    // `transformations` and `stances` are the banded collections `byRef` has
+    // never carried - each reachable only through `collections`, each for a
+    // reason in its own docblock. Everything else must be in the same order, so
+    // the registry's bare-name winner and `byRef`'s are the same record.
+    const EXACT_ONLY = ['transformations', 'stances'];
     expect([...INDEXED_COLLECTIONS]).toEqual(
-      BANDED_COLLECTIONS.filter((c) => c !== 'transformations'),
+      BANDED_COLLECTIONS.filter((c) => !EXACT_ONLY.includes(c)),
     );
   });
 

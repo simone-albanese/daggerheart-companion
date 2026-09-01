@@ -101,6 +101,7 @@
  */
 import {
   DOMAINS,
+  MAX_FOCUS,
   RANGES,
   SCHEMA_VERSION,
   TRAITS,
@@ -136,6 +137,12 @@ import {
  * this device cannot name.
  */
 const TRANSFORMATIONS = 'transformations';
+
+/**
+ * The registry collection a `stanceRefs` entry lives in, named once, for the
+ * same reason `TRANSFORMATIONS` is.
+ */
+const STANCES = 'stances';
 import { characterRefs } from '../engine/holdings.ts';
 
 /**
@@ -169,8 +176,32 @@ import { characterRefs } from '../engine/holdings.ts';
  * What 4 costs is what any bump costs: a build that shipped before it refuses
  * these payloads outright, by the sentence in `decodeCharacter`. That refusal
  * is the point - see `READABLE_CODEC_VERSIONS`.
+ *
+ * ## Eight, and it is the number the file above named before it was needed
+ *
+ * The paragraph under the fourth deliberate loss ends: *"A future item wanting
+ * the wire takes 8 - one bit from 0, 9, 10 and 12, none of them readable, and
+ * the last number in the nibble with that property while 1, 2 and 4 are the
+ * readable set."* This is that future item - `stanceRefs` and `focus` - and
+ * this is that number. It was checked again rather than taken on trust:
+ *
+ *   from 5 (0b0101)  ->  4, 7, 1, 13   -- 4 and 1 are both readable
+ *   from 6 (0b0110)  ->  7, 4, 2, 14   -- 4 and 2 are both readable
+ *   from 8 (0b1000)  ->  9, 10, 12, 0  -- none readable
+ *
+ * 5 and 6 are the two numbers a reader would reach for next and both demote a
+ * payload into a readable format on one flip - 5 into format 1, which carries
+ * no checksum of its own, which is the exact demotion 3 was rejected for. 8 is
+ * the only remaining nibble value at Hamming distance 2 from all of 1, 2 and 4,
+ * so `adversarial.test.ts`'s *"refuses a payload whose version nibble was
+ * flipped"* survives the bump on all four bits.
+ *
+ * 3, 5, 6, 7 and everything above 8 are now permanently unused for the same
+ * reason 3 was: a nibble holds sixteen and this property is the cheapest thing
+ * in the file. When 8 is spent there is no fifth value with it, and the next
+ * bump has to widen the header rather than pick a worse number quietly.
  */
-export const CODEC_VERSION = 4;
+export const CODEC_VERSION = 8;
 
 /**
  * Every format this build can read, oldest first.
@@ -185,7 +216,7 @@ export const CODEC_VERSION = 4;
  * crc32 covers it, and `adversarial.test.ts` says so out loud rather than
  * letting the reader assume otherwise.
  */
-export const READABLE_CODEC_VERSIONS = [1, 2, 4] as const;
+export const READABLE_CODEC_VERSIONS = [1, 2, 4, 8] as const;
 
 /**
  * What a build that has not updated does with a format-4 payload, said out loud
@@ -202,13 +233,32 @@ export const READABLE_CODEC_VERSIONS = [1, 2, 4] as const;
  * `transformationRef` cannot repeat that. It rides as a registry id, so a
  * receiver that cannot name it parks it as `?14005` and forwards it on the next
  * hop untouched - the same treatment every other ref on the sheet gets.
+ *
+ * ## Format 8 adds two things and repeats neither defect
+ *
+ * `stanceRefs` is a list of registry ids, written and read through
+ * `idIn('stances', ...)` / a `keyOf` check, so a receiver with an older dataset
+ * parks `?15003` and forwards it rather than dropping a stance. `focus` is a
+ * counter, and `readCounter` refuses a track above `COUNTER_CEILINGS.focus`
+ * loudly rather than clamping it - a seventh Focus box is not a sheet this
+ * build may quietly correct.
+ *
+ * A build that shipped before 8 throws by name from `decodeCharacter`'s version
+ * gate - *"This transfer says it is format 8, and this app reads 1 and 2 and
+ * 4"*, the message that gate composes verbatim - and imports nothing. That is the whole point: a schema-7 build reading these
+ * fields off a schema-8 sheet would drop both, and drop them silently.
  */
 
 const VERSION_MASK = 0x0f;
 const DEFLATED_BIT = 0x80;
 /** Bytes 1-4 of a format-2 payload. */
 const CHECKSUM_BYTES = 4;
-const BODY_AT: Record<number, number> = { 1: 1, 2: 1 + CHECKSUM_BYTES, 4: 1 + CHECKSUM_BYTES };
+const BODY_AT: Record<number, number> = {
+  1: 1,
+  2: 1 + CHECKSUM_BYTES,
+  4: 1 + CHECKSUM_BYTES,
+  8: 1 + CHECKSUM_BYTES,
+};
 
 export class CodecError extends Error {
   override name = 'CodecError';
@@ -613,6 +663,22 @@ class RefWriter {
     writeMaybeCount(this.w, refs);
     for (const ref of refs ?? []) this.write(ref);
   }
+
+  /**
+   * A list whose collection is known. `list` is to `write` what this is to
+   * `writeIn`, and `stanceRefs` is the field that wants it.
+   *
+   * Measured on both committed datasets, no stance slug collides with anything,
+   * so `list` would write the same bytes today. It is not used anyway: a list
+   * of refs that reaches the wire through the bare name is a list whose
+   * meaning changes the day a printing gives one of those sixteen words to a
+   * second collection - which is exactly what SRD 2.0 did to `vampire` between
+   * one book and the next.
+   */
+  listIn(collection: string, refs: readonly Ref[] | undefined): void {
+    writeMaybeCount(this.w, refs);
+    for (const ref of refs ?? []) this.writeIn(collection, ref);
+  }
 }
 
 function writeBody(c: Character, registry: Registry, options: EncodeOptions): Uint8Array {
@@ -643,6 +709,8 @@ function writeBody(c: Character, registry: Registry, options: EncodeOptions): Ui
   refs.write(c.communityRef);
   // Format 4 and later. `writeIn` and not `write`: see that method.
   refs.writeIn(TRANSFORMATIONS, c.transformationRef);
+  // Format 8 and later. `listIn` and not `list`, for the same reason.
+  refs.listIn(STANCES, c.stanceRefs);
   refs.write(c.multiclassRef);
   w.u8(c.multiclassDomain === null ? 0 : DOMAINS.indexOf(c.multiclassDomain) + 1);
 
@@ -658,6 +726,8 @@ function writeBody(c: Character, registry: Registry, options: EncodeOptions): Ui
   writeCounter(w, c.hp);
   writeCounter(w, c.stress);
   writeCounter(w, c.hope);
+  // Format 8 and later. Beside Hope, which is the other track stored as held.
+  writeCounter(w, c.focus);
   writeCounter(w, c.armorSlots);
   w.u8(c.evasionOverride === null ? 0 : 1);
   if (c.evasionOverride !== null) w.zigzag(c.evasionOverride);
@@ -969,6 +1039,15 @@ class RefReader {
     for (let i = 0; i < n - 1; i++) out.push(this.read() ?? '');
     return out;
   }
+
+  /** The exact list read, the counterpart of `RefWriter.listIn`. */
+  listIn(collection: string): Ref[] | undefined {
+    const n = this.r.varint();
+    if (n === 0) return undefined;
+    const out: Ref[] = [];
+    for (let i = 0; i < n - 1; i++) out.push(this.readIn(collection) ?? '');
+    return out;
+  }
 }
 
 /**
@@ -1008,6 +1087,12 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
    * of the file - nothing is being dropped, there was nothing there.
    */
   const transformationRef = version >= 4 ? refs.readIn(TRANSFORMATIONS) : null;
+  /*
+   * Absent before format 8, and `[]` is what its absence means: no build that
+   * wrote a format-1, -2 or -4 payload had the field, so no sheet it wrote knew
+   * a stance. Nothing is being dropped; there was nothing there.
+   */
+  const stanceRefs = version >= 8 ? (refs.listIn(STANCES) ?? []) : [];
   const multiclassRef = refs.read();
   const domainIndex = r.u8();
   const multiclassDomain: DomainId | null = domainIndex === 0 ? null : (DOMAINS[domainIndex - 1] ?? null);
@@ -1024,6 +1109,15 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
   const hp = readCounter(r, 'hp', 'HP');
   const stress = readCounter(r, 'stress', 'Stress');
   const hope = readCounter(r, 'hope', 'Hope');
+  /*
+   * Absent before format 8, and an empty six-box track is what its absence
+   * means - the same value `newCharacter` seeds and the same value the 7 -> 8
+   * converter writes. `readCounter` and not a bare pair of varints, so a
+   * seventh Focus box on an inbound payload is refused by name rather than
+   * clamped into something plausible.
+   */
+  const focus =
+    version >= 8 ? readCounter(r, 'focus', 'Focus') : { marked: 0, max: MAX_FOCUS };
   const armorSlots = readCounter(r, 'armorSlots', 'Armor Slot');
   const evasionOverride = r.u8() === 0 ? null : r.zigzag();
   const thresholdOverride: [number, number] | null =
@@ -1093,6 +1187,8 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
     ancestryRefs,
     communityRef,
     transformationRef,
+    stanceRefs,
+    focus,
     multiclassRef,
     multiclassDomain,
     level,
@@ -1425,11 +1521,21 @@ export { characterRefs };
  */
 export const missingSlugs = (c: Character, registry: Registry): string[] => {
   const named = (ref: Ref | null): boolean => typeof ref === 'string' && ref !== '' && !isUnresolvedRef(ref);
+  const exact = new Set<Ref>([...(c.transformationRef === null ? [] : [c.transformationRef]), ...c.stanceRefs]);
   const out = characterRefs(c).filter(
-    (r) => r !== c.transformationRef && !isUnresolvedRef(r) && registry.idOf(r) === null,
+    (r) => !exact.has(r) && !isUnresolvedRef(r) && registry.idOf(r) === null,
   );
   if (named(c.transformationRef) && registry.idIn(TRANSFORMATIONS, c.transformationRef!) === null) {
     out.push(c.transformationRef!);
+  }
+  /*
+   * The stances, asked the way `writeBody` writes them. Same argument as the
+   * card one line up: a pre-flight that used `idOf` here would say "this fits
+   * in a QR" about a sheet `encodeCharacter` then throws `UnknownSlugError`
+   * on, the moment a stance slug is also some other collection's.
+   */
+  for (const ref of c.stanceRefs) {
+    if (named(ref) && registry.idIn(STANCES, ref) === null) out.push(ref);
   }
   return [...new Set(out)].sort();
 };
@@ -1492,6 +1598,9 @@ export function resolvePlaceholders(c: Character, registry: Registry): ResolveRe
      * because 10142 resolves to something.
      */
     transformationRef: fixIn(TRANSFORMATIONS, c.transformationRef),
+    // Same exact repair, one collection over. A parked `?10142` is not a stance
+    // this device can now name just because 10142 resolves to something.
+    stanceRefs: c.stanceRefs.map((r) => fixIn(STANCES, r) ?? r),
     multiclassRef: fixOptional(c.multiclassRef),
     loadout: c.loadout.map(fix),
     vault: c.vault.map(fix),

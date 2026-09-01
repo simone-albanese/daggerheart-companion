@@ -5,7 +5,13 @@
  * unambiguous arithmetic from the rules, it is not computed - it is left to
  * the player, with an override field where one is needed.
  */
-import { SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
+/*
+ * `MAX_FOCUS` is imported rather than declared beside `BASE_HOPE` above:
+ * `shared/migrations.ts` seeds a Focus track and cannot import from
+ * `src/engine/`, so the constant lives where both can read it. Its docblock is
+ * in `shared/types.ts`.
+ */
+import { MAX_FOCUS, SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
 import type {
   Adversary,
   Ancestry,
@@ -20,6 +26,7 @@ import type {
   Environment,
   Item,
   Ref,
+  Stance,
   Subclass,
   Tier,
   Trait,
@@ -64,6 +71,7 @@ export const COUNTER_CEILINGS = {
   hp: MAX_HP,
   stress: MAX_STRESS,
   hope: BASE_HOPE,
+  focus: MAX_FOCUS,
   armorSlots: MAX_ARMOR_SCORE,
   companionStress: MAX_STRESS,
 } as const;
@@ -250,6 +258,24 @@ export interface CollectionIndex {
    * decision one layer down, on the wire.
    */
   transformations: Map<Ref, Transformation>;
+  /**
+   * The second collection here that is NOT in `INDEXED_COLLECTIONS`, and the
+   * only way to resolve a `stanceRefs` entry.
+   *
+   * `transformations` is kept out of the bare-slug map because SRD 2.0 makes it
+   * collide. This one is kept out even though it does NOT: measured on both
+   * committed datasets, not one of the sixteen stance slugs appears in any
+   * other collection, so appending it to `INDEXED_COLLECTIONS` would change no
+   * answer today.
+   *
+   * It stays out because that is a fact about this printing and not about the
+   * field. `byRef` is for a caller that genuinely does not know the kind - an
+   * inventory row that can hold a weapon or a loot item - and `stanceRefs`
+   * always knows. Putting a collection into a shared key space to answer a
+   * question nobody asks of it is how `vampire` became a defect: not on the day
+   * the collection was added, but on the day a book printed the name twice.
+   */
+  stances: Map<Ref, Stance>;
 }
 
 export interface DatasetIndex {
@@ -292,6 +318,7 @@ export function indexDataset(ds: Dataset): DatasetIndex {
     adversaries: put(ds.adversaries),
     environments: put(ds.environments),
     transformations: put(ds.transformations),
+    stances: put(ds.stances),
   };
   /*
    * The bare-slug view, filled in `INDEXED_COLLECTIONS` order and never
@@ -692,6 +719,10 @@ export function newCharacter(
     // Also the fallback for every file older than schema 7, because
     // `readCharacterRecord` spreads the file over a blank sheet.
     transformationRef: null,
+    // Also the fallback for every file older than schema 8, because
+    // `readCharacterRecord` spreads the file over a blank sheet.
+    stanceRefs: [],
+    focus: { marked: 0, max: MAX_FOCUS },
     multiclassRef: null,
     multiclassDomain: null,
     level: 1,

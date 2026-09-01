@@ -153,6 +153,23 @@ export const BANDED_COLLECTIONS = [
   'adversaries',
   'environments',
   'transformations',
+  /*
+   * `stances` is appended, and for a different reason than `transformations`
+   * was. That one is last because moving it up would take the bare name
+   * `vampire` off an adversary. This one has no such fight to lose: measured on
+   * both committed datasets, not one of the sixteen stance slugs appears in any
+   * other collection.
+   *
+   * So the position is chosen for what it PREVENTS rather than for what it
+   * resolves. Last is the position from which a new collection can never take a
+   * bare name away from a collection that already had it, which is the only way
+   * appending a collection can change what an existing `Ref` on a saved sheet
+   * means. `Character.stanceRefs` reaches its records through
+   * `Registry.idIn('stances', ...)` and `DatasetIndex.collections.stances`
+   * anyway, so the precedence decides nothing for the one field that points
+   * here - which is exactly why it costs nothing to put it where it is safest.
+   */
+  'stances',
 ] as const;
 
 export type BandedCollection = (typeof BANDED_COLLECTIONS)[number];
@@ -206,6 +223,24 @@ export const BANDS: readonly Band[] = [
    * wrong-kind reference is obvious in a diff.
    */
   { name: 'transformations', min: 14_000, max: 14_999, collections: ['transformations'] },
+  /*
+   * Martial stances, the collection SRD 2.0 adds inside its Classes chapter
+   * (folio 13, sixteen stances over four tiers).
+   *
+   * 15_000-15_999 because it is the first thousand no band claims: the bands
+   * above run to 14_999 and the reserved range starts at 60_000. Measured, not
+   * remembered: `max(data/registry.json)` before this lane is 14_006, so
+   * 14_007-14_999 is transformations’ own headroom and 15_000 is the next free
+   * thousand rather than the next free number.
+   *
+   * A band of its own rather than a lodger in `transformations`: they are not
+   * the same kind of thing - one is a card the GM grants, the other a technique
+   * one subclass learns - and the whole point of the bands is that a wrong-kind
+   * reference is obvious in a diff. Sixteen records in a thousand is the same
+   * ratio `transformations` has with six, and both are cheap: the file carries
+   * only the rows that exist.
+   */
+  { name: 'stances', min: 15_000, max: 15_999, collections: ['stances'] },
 ];
 
 /**

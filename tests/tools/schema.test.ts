@@ -64,11 +64,11 @@ function everyFeature(ds: Dataset): Feature[] {
 }
 
 describe('what the version number is stamped on', () => {
-  it('is seven, and the chain leaves exactly the version below it', () => {
+  it('is eight, and the chain leaves exactly the version below it', () => {
     // The literal, not the constant, on both sides: `toBe(SCHEMA_VERSION)`
     // would agree with itself whatever the constant said.
-    expect(SCHEMA_VERSION).toBe(7);
-    expect(MIGRATIONS.map((m) => m.from)).toEqual([3, 4, 5, 6]);
+    expect(SCHEMA_VERSION).toBe(8);
+    expect(MIGRATIONS.map((m) => m.from)).toEqual([3, 4, 5, 6, 7]);
   });
 
   it('stamps the shipped dataset with the schema this build is', () => {
@@ -245,18 +245,21 @@ describe('the 5 -> 6 converter', () => {
     const after = migrateCharacterRecord(before);
 
     expect(after.from).toBe(5);
-    // Two notes, not one: `migrateCharacterRecord` walks to the CURRENT schema,
-    // which is 7, so the 6 -> 7 step runs behind this one. Asserting the whole
-    // list rather than the first entry is what keeps the step this describe
-    // block is about identifiable after later bumps.
+    // Three notes, not one: `migrateCharacterRecord` walks to the CURRENT
+    // schema, which is 8, so the 6 -> 7 and 7 -> 8 steps run behind this one.
+    // Asserting the whole list rather than the first entry is what keeps the
+    // step this describe block is about identifiable after later bumps.
     expect(after.applied).toEqual([
       'the dataset grew a transformations collection and four widened fields; no schema-5 character field changed',
       'a character can hold one transformation card, starting with none',
+      'a character can know martial stances and hold Focus, starting with none of either',
     ]);
     // Every field the 5 -> 6 step could have touched, and it touched none: the
-    // whole record apart from the stamp and the one key the 6 -> 7 step adds.
-    const { transformationRef, ...rest } = after.record;
+    // whole record apart from the stamp and the keys the later steps add.
+    const { transformationRef, stanceRefs, focus, ...rest } = after.record;
     expect(transformationRef, 'seeded by the 6 -> 7 step, not by this one').toBeNull();
+    expect(stanceRefs, 'seeded by the 7 -> 8 step, not by this one').toEqual([]);
+    expect(focus, 'seeded by the 7 -> 8 step, not by this one').toEqual({ marked: 0, max: 6 });
     expect({ ...rest, schemaVersion: 5 }).toEqual(before);
     expect(after.record['schemaVersion']).toBe(SCHEMA_VERSION);
   });

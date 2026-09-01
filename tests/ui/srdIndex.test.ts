@@ -73,6 +73,7 @@ describe('the index of everything shipped', () => {
       // kind exists so the search's vocabulary does not change under the reader
       // when the dataset does; see the guard below, which excepts it by name.
       transformation: dataset.transformations.length,
+      stance: dataset.stances.length,
       weapon: dataset.weapons.length,
       armor: dataset.armors.length,
       loot: dataset.loot.length,
@@ -87,8 +88,8 @@ describe('the index of everything shipped', () => {
     // The two figures the plan and the file's header both quote. Derived, so
     // that a folio which adds a weapon moves them here instead of leaving two
     // documents quoting a number the dataset stopped carrying.
-    expect(total).toBe(1422);
-    expect(beyondRules).toHaveLength(1353);
+    expect(total).toBe(1438);
+    expect(beyondRules).toHaveLength(1369);
     expect(of('rules')).toHaveLength(69);
   });
 

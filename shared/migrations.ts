@@ -39,7 +39,7 @@
  * it does not need converting: it ships inside the bundle, so it is always the
  * one this build expects.
  */
-import { SCHEMA_VERSION } from './types.ts';
+import { MAX_FOCUS, SCHEMA_VERSION } from './types.ts';
 
 export interface Migration {
   /** The version this reads. It produces `from + 1`, always. */
@@ -182,6 +182,38 @@ export const MIGRATIONS: readonly Migration[] = [
      * version of the app" refusal, with the file untouched.
      */
     apply: (r) => ({ ...r, transformationRef: null }),
+  },
+  {
+    from: 7,
+    note: 'a character can know martial stances and hold Focus, starting with none of either',
+    /*
+     * Two fields in one converter, because the 7 -> 8 bump is one fact: a
+     * Martial Artist's sheet. `stanceRefs` is the marked circles and `focus` is
+     * the track beside them; a sheet with one and not the other is not a state
+     * any build has ever written.
+     *
+     * `[]` and a zeroed six-box track, and neither is a guess. A schema-7 build
+     * had no stance list, no Focus track, no picker and no field on the wire,
+     * so no sheet it wrote knew a stance or held a Focus - which is exactly
+     * what these two values say.
+     *
+     * The maximum comes from `MAX_FOCUS` rather than being written as `6` here.
+     * `COUNTER_CEILINGS.focus` is the same constant, and it is what refuses a
+     * seventh box arriving over the wire; a converter seeding a literal beside
+     * it is how the stored track and the check on it come to disagree.
+     *
+     * It overwrites rather than preserving keys that are already there, for the
+     * reason the `from: 3` converter gives at length: a record stamped 7 that
+     * carries a schema-8 field is a record whose own header is wrong.
+     *
+     * **The refusal earns its keep, and more than seven's did.** A schema-7
+     * build reading a schema-8 sheet would drop both fields on read and write
+     * them back out gone - `readCharacterRecord` spreads the file over
+     * `newCharacter()`, and a blank schema-7 sheet has neither key. Seven's
+     * refusal protected one ref; this one protects a list of up to eleven and
+     * the Focus a player is holding mid-scene.
+     */
+    apply: (r) => ({ ...r, stanceRefs: [], focus: { marked: 0, max: MAX_FOCUS } }),
   },
 ];
 

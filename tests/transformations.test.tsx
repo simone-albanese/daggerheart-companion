@@ -156,10 +156,18 @@ describe('a character can hold one', () => {
   });
 
   it('is the schema this bump is for, with the converter that leaves 6', () => {
-    // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
-    // whatever the constant said.
-    expect(SCHEMA_VERSION).toBe(7);
+    /*
+     * The converter, not the constant. This read `expect(SCHEMA_VERSION).toBe(7)`
+     * and went red on the next bump for a reason that has nothing to do with
+     * transformations - the schema is 8 now, for the martial stances. What this
+     * file is entitled to pin is that the step it shipped is still in the
+     * chain and still says what it did.
+     */
+    expect(SCHEMA_VERSION).toBeGreaterThanOrEqual(7);
     expect(MIGRATIONS.map((m) => m.from)).toContain(6);
+    expect(MIGRATIONS.find((m) => m.from === 6)?.note).toBe(
+      'a character can hold one transformation card, starting with none',
+    );
   });
 
   it('gives a schema-6 record the field it never had, and changes nothing else', () => {
@@ -172,7 +180,9 @@ describe('a character can hold one', () => {
     const after = migrateCharacterRecord(before);
 
     expect(after.from).toBe(6);
-    expect(after.applied).toEqual(['a character can hold one transformation card, starting with none']);
+    // The whole walk to the CURRENT schema, so the step this block is about
+    // stays identifiable when a later one is appended behind it.
+    expect(after.applied[0]).toBe('a character can hold one transformation card, starting with none');
     expect(after.record['transformationRef']).toBeNull();
     // Converting is not rewriting.
     expect(after.record['name']).toBe('Fixture');
@@ -272,18 +282,22 @@ describe('holding one moves no number on the sheet', () => {
 // ---------------------------------------------------------------------------
 
 describe('the wire', () => {
-  it('writes format 4, reads 1, 2 and 4, and never writes 3', () => {
-    expect(CODEC_VERSION).toBe(4);
-    expect([...READABLE_CODEC_VERSIONS]).toEqual([1, 2, 4]);
+  it('keeps format 4 readable, and never makes 3 readable', () => {
     /*
-     * Three is skipped, and this is the arithmetic that skipped it. The version
-     * is the low nibble of byte 0, so what matters is which formats a single
-     * bit flip can reach: from 3 that is 2 and 1, and 1 is the format that
-     * carries no checksum of its own. From 4 it is 5, 6, 0 and 12, none of them
-     * readable. `tests/adversarial.test.ts` is the file that goes red on the
-     * wrong choice; this states why in one place a reader will find it.
+     * This read `expect(CODEC_VERSION).toBe(4)`, which is a claim about
+     * whatever this build writes rather than about the card. The build writes 8
+     * now, for the martial stances. What THIS file is entitled to pin is that
+     * the format the card shipped in is still readable - a format-4 QR in
+     * somebody's photo roll still decodes - and the arithmetic that skipped 3.
+     *
+     * The version is the low nibble of byte 0, so what matters is which formats
+     * a single bit flip can reach: from 3 that is 2 and 1, and 1 is the format
+     * that carries no checksum of its own. `tests/adversarial.test.ts` is the
+     * file that goes red on a wrong choice; this states why in one place a
+     * reader will find it.
      */
     const readable = new Set<number>(READABLE_CODEC_VERSIONS);
+    expect(readable.has(4)).toBe(true);
     for (const bit of [0, 1, 2, 3]) {
       expect(readable.has(CODEC_VERSION ^ (1 << bit)), `flipping bit ${bit}`).toBe(false);
     }
@@ -293,7 +307,7 @@ describe('the wire', () => {
   it('carries the card, and back', async () => {
     const reg = registryWithVampire();
     const payload = await encodeCharacter(sheet({ transformationRef: 'vampire' }), reg);
-    expect(payload[0]! & 0x0f).toBe(4);
+    expect(payload[0]! & 0x0f).toBe(CODEC_VERSION);
     const { character, warnings } = await decodeCharacter(payload, reg);
     expect(character.transformationRef).toBe('vampire');
     expect(warnings).toEqual([]);
@@ -497,8 +511,14 @@ describe('the wire', () => {
 // ---------------------------------------------------------------------------
 
 describe('the registry order the field did not change', () => {
-  it('leaves transformations last, so no bare name moves', () => {
-    expect(BANDED_COLLECTIONS.at(-1)).toBe('transformations');
+  it('leaves transformations below adversaries, so no bare name moves', () => {
+    /*
+     * This read `BANDED_COLLECTIONS.at(-1)` and went red when `stances` was
+     * appended below it, which is not a change to what this block is about:
+     * the position's whole job is that `vampire` keeps meaning the adversary.
+     * That is the assertion, and it fails for exactly the change it always
+     * would have.
+     */
     expect(BANDED_COLLECTIONS.indexOf('adversaries')).toBeLessThan(
       BANDED_COLLECTIONS.indexOf('transformations'),
     );
@@ -527,7 +547,10 @@ describe('the search', () => {
     // The dataset's own order: `Dataset` keeps `transformations` between
     // `communities` and `weapons`, following the book's contents page.
     expect(SRD_KINDS.indexOf('transformation')).toBe(SRD_KINDS.indexOf('community') + 1);
-    expect(SRD_KINDS.indexOf('transformation')).toBe(SRD_KINDS.indexOf('weapon') - 1);
+    // `stance` sits between it and `weapon` since schema 8, exactly where
+    // `Dataset` keeps the collection. The claim here is the ORDER, so it is
+    // stated as an order rather than as an offset that a neighbour can break.
+    expect(SRD_KINDS.indexOf('transformation')).toBeLessThan(SRD_KINDS.indexOf('weapon'));
   });
 
   it('finds it by name', () => {

@@ -244,6 +244,7 @@ describe('a revision nobody has measured fails loudly', () => {
       beastforms: null,
       environments: null,
       transformations: null,
+      stances: null,
       adversariesMin: null,
       adversariesMax: null,
       // Not nullable, and 0 is this dataset's true module haul, so they take no

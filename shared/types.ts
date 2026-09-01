@@ -14,6 +14,26 @@
 export type Ref = string;
 
 /**
+ * The Focus ceiling, straight out of SRD 2.0 folio 13: *"You can hold a maximum
+ * of 6 Focus."*
+ *
+ * Here and not in `src/engine/character.ts` beside `BASE_HOPE`, which is where
+ * the other four ceilings live, and the reason is which files need it.
+ * `shared/migrations.ts` seeds a blank Focus track in the 7 -> 8 converter and
+ * must not write a literal `6` that can drift from the ceiling; `shared/` does
+ * not import from `src/engine/`, and making it start to for one number would be
+ * a layering change bought with a constant. `MAX_FEAR` is already here for the
+ * same class of reason - a rule number that more than one layer clamps to.
+ *
+ * `COUNTER_CEILINGS.focus` in the engine reads THIS, so there is one 6.
+ *
+ * Unlike `BASE_HOPE` nothing subtracts from it: scars cross out Hope slots, and
+ * nothing in the chapter takes a Focus box away. So `deriveStats` derives no
+ * `maxFocus` and `syncCounters` has nothing to re-clamp.
+ */
+export const MAX_FOCUS = 6;
+
+/**
  * The contract's version. It governs `.dhchar`, `.dhbackup`, the `characters`
  * store **and** `Dataset` - `Dataset.schemaVersion` is typed `typeof
  * SCHEMA_VERSION` and `data/srd-1.0.json` carries the number.
@@ -76,8 +96,23 @@ export type Ref = string;
  * The converter leaving 6 seeds `null`, which is not a guess - a schema-6 build
  * had no field, no picker and no way to hold one, so `null` is what every
  * schema-6 sheet meant.
+ *
+ * ## Eight, and why the Focus track moves it as much as the stances do
+ *
+ * `Character` grows two fields - `stanceRefs` and `focus` - plus one new
+ * `Dataset` collection, `stances`. The shape is seven's, not six's: a schema-7
+ * build reading a schema-8 sheet would DROP both, because
+ * `readCharacterRecord` spreads the file over `newCharacter()` and a blank
+ * schema-7 sheet has neither key. So the refusal is again the point, and it is
+ * worth more here than it was at seven: seven lost one ref, and eight would
+ * lose a list of up to ten stances plus the Focus a Martial Artist is holding
+ * mid-session.
+ *
+ * The converter leaving 7 seeds `[]` and an empty track, which is not a guess:
+ * a schema-7 build had no stance list, no Focus track, no picker and no field
+ * on the wire, so that is what every schema-7 sheet meant.
  */
-export const SCHEMA_VERSION = 7 as const;
+export const SCHEMA_VERSION = 8 as const;
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -527,6 +562,54 @@ export interface Transformation extends Sourced {
   questions: string[];
 }
 
+/**
+ * One of SRD 2.0's sixteen martial stances. Folio 13, four tiers of four.
+ *
+ * Read off the page before this shape was chosen. The chapter is one page, set
+ * in two columns: the left carries a `MARTIAL STANCES` head and four rules
+ * sections (`STANCES`, `FOCUS`, `SHIFTING INTO STANCES`, `DROPPING OUT OF
+ * STANCES`), the right carries a `STANCE FEATURES` banner over four `TIER n`
+ * heads with four stances each. Neither book's contents page names the chapter,
+ * which is why `shared/parsers/stances.ts` selects it by its banner - and why
+ * folio 13 was the one page inside the parsed Classes range that yielded
+ * nothing at all.
+ *
+ * ## Why this is flat and a `Transformation` is not
+ *
+ * A transformation is a CARD: prose, named features, a list of prompts. A
+ * stance is one sentence with a name on it - the longest of the sixteen is
+ * Grappling at 128 characters. There is no `features: Feature[]` here because
+ * the book prints no feature list, no `description` because the sentence IS the
+ * description, and no `questions` because the chapter asks none. Giving it the
+ * card's shape would have been three fields that are always empty and one that
+ * is always length 1.
+ *
+ * ## Why `tier` and not a level
+ *
+ * The book files each stance under a tier head, and the rule it hands the
+ * Martial Artist is stated in tiers: *"choose two martial stances from Tier
+ * 1... choose an additional stance from your tier or lower"* (folio 12,
+ * `Stance Fighter`). `Tier` is the type the rest of this file already uses for
+ * exactly that, on `Weapon`, `Armor`, `Adversary` and `Environment`.
+ *
+ * ## What is NOT here
+ *
+ * Anything about a character being IN one. `Character.stanceRefs` is the
+ * stances a character KNOWS - the marked circles on the printed sheet - and the
+ * active stance is a state the book ties to the scene, to Severe damage and to
+ * the last Hit Point. Modelling that state would mean the app deciding when a
+ * character drops out of a stance, which is exactly the interpretation rule 2
+ * at the top of this file forbids. See `Character.stanceRefs`.
+ */
+export interface Stance extends Sourced {
+  id: Ref;
+  name: string;
+  /** The `TIER n` head the book files it under. Four tiers, four stances each. */
+  tier: Tier;
+  /** The stance's own sentence, verbatim. Rendered, never run. */
+  text: string;
+}
+
 export interface Beastform extends Sourced {
   id: Ref;
   name: string;
@@ -686,6 +769,18 @@ export interface Dataset {
    * that has one.
    */
   transformations: Transformation[];
+  /**
+   * SRD 2.0's sixteen martial stances, folio 13. **Empty for SRD 1.0**, which
+   * prints no such chapter, for the same reason and with the same honesty
+   * `transformations` states one field up.
+   *
+   * Required, not optional, and beside `transformations` rather than at the end
+   * of the list: it is a `CORE MATERIALS` collection the way transformations
+   * and beastforms are, and `Dataset` is rebuilt from a book on every
+   * `npm run build:srd` - there is no old one to stay valid, so `?` would buy
+   * nothing except a `?? []` at every call site forever.
+   */
+  stances: Stance[];
   weapons: Weapon[];
   armors: Armor[];
   loot: Item[];
@@ -824,6 +919,91 @@ export interface Character {
    * `DatasetIndex.collections.transformations` - and never through a bare slug.
    */
   transformationRef: Ref | null;
+  /**
+   * The martial stances this character KNOWS. Empty for everyone but a Martial
+   * Artist, and empty on the SRD 1.0 dataset for everyone.
+   *
+   * ## Why a list, and why it follows `subclassRefs`
+   *
+   * The book hands out more than one and keeps handing them out: *"take the
+   * Martial Stances sheet and choose two martial stances from Tier 1. Each time
+   * you level up your character, choose an additional stance from your tier or
+   * lower"* (folio 12, the Brawler's `Stance Fighter` foundation feature). Two
+   * at level 1 and one per level to 10 is up to eleven of the sixteen. So it is
+   * a list, and it sits beside `subclassRefs` - the other list of refs that
+   * grows with advancement - rather than beside `communityRef`, which is the
+   * shape `transformationRef` took because a character has at most one.
+   *
+   * ## Marked circles, not an active stance
+   *
+   * These are the circles the printed sheet asks you to mark: *"Mark the circle
+   * next to each to indicate that your character knows and has access to them"*
+   * (folio 13). Which stance is ACTIVE is deliberately not modelled. The book
+   * ties dropping out of one to taking Severe damage, to marking your last Hit
+   * Point and to the end of the scene - three events this app does not own -
+   * and an `activeStanceRef` the app could set and could not honestly clear
+   * would be the app applying a rule it cannot see. `BeastformState` is the
+   * shape that WOULD have been right if it could; it is not, and the difference
+   * is that a Beastform is dropped by a gesture the player makes here.
+   *
+   * ## Held, and never applied
+   *
+   * `deriveStats` does not read this field and must not, exactly as it does not
+   * read `transformationRef`. Six of the sixteen stances name a number -
+   * Aggressive's `-1` to Evasion, Anchored's `+2` to damage thresholds,
+   * Reliable's `+1` to attack rolls - and every one of them is conditional on
+   * being IN the stance, which this field does not say. Prose in this contract
+   * is rendered, never modelled (rule 2 at the top of this file).
+   *
+   * ## The exact lookup, never the bare slug
+   *
+   * `stances` is last in `BANDED_COLLECTIONS`, so a bare `idOf`/`byRef` lookup
+   * resolves a shared slug to somebody else's record. Measured rather than
+   * assumed, and the measurement came back CLEAN: all sixteen slugs checked
+   * against every id in both committed datasets, zero collisions.
+   *
+   * The exact lookup is used anyway, and the clean measurement is the argument
+   * for it rather than against it. `transformations` earned `idIn` by colliding
+   * on `vampire` - a collision one printing introduced and nothing announced.
+   * A collection that reaches the wire through the bare name is a collection
+   * whose refs change meaning the day a book prints a stance called Quick
+   * beside a consumable called Quick, and the whole cost of not being exposed
+   * to that is two method calls. So the codec writes these through
+   * `Registry.idIn('stances', ...)` and the runtime reads them through
+   * `DatasetIndex.collections.stances`.
+   */
+  stanceRefs: Ref[];
+  /**
+   * The Focus track. Six boxes, and `marked` counts what is HELD.
+   *
+   * ## Why it counts held and not spent
+   *
+   * `Counter.marked` "counts *used* boxes for every track" - except Hope, which
+   * `syncCounters` documents as stored *available*, "because that is how each is
+   * read at the table". Focus reads the way Hope does and not the way Stress
+   * does: you *gain* Focus, you *spend* a Focus, and folio 13 says *"You can
+   * hold a maximum of 6 Focus"*. A Martial Artist at the table says "I have
+   * four Focus", never "I have marked two". So this follows `hope`, and it is
+   * six for the same reason `BASE_HOPE` is six - the rules say so.
+   *
+   * ## Why the maximum is a constant and not a number off the page
+   *
+   * `COUNTER_CEILINGS.focus` is `MAX_FOCUS`, declared at the top of this file.
+   * The sentence that states it is prose in a rules paragraph, not a printed
+   * roster or a table cell, and a parser reading a number out of a sentence is
+   * the kind of cleverness that goes wrong quietly. What the ceiling is FOR is
+   * refusing a seventh box arriving over the wire, which is a question about
+   * what the rules allow rather than about what this printing prints.
+   *
+   * ## Nothing derives it, and `syncCounters` deliberately does not touch it
+   *
+   * Hope's maximum moves with scars and HP's with the class, so both are
+   * re-clamped after anything that can change a maximum. Six is six for every
+   * character in the game, so there is nothing to re-clamp - and adding it to
+   * `syncCounters` would make a field that is shown-never-applied start moving
+   * when a stance is picked.
+   */
+  focus: Counter;
   /** Second class taken at level 5+, with its own subclass in subclassRefs. */
   multiclassRef: Ref | null;
   multiclassDomain: DomainId | null;

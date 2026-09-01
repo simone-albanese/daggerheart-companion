@@ -27,6 +27,7 @@ import { parseEnvironments } from '../shared/parsers/environments.ts';
 import { parseArmors, parseWeapons } from '../shared/parsers/equipment.ts';
 import { parseConsumables, parseLoot } from '../shared/parsers/loot.ts';
 import { parseRules } from '../shared/parsers/rules.ts';
+import { parseStances } from '../shared/parsers/stances.ts';
 import { parseTransformations } from '../shared/parsers/transformations.ts';
 import { SCHEMA_VERSION, type Dataset } from '../shared/types.ts';
 import { loadSrd } from './loadSrd.ts';
@@ -97,6 +98,15 @@ const main = async (): Promise<void> => {
      * `shared/parsers/transformations.ts`.
      */
     transformations: parseTransformations(pages),
+    /*
+     * SRD 1.0 prints no Martial Stances chapter; SRD 2.0 prints sixteen stances
+     * on folio 13, under a `MARTIAL STANCES` head that NEITHER book's contents
+     * page names. The parser therefore selects by that banner inside the
+     * `Classes` range and cross-examines an empty answer against the
+     * `STANCE FEATURES` banner, so `[]` here is the book's answer rather than a
+     * placeholder - see the docblock in `shared/parsers/stances.ts`.
+     */
+    stances: parseStances(pages),
     weapons: parseWeapons(pages),
     armors: parseArmors(pages),
     loot: parseLoot(pages),
@@ -116,6 +126,7 @@ const main = async (): Promise<void> => {
     ['ancestries', dataset.ancestries.length],
     ['communities', dataset.communities.length],
     ['transformations', dataset.transformations.length],
+    ['stances', dataset.stances.length],
     ['weapons', dataset.weapons.length],
     ['armors', dataset.armors.length],
     ['loot', dataset.loot.length],

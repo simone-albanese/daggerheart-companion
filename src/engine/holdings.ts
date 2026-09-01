@@ -63,6 +63,15 @@ export function characterRefs(c: Character): Ref[] {
    * and report a card the registry has never seen as present.
    */
   add(c.transformationRef);
+  /*
+   * The stances, for the same reason and with the same caveat: this walk
+   * answers "what does this sheet name?", and the names it returns are bare
+   * slugs that say nothing about which collection they belong to.
+   * `missingSlugs` asks them a second time through
+   * `Registry.idIn('stances', ...)`, because that is how the encoder writes
+   * them.
+   */
+  c.stanceRefs.forEach(add);
   add(c.multiclassRef);
   c.loadout.forEach(add);
   c.vault.forEach(add);
