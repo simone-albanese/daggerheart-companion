@@ -37,6 +37,12 @@ scritta. **Non era finito.**
 | D — il Patron Die | `favor-patron-die` | `…/scratchpad/wt2/D` | **2 commit, albero pulito** |
 | R — l'offerta sul tiro | `favor-sul-tiro` | `…/scratchpad/wt2/R` | **0 commit, 4 file modificati** |
 
+**AGGIORNATO ALLA PAUSA.** Prima di fermarsi, ciò che le corsie avevano **committato** è stato
+spinto su origin, così uno scratchpad spazzato non può più portarselo via: `favor-patron-die`
+(2 commit) e `favor-sul-tiro` (1 commit) **esistono su origin**. `favor-riga-vitals` no: aveva
+**0 commit e 7 file in lavorazione**, e quel lavoro vive solo nel worktree. È l'unica cosa di
+questa giornata che una pulizia distruggerebbe.
+
 Lo scratchpad è
 `/private/tmp/claude-501/-Users-simonealbanese-Documents-Daggerheart-Companion/cb40716f-…/`.
 Il journal e i transcript degli agenti vivono in
@@ -159,16 +165,21 @@ citazione era giusta e sbagliato era solo il `find`).
 
 ## 5. Il debito, e le decisioni che aspettano il proprietario
 
-**Aperte, mai chieste:**
+**Decise appena prima della pausa — non riproporle:**
 
-- **Su origin ci sono 58 rami e sono TUTTI uniti in `main`**, verificati uno per uno con
-  `merge-base --is-ancestor`. Il proprietario ne ha autorizzati otto, che erano quelli che gli
-  erano stati elencati. Gli altri 58 vanno proposti, non cancellati d'ufficio.
-- **Se mandare al tester una pagina** con cosa ha trovato e cosa vedrà adesso, e le **tre
-  domande ancora aperte**: se la carta che non riusciva a togliere fosse una carta di dominio
-  su Gioco o uno slot nel wizard; se il messaggio l'avesse visto nel wizard o sulla scheda; e
-  se abbia creato personaggi il 1 settembre **fra le 11:46 e le 14:17**, la finestra in cui
-  poteva nascere una stance orfana.
+- **I 58 rami uniti su origin: cancellati.** Erano provati ancestri di `main`, quindi niente di
+  pubblicato si è perso e la storia resta intera nei commit. **Origin ora ha due rami soli**:
+  `main` e `handoff-2026-09-01-notte` (questa PR). Prima ne aveva sessanta, ed era impossibile
+  vedere quale fosse vivo.
+- **Al tester va mandata una pagina** con cosa ha trovato, cosa era davvero il difetto e cosa
+  vedrà adesso — **non ancora fatta**, è il primo debito di questa consegna. In coda vanno le
+  **tre domande** che chiudono i casi ambigui: se la carta che non riusciva a togliere fosse
+  una carta di dominio su Gioco o uno slot nel wizard; se il messaggio l'avesse visto nel
+  wizard o sulla scheda; e se abbia creato personaggi il 1 settembre **fra le 11:46 e le
+  14:17**, la finestra in cui poteva nascere una stance orfana.
+- **Dopo il Focus/Favor viene il debito dell'SRD 2** (l'elenco è qui sotto), non il
+  ballottaggio dei momenti e non la prosa stantia. Una sessione nuova può quindi spendere
+  tutto il contesto sull'ondata, sapendo cosa la aspetta.
 
 **Debito dichiarato:**
 
