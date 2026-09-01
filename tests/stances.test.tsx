@@ -1076,11 +1076,48 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(drop!.style.minWidth).toBe('var(--tap)');
     expect(drop!.style.minHeight).toBe('var(--tap)');
 
+    /*
+     * AND IT TAKES TWO TAPS, because this is the sheet that cannot get it back.
+     *
+     * MEASURED IN CHROME at 393x852, coarse pointer, on an Assassin at level 1
+     * carrying `favored`: one tap and `sectionPresent` went true to false,
+     * `favoredOnScreen` 1 to 0, `dropButtons` 1 to 0, with no control left on
+     * the document naming a stance. No confirmation, and no way back - the
+     * picker is gated on the Martial Artist subclass, which is exactly the
+     * subclass this character does not have.
+     *
+     * The test used to end at the first press and assert the section was gone,
+     * which was a true reading of the code and a description of the defect.
+     * What it asserts now is that the first press does NOT remove, and the
+     * sibling below still holds the other half: a Martial Artist, who has the
+     * picker, still gets it in one.
+     */
     press(drop);
     await act(async () => {
       await Promise.resolve();
     });
-    expect(active().stanceRefs, 'the ✕ drew and did nothing').toEqual([]);
+    expect(active().stanceRefs, 'one tap took it, with no way to put it back').toEqual(['favored']);
+    expect(container.textContent, 'the section went before the confirmation did').toContain(
+      'Martial Stances',
+    );
+
+    const arm = labelled(
+      'Drop Favored — tap again to confirm. This sheet has no picker to put it back.',
+    );
+    expect(arm, 'the control armed without renaming itself').toBeDefined();
+    // The footprint is unchanged between the two taps, which is what stops the
+    // strip reflowing under the finger that is already on its way down.
+    expect(arm!.style.minWidth).toBe('var(--tap)');
+    expect(arm!.style.minHeight).toBe('var(--tap)');
+    expect(arm!.textContent!.trim(), 'the glyph grew instead of the line below it').toBe('✕');
+    // Said in shape as well as in colour: a line of text that was not there.
+    expect(container.textContent).toContain('TAP ✕ AGAIN TO DROP FAVORED');
+
+    press(arm);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'the second tap drew and did nothing').toEqual([]);
     expect(container.textContent, 'the section outlived what it was drawn for').not.toContain(
       'Martial Stances',
     );
@@ -1091,6 +1128,12 @@ describe('adding, removing and moving Focus on the sheet', () => {
      * Not only for the gated case. The picker's second tap is two gestures deep
      * - open, then find the row again among sixteen - and it is the gesture the
      * section folds away on purpose. The ✕ sits beside the rule being read.
+     *
+     * AND IT IS STILL ONE TAP, which is the other half of the arming rule. The
+     * confirmation is not for removals, it is for removals that are final: a
+     * Martial Artist's picker is one tap away and puts the stance straight
+     * back, so charging the common case a second tap would be paying the rare
+     * case's cost on every sheet that is not the rare case.
      */
     mount(
       sheet({
@@ -1111,6 +1154,157 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(active().stanceRefs).toEqual(['favored']);
     expect(labelled('Drop Favored')).toBeDefined();
     expect(labelled('Drop Reliable')).toBeUndefined();
+    // And nothing armed on the way: no second state was drawn or spoken.
+    expect(container.textContent, 'the recoverable case asked for a confirmation').not.toContain(
+      'TAP ✕ AGAIN',
+    );
+    expect(
+      buttons().some((b) => (b.getAttribute('aria-label') ?? '').includes('tap again')),
+      'a control armed on a sheet that has the picker',
+    ).toBe(false);
+  });
+
+  it('costs the unarmed row nothing, not even a gap', () => {
+    /*
+     * The sentence takes a flex line of its own so the ✕ cannot move between
+     * the two taps - and a line of its own is only free if it is absent when
+     * there is nothing to say. An always-mounted empty one, which is what a
+     * `role="status"` live region would need, would charge this row's `gap: 8`
+     * to every stance on every sheet for a state that is almost never on;
+     * `GearSlot` pays exactly that cost on purpose and works around it with a
+     * margin. Here the accessible NAME on the button carries the change
+     * instead, so the line can simply not exist.
+     *
+     * Read as a child count because jsdom lays nothing out: what is being
+     * asserted is that the element is absent, which is the whole of the claim.
+     */
+    mount(
+      sheet({ classRef: 'test-class', subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] }),
+      withStances,
+    );
+    const x = labelled('Drop Favored')!;
+    const row = x.parentElement!;
+    expect(row.style.flexWrap, 'the sentence has no line to wrap onto').toBe('wrap');
+    expect(row.children, 'something is drawn beside the ✕ before it is armed').toHaveLength(2);
+
+    press(x);
+    expect(row.children, 'the armed sentence is not on the page').toHaveLength(3);
+    const said = row.children[2] as HTMLElement;
+    expect(said.style.flex, 'the sentence shares a line with the ✕').toBe('0 0 100%');
+
+    // And it goes again when the arming does.
+    press(labelled('Drop Favored — tap again to confirm. This sheet has no picker to put it back.'));
+    expect(labelled('Drop Favored'), 'the stance survived its own confirmation').toBeUndefined();
+  });
+
+  it('does not carry an arming across a switch to another character', async () => {
+    /*
+     * `Build.tsx` renders `<Edit>` with no key, so selecting a different
+     * character RE-RENDERS this section rather than remounting it. An arming
+     * held as a bare ref would arrive at the next sheet still armed - and two
+     * sheets carrying one stance is not a contrivance, it is what a ref is -
+     * so that character's ✕ would go in one tap, which is the defect this
+     * whole control exists to close, reintroduced sideways.
+     *
+     * The switch below is done the way the app does it: same element type at
+     * the same position, so React reconciles and the section's state survives.
+     * A remount would pass this test without testing anything.
+     */
+    const one = sheet({ subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] });
+    const two: Character = { ...one, id: 'e0f1a2b3-c4d5-4e6f-8a9b-0c1d2e3f4a5b', name: 'Other' };
+    const ix = indexDataset(withStances);
+    const draw = (c: Character): void => {
+      act(() => {
+        useApp.setState({ activeId: c.id });
+        root.render(<Edit stats={deriveStats(c, withStances, ix)} onLevelUp={() => {}} />);
+      });
+    };
+    useApp.setState({
+      ready: true,
+      storageError: null,
+      dataset: withStances,
+      index: ix,
+      characters: [one, two],
+      activeId: one.id,
+      log: [],
+      openCard: null,
+    });
+    draw(one);
+
+    press(labelled('Drop Favored'));
+    expect(
+      labelled('Drop Favored — tap again to confirm. This sheet has no picker to put it back.'),
+      'the first sheet did not arm, so this proves nothing',
+    ).toBeDefined();
+
+    draw(two);
+    expect(labelled('Drop Favored'), 'the next character arrived pre-armed').toBeDefined();
+    expect(container.textContent, 'the sentence followed the switch').not.toContain('TAP ✕ AGAIN');
+
+    press(labelled('Drop Favored'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const held = useApp.getState().characters.find((c) => c.id === two.id)!;
+    expect(held.stanceRefs, 'one tap took it off the sheet that never armed').toEqual(['favored']);
+  });
+
+  it('holds one armed control at a time, and drops the arming when the picker opens', async () => {
+    /*
+     * Two loaded triggers and no way to tell which one the next tap belongs to
+     * is worse than none, so the section holds a single `armed` ref: arming a
+     * second control disarms the first. The picker is the other disarm, and it
+     * is the rule stating itself - while that list is open there IS a way back
+     * in, so nothing on the sheet is one-way.
+     *
+     * A Martial Artist cannot reach this: their resolved rows are never armed.
+     * The character here carries two refs this build cannot name, which are
+     * armed for everybody.
+     */
+    const one = unresolvedRef(15_991);
+    const two = unresolvedRef(15_992);
+    mount(sheet({ classRef: 'test-class', stanceRefs: [one, two] }), makeDataset());
+
+    const drops = (): HTMLButtonElement[] =>
+      buttons().filter((b) => (b.textContent ?? '').includes('Drop it'));
+    expect(drops()).toHaveLength(2);
+
+    press(drops()[0]);
+    expect(drops()[0]!.textContent, 'the first did not arm').toContain('tap again');
+    press(drops()[1]);
+    expect(drops()[1]!.textContent, 'the second did not arm').toContain('tap again');
+    expect(drops()[0]!.textContent, 'two armed controls at once').not.toContain('tap again');
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'three taps removed something').toEqual([one, two]);
+  });
+
+  it('disarms when a way back in appears on screen', async () => {
+    /*
+     * A Martial Artist carrying one ref this build cannot name: the ghost row
+     * is armed - nothing can re-enter that ref - and the picker button is
+     * drawn, because the subclass is theirs. Opening it puts a list of
+     * sixteen on screen, and the arming is dropped with it.
+     */
+    const ghost = unresolvedRef(15_993);
+    mount(
+      sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST], stanceRefs: [ghost] }),
+      withStances,
+    );
+    press(named2('Drop it'));
+    expect(named2('Drop it')!.textContent, 'the ghost row did not arm').toContain('tap again');
+
+    press(named2('Change stances'));
+    press(named2('Done'));
+    expect(named2('Drop it')!.textContent, 'the arming outlived the picker').not.toContain(
+      'tap again',
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'the ref went while the picker was open').toEqual([ghost]);
   });
 
   it('adds no nav entry, because the section lives on a screen that exists', () => {
@@ -1238,11 +1432,33 @@ describe('adding, removing and moving Focus on the sheet', () => {
    * reference on the character with no trace of it anywhere on the glass -
    * which is exactly what a dropped weapon did until it was measured.
    */
-  it('names a stance it cannot resolve, and offers the one honest thing', async () => {
+  it('names a stance it cannot resolve, and offers the one honest thing - twice', async () => {
+    /*
+     * Armed by the same rule and not by an exception to it. No list in any
+     * build carries a row for a ref this build cannot name, so no picker on
+     * any sheet can put it back: this is the least recoverable control in the
+     * section, and it would be incoherent for it to be the only one that goes
+     * in one tap.
+     *
+     * The label may grow here, where the ✕ may not: this button is alone on
+     * its line inside a stack, so the extra words move nothing the second tap
+     * is aimed at.
+     */
     const ghost = unresolvedRef(15_999);
     mount(sheet({ classRef: 'test-class', stanceRefs: [ghost] }), makeDataset());
     expect(container.textContent).toContain('STANCE NOT IN THIS BUILD');
     expect(container.textContent).toContain(ghost);
+
+    press(named2('Drop it'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'one tap threw away a ref nothing can re-enter').toEqual([ghost]);
+    expect(named2('Drop it')!.getAttribute('aria-label')).toBe(
+      'Drop it — tap again to confirm. This ref cannot be added back.',
+    );
+    expect(named2('Drop it')!.textContent).toContain('tap again');
+
     press(named2('Drop it'));
     await act(async () => {
       await Promise.resolve();

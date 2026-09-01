@@ -11,7 +11,7 @@
  * rule it has no business applying.
  */
 import { useState } from 'react';
-import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
+import { TRAITS, TRAIT_LABELS, type Character, type Ref, type Trait } from '../../../shared/types.ts';
 import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
@@ -734,6 +734,44 @@ function TransformationSection({
  * claim that does not depend on them is the one that matters here: the smallest
  * target is still 44x44.
  *
+ * ## And it arms itself when the tap cannot be taken back
+ *
+ * ONE TAP OR TWO, decided by whether this sheet can put the stance back, which
+ * is whether it draws the picker at all. Measured at 393x852 with a coarse
+ * pointer on an Assassin at level 1 carrying `favored`: one tap, no
+ * confirmation, and the section left the document entirely - stance gone, drop
+ * control gone, and no control anywhere on the page naming a stance. The
+ * picker is gated on the Martial Artist subclass, so for that character there
+ * was nothing left anywhere that could undo it.
+ *
+ * The rule is written on `needsConfirm` below and it is one rule: **arm when
+ * there is no way back.** The other half of it lives on a different screen in
+ * a different file - the ✕ on `Cards.tsx`, which reached the same rule from
+ * the other end and stated it: the arming is for *"the only control here that
+ * REDUCES what the character owns... exactly the case a player cannot see
+ * coming."* Two implementations of one rule is a thing to read together rather
+ * than to trust separately.
+ *
+ * WHAT IT COSTS, and it is not width. The ✕ keeps its footprint and its place
+ * in both states - a control that grows between its two taps reflows the strip
+ * the second tap is aimed at, which this codebase has measured at seventeen
+ * pixels of extra label and repaired with `flex: 0 0 100%` rather than by
+ * reordering. So the armed sentence takes a flex line of its own under the
+ * row, and the only movement is what is BELOW the row going down, never what
+ * is beside it going sideways.
+ *
+ * How tall that line is has NOT been measured and is not claimed here - it is
+ * a `.t-meta` at `500 10px/1` mono against a 369px column at 393x852, so on a
+ * phone it is one line or two depending on the stance's name, and every figure
+ * in this docblock predates it. What IS structural, and is asserted in
+ * `tests/stances.test.tsx` rather than reasoned about: the row draws two
+ * children when nothing is armed and three when something is, so the unarmed
+ * state - which is every row on every sheet almost all of the time - costs
+ * exactly nothing, not even the `gap` a permanently mounted empty line would
+ * charge. `GearSlot` pays that 6px on purpose to get a live region; this does
+ * not, and the accessible name on the button is what carries the change to a
+ * screen reader instead.
+ *
  * ## Shown, never applied
  *
  * Nothing here computes. It writes a `Ref[]` and a `Counter` and renders the
@@ -787,6 +825,29 @@ function StancesSection({
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
   const [picking, setPicking] = useState(false);
+  /*
+   * Which removal has been asked for once and not yet confirmed, AND ON WHOSE
+   * SHEET.
+   *
+   * One entry for the whole section rather than a flag per row: arming a
+   * second control disarms the first for free, which is the behaviour you want
+   * anyway - two rows both saying "tap again" is two loaded triggers and no
+   * way to tell which one the next tap belongs to.
+   *
+   * The character's id is the other half, and it is not defensive noise.
+   * `Build.tsx` renders `<Edit>` with no key, so switching the active
+   * character RE-RENDERS this section instead of remounting it; a bare ref
+   * would arrive at the next sheet still armed. Two characters can carry the
+   * same stance - that is what a ref is for - so that sheet's ✕ would go in
+   * one tap, which is precisely the defect this arming exists to close,
+   * reintroduced by a control that outlived the character it was aimed at.
+   */
+  const [armed, setArmed] = useState<{ sheet: string; ref: Ref } | null>(null);
+  const isArmed = (ref: Ref): boolean =>
+    armed !== null && armed.sheet === character.id && armed.ref === ref;
+  const arm = (ref: Ref): void => {
+    setArmed({ sheet: character.id, ref });
+  };
 
   const all = dataset.stances;
   // `collections.stances`, never `byRef`: the stances are deliberately out of
@@ -829,6 +890,62 @@ function StancesSection({
         : [...character.stanceRefs, id],
     });
   };
+
+  /*
+   * WHETHER THIS SHEET HAS A WAY BACK IN - written once, and read by the two
+   * places that need it.
+   *
+   * It is the exact condition the `Add a stance` button is drawn under at the
+   * bottom of this function, and it is deliberately the same expression rather
+   * than an equivalent one: the arming below is a claim about whether the
+   * picker exists, so if that gate ever moves, the arming has to move with it
+   * or start lying. `all.length === 0` is not redundant even though every
+   * resolved row comes out of `all` - a Martial Artist on a book that prints no
+   * stances gets no picker either.
+   */
+  const canRepick = all.length > 0 && isMartialArtist;
+
+  /**
+   * THE RULE, AND IT IS ONE RULE: arm when there is no way back.
+   *
+   * MEASURED IN CHROME at 393x852 with a coarse pointer, on an Assassin at
+   * level 1 carrying `favored`. Before the tap: the section is on the page,
+   * the stance is on screen, one drop control. After ONE tap, no confirmation:
+   * `sectionPresent=false`, `favoredOnScreen=0`, `dropButtons=0`, and no
+   * control anywhere on the document mentions a stance. The picker is gated on
+   * the Martial Artist subclass, so for this character there is nothing left
+   * that could put it back - the state is not recoverable from that screen or
+   * any other. (The ✕ itself measures 44.00 x 74.22 and sits at x=337 of 393
+   * and x=264 of 320. The target was never the defect.)
+   *
+   * `Cards.tsx` reached the same rule from the other end and wrote it down:
+   * the arming is for *"the only control here that REDUCES what the character
+   * owns... exactly the case a player cannot see coming"*. This is that case,
+   * so it gets that treatment, and the rule is now one rule across the app
+   * rather than two local habits. **The other half lives on another screen and
+   * in another file**, which is the standing reason to read the two together
+   * rather than trust either alone.
+   *
+   * The consequence is that the SAME glyph costs one tap or two depending on
+   * the sheet, and that is the point rather than an inconsistency: what the
+   * player is being protected from is not the removal, it is the removal being
+   * final. A Martial Artist's picker is one tap away and its row puts the
+   * stance straight back - two taps to undo, against two taps to do - so a
+   * confirmation there would charge the common case a cost only the rare case
+   * has.
+   *
+   * The unresolved rows below are ALWAYS armed, by the same rule and not by an
+   * exception to it: a ref this build cannot name cannot be re-entered by
+   * anybody, picker or no picker, because there is no row in any list that
+   * carries it. It is the least recoverable control in the section.
+   *
+   * NO TIMER. An arming that disarms itself puts the second tap on a race the
+   * player cannot see the clock for - and on this section the two taps can be
+   * minutes apart, because the thing between them is reading a rule. It
+   * disarms when another control is armed, when the picker opens, and when the
+   * drop goes through.
+   */
+  const needsConfirm = (resolved: boolean): boolean => !resolved || !canRepick;
 
   /*
    * The tier this character has reached, from the level alone - the same
@@ -880,15 +997,42 @@ function StancesSection({
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {ref}
           </span>
+          {/*
+            Armed, always. See `needsConfirm`: nothing in this build can name
+            this ref, so no list anywhere carries a row that would put it back.
+            The label grows on the second state and that costs nothing here -
+            this button is alone on its line inside a stack, so the extra words
+            move no control the finger is aimed at. On the ✕ below they would,
+            and that is why that one keeps its footprint and puts its sentence
+            on a line of its own.
+          */}
           <button
             type="button"
             className="btn btn-ghost"
-            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            aria-label={
+              isArmed(ref)
+                ? `Drop it — tap again to confirm. This ref cannot be added back.`
+                : `Drop it`
+            }
+            style={{
+              alignSelf: 'flex-start',
+              minHeight: 'var(--tap)',
+              borderColor: isArmed(ref) ? 'var(--damage)' : undefined,
+              color: isArmed(ref) ? 'var(--damage)' : undefined,
+            }}
             onClick={() => {
+              // `needsConfirm(false)` rather than a `true` written here: this
+              // row is armed BY the rule, not by an exception to it, and a
+              // literal would be a second copy of the rule to keep in step.
+              if (needsConfirm(false) && !isArmed(ref)) {
+                arm(ref);
+                return;
+              }
+              setArmed(null);
               onPatch({ stanceRefs: character.stanceRefs.filter((r) => r !== ref) });
             }}
           >
-            Drop it
+            {isArmed(ref) ? 'Drop it — tap again' : 'Drop it'}
           </button>
         </div>
       ))}
@@ -903,35 +1047,92 @@ function StancesSection({
         <div className="stack" style={{ gap: 8 }}>
           {all
             .filter((s) => character.stanceRefs.includes(s.id))
-            .map((s) => (
-              <div key={s.id} className="row" style={{ gap: 8, alignItems: 'stretch' }}>
-                <div className="stack" style={{ flex: 1, minWidth: 0 }}>
-                  <FeatureBlock name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
-                </div>
-                {/*
-                  The way back out of a stance you can read - see the section
-                  docblock. `toggle`, not a second write of `stanceRefs`: the
-                  picker's row and this ✕ do the same thing to the same field,
-                  and two routes to one write is two behaviours eventually.
-                */}
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  aria-label={`Drop ${s.name}`}
-                  onClick={() => {
-                    toggle(s.id);
-                  }}
-                  style={{
-                    flex: 'none',
-                    minWidth: 'var(--tap)',
-                    minHeight: 'var(--tap)',
-                    padding: 0,
-                  }}
+            .map((s) => {
+              const mustConfirm = needsConfirm(true);
+              const live = mustConfirm && isArmed(s.id);
+              return (
+                /*
+                 * WRAPPING, so the armed sentence can take a line of its own.
+                 *
+                 * With two children nothing wraps - the block is `flex: 1` and
+                 * the ✕ is a fixed 44 - so this costs nothing until the third
+                 * child exists. It exists because a control that grows between
+                 * its two taps reflows the strip the second tap is aimed at:
+                 * seventeen pixels of extra label was enough to do it once in
+                 * this codebase, and reordering did not fix it - `flex: 0 0
+                 * 100%` did. So the ✕ keeps its footprint and its position to
+                 * the pixel across both states, and the words appear below on
+                 * their own flex line, where they push nothing sideways and
+                 * only push what is under the row down.
+                 */
+                <div
+                  key={s.id}
+                  className="row"
+                  style={{ gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}
                 >
-                  ✕
-                </button>
-              </div>
-            ))}
+                  <div className="stack" style={{ flex: 1, minWidth: 0 }}>
+                    <FeatureBlock name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
+                  </div>
+                  {/*
+                    The way back out of a stance you can read - see the section
+                    docblock. `toggle`, not a second write of `stanceRefs`: the
+                    picker's row and this ✕ do the same thing to the same field,
+                    and two routes to one write is two behaviours eventually.
+
+                    THE NAME CHANGES WHEN IT ARMS, and that is the whole of how
+                    this is spoken. A live region would have to be mounted empty
+                    before it could announce anything - `GearSlot` writes that
+                    rule down - and an always-mounted region on a `gap: 8` row
+                    charges every stance on every sheet 8px for a state that is
+                    almost never on. An accessible NAME that changes on the
+                    element the tap just moved focus to is announced without
+                    either cost, and it is the element the next tap is going to.
+                  */}
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    aria-label={
+                      live
+                        ? `Drop ${s.name} — tap again to confirm. This sheet has no picker to put it back.`
+                        : `Drop ${s.name}`
+                    }
+                    onClick={() => {
+                      if (mustConfirm && !live) {
+                        arm(s.id);
+                        return;
+                      }
+                      setArmed(null);
+                      toggle(s.id);
+                    }}
+                    style={{
+                      flex: 'none',
+                      minWidth: 'var(--tap)',
+                      minHeight: 'var(--tap)',
+                      padding: 0,
+                      borderColor: live ? 'var(--damage)' : undefined,
+                      color: live ? 'var(--damage)' : undefined,
+                    }}
+                  >
+                    ✕
+                  </button>
+                  {live && (
+                    /*
+                     * Said in words, not only in the ring: the ring is colour
+                     * on a border this button already had, and colour alone is
+                     * not accepted here as the carrier of a state. This is the
+                     * shape half - a line of text that was not there before.
+                     */
+                    <span
+                      className="t-meta"
+                      style={{ flex: '0 0 100%', color: 'var(--damage)', lineHeight: 1.4 }}
+                    >
+                      TAP ✕ AGAIN TO DROP {s.name.toUpperCase()} — THIS SHEET HAS NO PICKER TO PUT
+                      IT BACK
+                    </span>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
 
@@ -1011,14 +1212,18 @@ function StancesSection({
           </button>
         </div>
       ) : (
-        all.length > 0 &&
-        isMartialArtist && (
+        // The same `canRepick` the arming above is built on, so the two cannot
+        // drift: what is armed is exactly what this button cannot undo.
+        canRepick && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-ghost"
               style={{ minHeight: 'var(--tap)' }}
               onClick={() => {
+                // A way back in has just appeared on screen; nothing here is
+                // one-way while it is open, so nothing stays armed.
+                setArmed(null);
                 setPicking(true);
               }}
             >

@@ -120,6 +120,22 @@ export const tierNote = (tier: Tier, level: number): string | null =>
  * under a slot rather than being appended to it: appended, the line reads
  * "usable from level 8 · you cannot equip it again until level 8", which says
  * the same number twice and reads as a contradiction on the first pass.
+ *
+ * ## What this sentence is NOT, and it is a gap named rather than closed
+ *
+ * It is not an arming. `Edit.tsx`'s stance section states the rule this app
+ * now holds one-way controls to - arm when there is no way back - and the ✕
+ * beside a gear slot has two states that rule indicts: it clears out-of-tier
+ * gear the pickers will not hand back until the level arrives, and it clears a
+ * ref this build cannot name, which nothing anywhere can re-enter. Neither is
+ * armed today.
+ *
+ * That is left standing on purpose rather than overlooked. The arming would
+ * belong on `GearSlot`, which draws three slots across two screens and whose
+ * ORDINARY state is a reversible swap that has to stay one tap - so it is its
+ * own repair with its own measurement, not a rider on this one. The sentence
+ * is what stands in the meantime, and it is strictly more than the slot said
+ * before it existed.
  */
 export const slotTierNote = (tier: Tier, level: number): string | null =>
   canEquip(tier, level)
