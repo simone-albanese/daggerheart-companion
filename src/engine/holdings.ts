@@ -81,7 +81,10 @@ export function characterRefs(c: Character): Ref[] {
   for (const entry of c.inventory) add(entry.ref);
   if (c.beastform !== null) add(c.beastform.ref);
   for (const choice of c.levelUpHistory) {
-    for (const key of ['cardRef', 'subclassRef', 'classRef'] as const) {
+    // The exchange's two cards ride here too, and a ref this walk misses is a
+    // ref the QR pre-flight says nothing about - `encodeCharacter` then throws
+    // `UnknownSlugError` on a sheet `missingSlugs` called sendable.
+    for (const key of ['cardRef', 'subclassRef', 'classRef', 'fromRef', 'toRef'] as const) {
       const value = choice.detail[key];
       if (typeof value === 'string') add(value);
     }

@@ -378,6 +378,10 @@ function planFor(c: Character, outer: PlanContext): LevelUpPlan {
       toLevel,
       tier,
       achievement,
+      // The sample builder takes the card the level grants and never trades one
+      // away: an exchange needs a dataset lookup this tool does not do, and
+      // `validatePlan` refuses one it cannot check rather than waving it past.
+      exchange: null,
       picks,
       // Step four: the card the level itself brings. A player takes one of the
       // best on offer, whatever they might spend an advancement reaching for.

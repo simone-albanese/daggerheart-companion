@@ -777,6 +777,19 @@ const ADVANCEMENT_KINDS: readonly AdvancementKind[] = [
   'subclass',
   'proficiency',
   'multiclass',
+  /*
+   * APPENDED, and the position is the compatibility promise.
+   *
+   * The kind rides as this list's INDEX, so inserting anywhere but the end
+   * would renumber every kind after it and turn every level-up record on every
+   * format-2, -4 and -8 payload into a different advancement - silently, since
+   * a valid index decodes into a valid kind. Appending leaves nine indices
+   * where they were and spends the tenth.
+   *
+   * Index 9, and there is room: `ESCAPED_CHOICE` is 0x0f, so 0..14 are kinds
+   * and five more can be appended before the head nibble is full.
+   */
+  'cardExchange',
 ];
 
 const OPTION_ID_FOR_KIND: Record<AdvancementKind, string> = {
@@ -789,6 +802,9 @@ const OPTION_ID_FOR_KIND: Record<AdvancementKind, string> = {
   subclass: 'subclass',
   proficiency: 'proficiency',
   multiclass: 'multiclass',
+  // Not an advancement option's id - no `AdvancementOption` has this one, which
+  // is what keeps `slotUsage` from counting an exchange as a spent box.
+  cardExchange: 'card-exchange',
 };
 
 /** Head nibble for a level-up record the compact form cannot express exactly. */
@@ -806,6 +822,7 @@ const CONSUMED_KEYS: Record<AdvancementKind, readonly string[]> = {
   subclass: ['subclassRef'],
   proficiency: [],
   multiclass: ['classRef', 'domain', 'subclassRef'],
+  cardExchange: ['fromRef', 'toRef'],
 };
 
 // ---------------------------------------------------------------------------
@@ -1085,6 +1102,17 @@ function detailFitsCompactly(kind: AdvancementKind, detail: Record<string, unkno
     }
     case 'domainCard':
       return refLike(detail['cardRef']);
+    case 'cardExchange':
+      // Both, and both REQUIRED rather than `refLike`'s optional: an exchange
+      // with one side missing is not a record this format can round-trip into
+      // the same thing, so it escapes to JSON rather than being written as an
+      // exchange of something for nothing.
+      return (
+        typeof detail['fromRef'] === 'string' &&
+        detail['fromRef'] !== '' &&
+        typeof detail['toRef'] === 'string' &&
+        detail['toRef'] !== ''
+      );
     case 'subclass':
       return refLike(detail['subclassRef']);
     case 'multiclass': {
@@ -1169,6 +1197,11 @@ function writeChoice(
     }
     case 'domainCard':
       refs.write(asRef(detail['cardRef']));
+      break;
+    case 'cardExchange':
+      // Given up first, taken second, and the order is the sentence's.
+      refs.write(asRef(detail['fromRef']));
+      refs.write(asRef(detail['toRef']));
       break;
     case 'subclass':
       refs.write(asRef(detail['subclassRef']));
@@ -1584,6 +1617,15 @@ function readChoice(r: Reader, refs: RefReader, experiences: readonly Experience
       if (ref !== null) detail['cardRef'] = ref;
       break;
     }
+    case 'cardExchange': {
+      // Two reads, unconditionally, because two varints were written -
+      // skipping one on a null would desynchronise every field after it.
+      const fromRef = refs.read();
+      const toRef = refs.read();
+      if (fromRef !== null) detail['fromRef'] = fromRef;
+      if (toRef !== null) detail['toRef'] = toRef;
+      break;
+    }
     case 'subclass': {
       const ref = refs.read();
       if (ref !== null) detail['subclassRef'] = ref;
@@ -1881,7 +1923,10 @@ export function resolvePlaceholders(c: Character, registry: Registry): ResolveRe
     beastform: c.beastform === null ? null : { ...c.beastform, ref: fix(c.beastform.ref) },
     levelUpHistory: c.levelUpHistory.map((choice) => {
       const detail = { ...choice.detail };
-      for (const key of ['cardRef', 'subclassRef', 'classRef'] as const) {
+      // `fromRef`/`toRef` are the exchange's two cards, and they are here for
+      // the same reason the other three are: a parked `?id` on a history entry
+      // is a card this device could not name, and a device that can should.
+      for (const key of ['cardRef', 'subclassRef', 'classRef', 'fromRef', 'toRef'] as const) {
         const value = detail[key];
         if (typeof value === 'string') detail[key] = fix(value);
       }

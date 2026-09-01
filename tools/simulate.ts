@@ -498,6 +498,9 @@ function planFor(c: Character, toLevel: number, ds: Dataset, ix: DatasetIndex, c
     toLevel,
     tier,
     achievement,
+    // Never traded, for the reason `sampleCharacters.ts` gives: the simulator
+    // hands `validatePlan` no index, and an unchecked exchange is a refusal.
+    exchange: null,
     picks,
     newCardRef: stepFour?.id ?? null,
   };

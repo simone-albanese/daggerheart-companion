@@ -176,6 +176,7 @@ const planTo = (
   achievement: tierAchievementFor(toLevel),
   picks,
   newCardRef,
+  exchange: null,
 });
 
 /** A deterministic generator, so "random noise" is the same noise tomorrow. */

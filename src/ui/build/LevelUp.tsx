@@ -80,6 +80,16 @@ export function LevelUp({
 
   const [picks, setPicks] = useState<Pick[]>([]);
   const [newCardRef, setNewCardRef] = useState<Ref | null>(null);
+  /*
+   * The exchange, held as two nullable refs rather than as one nullable pair.
+   *
+   * A pair cannot express the state a player is actually in halfway through -
+   * "I have chosen what to give up and not yet what to take" - and that state
+   * has to be visible, because it is the one where a tap on Apply would
+   * silently do nothing with a card the screen is showing as chosen.
+   */
+  const [exchangeFrom, setExchangeFrom] = useState<Ref | null>(null);
+  const [exchangeTo, setExchangeTo] = useState<Ref | null>(null);
   const [experienceName, setExperienceName] = useState('');
 
   if (!character) return null;
@@ -142,6 +152,12 @@ export function LevelUp({
     toLevel,
     tier,
     achievement,
+    // Only a whole exchange reaches the engine. Half of one is a warning below,
+    // not a plan the validator has to have an opinion about.
+    exchange:
+      exchangeFrom !== null && exchangeTo !== null
+        ? { fromRef: exchangeFrom, toRef: exchangeTo }
+        : null,
     picks: picks.map((p, i) => {
       const detail = { ...p.detail };
       if (!grants[i]) delete detail['grantCardRef'];
@@ -151,14 +167,28 @@ export function LevelUp({
     newCardRef,
   };
 
-  const validation = validatePlan(character, plan);
-
   // Every "after" number on this screen is the engine's answer for the sheet
   // this plan produces, never a delta worked out here. Two of them are not the
   // +1 they look like: an unarmored character's Severe threshold is twice their
   // level, so it climbs by 2, and a Proficiency advancement taken at level 5
   // stacks with the tier achievement that also lands there.
   const after = deriveStats(applyLevelUp(character, plan), dataset, index);
+
+  /*
+   * The two dataset facts the exchange rule needs go in, because a card's LEVEL
+   * and the domains a character can reach are facts about a printing and a
+   * sheet rather than numbers the rules state. `validatePlan` refuses an
+   * exchange it is handed none for rather than waving it through, so passing
+   * them here is what makes the rule enforced rather than merely stated.
+   *
+   * `after.domains` and not `stats.domains`: a multiclass taken in THIS plan
+   * opens a domain, and the card taken for the exchange is taken at the new
+   * level. It is the same "after" every other number on this screen reads.
+   */
+  const validation = validatePlan(character, plan, {
+    cards: index.cards,
+    domains: after.domains,
+  });
 
   const usage = new Map(slotUsage(character).map((u) => [`${u.optionId}@${u.tier}`, u]));
 
@@ -193,6 +223,9 @@ export function LevelUp({
   const claimedRefs = (): string[] =>
     [
       newCardRef,
+      // The exchange's right-hand side is a card this level takes, so it holds
+      // it out of the other pickers exactly as step four's own card does.
+      exchangeTo,
       ...plan.picks.flatMap((p) => [p.detail['cardRef'], p.detail['grantCardRef']]),
     ].filter((r): r is string => typeof r === 'string');
   const claimedApartFrom = (mine: unknown): string[] => claimedRefs().filter((r) => r !== mine);
@@ -205,6 +238,21 @@ export function LevelUp({
    * rather than choices the level is invalid without, and a player who wants to
    * pick one at the table later must still be able to apply.
    */
+  /*
+   * Half an exchange, said out loud.
+   *
+   * A warning and not an error, for the reason the grant warning above gives:
+   * an exchange is an offer the level makes, not a thing the level is invalid
+   * without, and a player who wants to decide at the table must still be able
+   * to apply. What it must not do is nothing quietly - the screen is showing a
+   * card as chosen, and without this sentence Apply would leave it where it
+   * was and say so nowhere.
+   */
+  const exchangeWarnings =
+    exchangeFrom !== null && exchangeTo === null
+      ? ['You have chosen a card to trade away and nothing to take for it, so nothing will be exchanged.']
+      : [];
+
   const grantWarnings = grants.flatMap((grant, i) =>
     grant === null || typeof picks[i]?.detail['grantCardRef'] === 'string'
       ? []
@@ -437,7 +485,7 @@ export function LevelUp({
             )}
           </Section>
 
-          {/* Step four. */}
+          {/* Step four, both of its sentences. */}
           <Section label="A new domain card" hint="NOT AN ADVANCEMENT — IT COMES WITH THE LEVEL">
             <CardPicker
               stats={after}
@@ -445,10 +493,25 @@ export function LevelUp({
               onChange={setNewCardRef}
               exclude={claimedApartFrom(newCardRef)}
             />
+            <CardExchangeRow
+              stats={after}
+              fromRef={exchangeFrom}
+              toRef={exchangeTo}
+              exclude={claimedApartFrom}
+              onFrom={(ref) => {
+                setExchangeFrom(ref);
+                // The card taken is chosen against the level of the card given
+                // up, so changing what is given up cannot leave the other half
+                // standing: it would be a choice made under a rule that has
+                // moved, and the list it was chosen from no longer exists.
+                setExchangeTo(null);
+              }}
+              onTo={setExchangeTo}
+            />
           </Section>
 
           <Callout tone="error" items={validation.errors} />
-          <Callout tone="warn" items={[...grantWarnings, ...validation.warnings]} />
+          <Callout tone="warn" items={[...exchangeWarnings, ...grantWarnings, ...validation.warnings]} />
 
           {/*
             The licence notice, last in this scroll like every other screen's.
@@ -1000,6 +1063,125 @@ function GrantedCard({
   );
 }
 
+/**
+ * Step four's SECOND sentence: one card given up for one card taken.
+ *
+ * *"You can also exchange one domain card you've previously acquired for a
+ * different domain card of the same level or lower."* Folio 53.
+ *
+ * ## Why it is inside step four's own Section and not beside it
+ *
+ * Because it is the same step. A `Section` of its own would read as a fifth
+ * step of a level-up that has four, and the hint on this one -
+ * "NOT AN ADVANCEMENT - IT COMES WITH THE LEVEL" - is as true of the exchange
+ * as of the card above it. `GrantedCard` makes the same call one screen region
+ * over, for the same reason: the second list belongs under the thing that
+ * caused it, not in a pile of identical lists at the bottom.
+ *
+ * ## Why the second list unfolds rather than sitting there
+ *
+ * The card taken is bounded by the level of the card given up, so until one is
+ * chosen there is no list to draw - only a list drawn against the wrong rule.
+ * Unfolding it puts the cause directly above the effect, behind the same 12px
+ * indent and 2px hope rail every "this choice still wants something from you"
+ * prompt on this screen uses.
+ *
+ * Choosing a different card to give up clears the other half, because the list
+ * it was chosen from no longer exists.
+ *
+ * ## The measurements
+ *
+ * Both lists are `CardPicker`, so every row is `--tap` (44px) tall with a 44px
+ * TEXT button beside it and a 6px gutter between them - the two touch targets a
+ * thumb has to tell apart are the ones this screen already ships, unchanged.
+ * The lists drop their own scroll container on a phone so the level-up panel
+ * keeps the only scroll and the thumb is not trapped in a 420px window inside a
+ * page that also scrolls.
+ *
+ * Nothing here lands in the bottom thumb arc: that band belongs to the 48px
+ * Cancel/Apply bar, which is pinned outside the scrolling region, and this
+ * block is the last thing IN that region before the callouts - so it is read
+ * material reached by scrolling, not a target competing with the two buttons
+ * that end the screen.
+ *
+ * ## The sentence is printed, not paraphrased
+ *
+ * `CardPicker`'s `ceiling` already refuses to show a card above the level of
+ * the one being traded, and `validatePlan` refuses one anyway. A rule the app
+ * enforces silently is a rule the player cannot check - the same argument
+ * `GrantedCard` prints its feature text for.
+ */
+function CardExchangeRow({
+  stats,
+  fromRef,
+  toRef,
+  exclude,
+  onFrom,
+  onTo,
+}: {
+  /** Stats for the sheet this plan produces, so the lists read at the new level. */
+  stats: DerivedStats;
+  fromRef: Ref | null;
+  toRef: Ref | null;
+  exclude: (mine: unknown) => string[];
+  onFrom: (ref: Ref | null) => void;
+  onTo: (ref: Ref | null) => void;
+}): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const given = dataset.domainCards.find((c) => c.id === fromRef) ?? null;
+
+  return (
+    <div
+      className="stack"
+      style={{ gap: 9, marginTop: 2, paddingTop: 11, borderTop: '1px solid var(--line-soft)' }}
+    >
+      <div className="row" style={{ gap: 9, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <span className="t-label" style={{ color: 'var(--hope)' }}>
+          Trade one in
+        </span>
+        <span className="t-meta" style={{ color: 'var(--dim)' }}>
+          OPTIONAL — AND IT IS NOT THE CARD ABOVE
+        </span>
+      </div>
+      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        You can also exchange one domain card you&rsquo;ve previously acquired for a different
+        domain card of the same level or lower.
+      </span>
+      <CardPicker
+        stats={stats}
+        mode="owned"
+        value={fromRef}
+        onChange={onFrom}
+        exclude={exclude(fromRef)}
+      />
+      {given !== null && (
+        <div
+          className="stack"
+          style={{
+            gap: 9,
+            margin: '0 0 0 12px',
+            padding: '11px 12px',
+            borderLeft: '2px solid var(--hope)',
+            background: 'var(--app)',
+            borderRadius: '0 var(--r3) var(--r3) 0',
+          }}
+        >
+          <span className="t-label">
+            Take instead of {given.name} — level {given.level} or lower
+          </span>
+          <CardPicker
+            stats={stats}
+            ceiling={given.level}
+            value={toRef}
+            onChange={onTo}
+            exclude={exclude(toRef)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Picking a card
 // ---------------------------------------------------------------------------
@@ -1009,12 +1191,35 @@ function CardPicker({
   value,
   onChange,
   exclude,
+  mode = 'available',
+  ceiling,
 }: {
   /** Stats for the sheet the plan produces: its domains and its level caps. */
   stats: DerivedStats;
   value: Ref | null;
   onChange: (ref: Ref | null) => void;
   exclude: string[];
+  /**
+   * Which side of an offer this list is.
+   *
+   * `available` is step four's question - a card you do not have, in a domain
+   * you do, at or under your cap. `owned` is the exchange's left-hand side, and
+   * it deliberately does NOT filter by domain or by cap: a card in the vault
+   * from a domain the character no longer reaches is still a card they
+   * previously acquired, and refusing to let them trade it away would be this
+   * screen inventing a rule out of a filter written for the other question.
+   */
+  mode?: 'available' | 'owned';
+  /**
+   * A cap on top of the domain caps, for the exchange's right-hand side.
+   *
+   * Enforced here as well as in `validatePlan`, and that is not a duplicate
+   * check doing the same job: the validator is what refuses a bad plan, and
+   * this is what stops the screen offering one. A player who can see a level 4
+   * card in a list headed "of the same level or lower" than their level 2 card
+   * has been told the rule is optional.
+   */
+  ceiling?: number;
 }): React.JSX.Element {
   const character = useActive();
   const dataset = useApp((s) => s.dataset);
@@ -1031,19 +1236,21 @@ function CardPicker({
   const rows = useMemo(
     () =>
       dataset.domainCards
-        .filter(
-          (c) =>
-            stats.domains.includes(c.domain) &&
-            c.level <= stats.cardLevelCap(c.domain) &&
-            !owned.has(c.id) &&
-            !exclude.includes(c.id) &&
-            (domain === 'all' || c.domain === domain),
+        .filter((c) =>
+          mode === 'owned'
+            ? owned.has(c.id) && !exclude.includes(c.id) && (domain === 'all' || c.domain === domain)
+            : stats.domains.includes(c.domain) &&
+              c.level <= stats.cardLevelCap(c.domain) &&
+              (ceiling === undefined || c.level <= ceiling) &&
+              !owned.has(c.id) &&
+              !exclude.includes(c.id) &&
+              (domain === 'all' || c.domain === domain),
         )
         .sort(
           (a, b) =>
             b.level - a.level || a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name),
         ),
-    [dataset.domainCards, domain, exclude, owned, stats],
+    [ceiling, dataset.domainCards, domain, exclude, mode, owned, stats],
   );
 
   if (dataset.domainCards.length === 0) {
@@ -1127,7 +1334,11 @@ function CardPicker({
         })}
         {rows.length === 0 && (
           <span className="t-dense" style={{ color: 'var(--dim)' }}>
-            Every card you can reach in that domain is already yours.
+            {mode === 'owned'
+              ? 'You have no domain cards in that domain to trade away.'
+              : ceiling === undefined
+                ? 'Every card you can reach in that domain is already yours.'
+                : `No card in that domain is level ${ceiling} or lower and still unowned.`}
           </span>
         )}
       </div>

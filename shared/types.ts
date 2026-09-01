@@ -886,7 +886,25 @@ export type AdvancementKind =
   | 'evasion'
   | 'subclass'
   | 'proficiency'
-  | 'multiclass';
+  | 'multiclass'
+  /**
+   * Step Four's second sentence, which is not an advancement.
+   *
+   * *"You can also exchange one domain card you've previously acquired for a
+   * different domain card of the same level or lower."* Folio 53. It sits in
+   * this union because it is a `levelUpHistory` entry - one line of the record
+   * of what a level did - and `LevelUpChoice.kind` is typed off this. It is NOT
+   * an `AdvancementOption`: `optionsForTier` never offers it, `slotUsage` never
+   * counts it (its `optionId` is `card-exchange`, which no option has), and
+   * `deriveStats` counts kinds it knows by name.
+   *
+   * The union's name is the one thing this stretches, and it is stretched
+   * rather than renamed: `AdvancementKind` is read by `checkShapes`,
+   * `shared/campaigns.ts`, the codec's nibble table and four screens, and a
+   * rename would touch all of them to say the same thing this comment says in
+   * one place.
+   */
+  | 'cardExchange';
 
 export interface LevelUpChoice {
   level: number;
