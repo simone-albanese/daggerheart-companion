@@ -63,11 +63,14 @@ interface Site {
  * so that the reverse scan can see a bonus arriving somewhere the collector does
  * not yet look at all.
  *
- * AND THEN IT READ EIGHT OF FIFTEEN COLLECTIONS FOR A YEAR. `domainCards`,
- * `beastforms` and `transformations` were never walked - 210, 22 and 6 records,
- * 238 of the 1086 feature-bearing sites this now sweeps - and every static
- * bonus in them was invisible to the check whose entire job is to notice one.
- * They are walked here.
+ * AND THEN IT READ EIGHT OF FIFTEEN COLLECTIONS. `domainCards`, `beastforms`
+ * and `transformations` were never walked - 210, 22 and 6 records, which is 265
+ * of the 1086 feature-bearing sites this now sweeps, because a Beastform and a
+ * Transformation each carry several features and a domain card carries one. (265
+ * and not the 238 a record count gives: the two are different questions and this
+ * file is where that distinction is the whole job.) Every static bonus in them
+ * was invisible to the check whose entire job is to notice one. They are walked
+ * here.
  *
  * What they surfaced is reported in `UNPRICED_LANE` below, and it is NOT what a
  * reviewer predicted. Adding the three walks on their own surfaces exactly
@@ -140,7 +143,7 @@ function everySite(): Site[] {
 const STATIC_SHAPES: RegExp[] = [
   /*
    * `bonus` AND `penalty` ARE OPTIONAL HERE, AND THEY ARE THE TWO WORDS THAT
-   * HID A BACKLOG OF ELEVEN.
+   * HID THIRTEEN REAL STATIC BONUSES.
    *
    * This shape used to require the digit to touch `to`: "+1 to Evasion", which
    * is how the SRD writes a WEAPON feature. It is not how the SRD writes a
@@ -153,10 +156,15 @@ const STATIC_SHAPES: RegExp[] = [
    *
    * That is the Earthkin failure again, in the same file, two words wide: a
    * scan that misses by two words is worse than no scan, because it is read as
-   * coverage. Measured before and after, over all eleven collections: the old
-   * alternation flags 113 sites and 18 of them are unaccounted for; this one
-   * flags 150 and 55, and the 37 it adds are in `SITUATIONAL`, `UNPRICED_LANE`
-   * and `UNPRICED_AMOUNT` below with a sentence each.
+   * coverage.
+   *
+   * Measured before and after, over all eleven collections, and counted in REFS
+   * rather than sites because a ref is what an entry below excuses: the old
+   * alternation flags 113 sites naming 12 unpriced refs; this one flags 150
+   * sites naming 47. Of the 35 refs it adds, 22 are spends and durations and go
+   * to `SITUATIONAL`; THIRTEEN are real permanent bonuses and go to
+   * `UNPRICED_LANE` and `UNPRICED_AMOUNT`. That thirteen is the point: it was
+   * not merely unpriced, it was unseen.
    *
    * `all your` is here for the Massive Behemoth's *Undaunted*, "a +2 bonus to
    * all your damage thresholds" - the only place in either book that spells it
@@ -251,11 +259,12 @@ const UNPRICED_AMOUNT: Record<string, string> = {
  * book, which is exactly the dishonesty the split between those two exists to
  * prevent.
  *
- * ELEVEN OF THE TWELVE ARRIVED WITH THIS COMMIT and none of them is new
- * content: they were in `data/srd-2.0.json` the whole time, invisible because
- * `everySite()` read eight of fifteen collections and because the first shape
- * could not see the word `bonus`. Nothing regresses - the app has never applied
- * any of them - but the backlog is now written down instead of merely absent.
+ * ALL THIRTEEN ARRIVED WITH THIS COMMIT - the map did not exist before it - and
+ * none of them is new content: they were in `data/srd-2.0.json` the whole time,
+ * invisible because `everySite()` read eight of fifteen collections and because
+ * the first shape could not see the word `bonus`. Nothing regresses - the app
+ * has never applied any of them - but the backlog is now written down instead
+ * of merely absent.
  *
  * To clear one: give `collectModifiers` the lane, and the gate a row can read.
  */
