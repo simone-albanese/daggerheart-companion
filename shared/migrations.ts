@@ -74,6 +74,10 @@ export const OLDEST_READABLE = 3;
  *
  * The second is duller still, and that is the point twice over: both of them
  * seed a field with the value the older build already behaved as if it had.
+ *
+ * The third seeds nothing at all - the 5 -> 6 bump moved only `Dataset` - and
+ * the fourth is back to the ordinary shape: one new `Character` field,
+ * `transformationRef`, seeded with the value every schema-6 sheet meant.
  */
 export const MIGRATIONS: readonly Migration[] = [
   {
@@ -151,6 +155,33 @@ export const MIGRATIONS: readonly Migration[] = [
      * leaves open.
      */
     apply: (r) => ({ ...r }),
+  },
+  {
+    from: 6,
+    note: 'a character can hold one transformation card, starting with none',
+    /*
+     * `null`, and it is the same kind of answer the `from: 3` entry gives: not
+     * a guess, but the value the older build already behaved as if it had.
+     *
+     * A schema-6 build had no `transformationRef`, no picker on the sheet and
+     * no field on the wire, so every schema-6 sheet held no transformation.
+     * `null` is that fact written down.
+     *
+     * It overwrites rather than preserving a key that is already there, for the
+     * reason the `from: 3` converter gives at length: a record stamped 6 that
+     * carries a schema-7 field is a record whose own header is wrong, and
+     * believing the field over the header lets a hand-edited file decide what
+     * the schema means.
+     *
+     * **This is the first converter since the 3 -> 4 step whose refusal earns
+     * its keep.** A schema-6 build reading a schema-7 sheet would not merely be
+     * behind: `readCharacterRecord` spreads the file over `newCharacter()`, and
+     * a blank schema-6 sheet has no `transformationRef` key, so the field would
+     * be dropped on read and written back out gone. The bump is what turns
+     * that silent deletion into `checkReadable`'s "was written by a newer
+     * version of the app" refusal, with the file untouched.
+     */
+    apply: (r) => ({ ...r, transformationRef: null }),
   },
 ];
 

@@ -30,21 +30,33 @@ import {
   type Feature,
 } from '../../shared/types.ts';
 
-const srd = JSON.parse(readFileSync('data/srd-1.0.json', 'utf8')) as {
+const srd = JSON.parse(readFileSync('data/srd-2.0.json', 'utf8')) as {
   weapons: Array<{ id: string; name: string; damageType: DamageKind; feature: string }>;
 };
 
 describe('a weapon the book says can be swung either way', () => {
   it('is in the shipped dataset, so this is not hypothetical', () => {
+    /*
+     * The Ghostblade until the switch, and it is one of the nine weapons SRD
+     * 2.0 stopped printing. The shipped book carries four Shadowblades in its
+     * place, and it spells the kind `phy/mag` where SRD 1.0 wrote `phy or
+     * mag` - both are in the union, and `dealsMagic`/`dealsPhysical` below
+     * still answer yes to both, which is the property that matters.
+     */
     const either = srd.weapons.filter((w) => w.damageType !== 'phy' && w.damageType !== 'mag');
-    expect(either.map((w) => w.id)).toEqual(['ghostblade']);
-    expect(either[0]!.damageType).toBe('phy or mag');
+    expect(either.map((w) => w.id)).toEqual([
+      'shadowblade',
+      'improved-shadowblade',
+      'advanced-shadowblade',
+      'legendary-shadowblade',
+    ]);
+    expect(either[0]!.damageType).toBe('phy/mag');
     // The book's own sentence, which is what the screens were contradicting.
     expect(either[0]!.feature).toContain('physical or magic damage');
   });
 
   it('is never labelled as one kind only', () => {
-    const g = srd.weapons.find((w) => w.id === 'ghostblade')!;
+    const g = srd.weapons.find((w) => w.id === 'shadowblade')!;
     expect(damageKindShort(g.damageType)).toBe('PHY/MAG');
     expect(damageKindLong(g.damageType)).toBe('Physical or magic');
     // The exact expressions the three screens used to carry.

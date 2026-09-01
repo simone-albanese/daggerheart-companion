@@ -1,8 +1,15 @@
 /**
  * Build the committed SRD dataset.
  *
- *   npm run build:srd            build, validate, write data/srd-1.0.json
+ *   npm run build:srd            build, validate, write the shipped book's own
+ *                                dataset - `data/srd-2.0.json` today, and the
+ *                                file is named by `Book.datasetPath` rather
+ *                                than by a constant here, so `--pdf` cannot
+ *                                write one book's parse over another's file.
  *   npm run build:srd -- --check validate only, write nothing (this is CI)
+ *   npm run build:srd -- --check --pdf Manuali/Daggerheart-SRD-9-09-25.pdf
+ *                                the same, for SRD 1.0, which is still
+ *                                committed and no longer shipped.
  *
  * If this script is wrong, CI notices. If the equivalent ran in the browser and
  * were wrong, a player would notice at a table, mid-session, on a device you
@@ -180,11 +187,16 @@ const main = async (): Promise<void> => {
   }
 
   /*
-   * Refusing rather than choosing another name. `data/srd-1.0.json` is a static
-   * import in `src/store/dataset.ts` and in ~20 test files, so which revision
-   * the app ships is a change to those files. Writing `data/srd-2.0.json` here
-   * would produce an artifact nothing reads and a build that looks like it
-   * shipped something.
+   * Refusing rather than choosing another name. The dataset is a static import
+   * in `src/store/dataset.ts` and in ~20 test files, so which revision the app
+   * ships is a change to those files. Inventing an output path here would
+   * produce an artifact nothing reads and a build that looks like it shipped
+   * something.
+   *
+   * Both books in `BOOKS` carry a path today, so this branch is unreachable
+   * from the CLI as it stands. It is kept because the state it refuses is one
+   * word away: a third revision added to `BOOKS` to be measured against,
+   * before anyone has decided whether the app should draw it.
    */
   if (OUT === null) {
     console.error(

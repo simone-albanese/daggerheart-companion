@@ -108,7 +108,7 @@ describe('a rules section linked from a GM session', () => {
 
   it('says which page of the SRD it is quoting', async () => {
     await draw('giving-out-gold-equipment-and-loot');
-    expect(container.textContent ?? '').toContain('SRD 1.0 · P.69');
+    expect(container.textContent ?? '').toContain('SRD 2.0 · P.91');
   });
 
   /**

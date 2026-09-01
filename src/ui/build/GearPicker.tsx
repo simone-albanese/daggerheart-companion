@@ -27,6 +27,17 @@
  * same defect as implying an absence that is not real. The counts and the
  * distribution are in `src/engine/randomGear.ts`; the placement, its cost and
  * its ergonomics are on `RandomButton` below.
+ *
+ * WHERE A THING CAME FROM IS ON THE ROW, AND ON ONE MORE CONTROL. A book may
+ * fence its content two ways at once - which product carries it, and which
+ * optional subsystem it belongs to - and SRD 2.0 does both. Every row prints
+ * whichever of the two it has, in the book's own words, on a line of its own
+ * (`PickerRow`'s `stamp`); the module axis also gets a two-state `Seg`
+ * (`ModuleFilter`), and the product axis deliberately does not, because
+ * `DECISIONI-SRD-2` §4 gives that one to Settings. Neither draws anything on
+ * `data/srd-1.0.json`, which fences nothing: the 204 weapons, 34 armors and
+ * 120 items above carry no `set` and no `module`, so this file is unchanged to
+ * the pixel on the book it ships.
  */
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
@@ -56,11 +67,14 @@ import {
   filterWeapons,
   itemQuery,
   itemQueryChanged,
+  moduleSplit,
+  originStamp,
   tierPhrase,
   weaponQuery,
   weaponQueryChanged,
   type ArmorQuery,
   type ItemQuery,
+  type ModuleChoice,
   type WeaponQuery,
 } from './gear.ts';
 
@@ -479,6 +493,15 @@ function SearchBox({
  * `PickerDialog`'s table is byte-identical before and after, re-measured at all
  * six: 226/318/318/318/51/33 of content 372/318/318/318/264/264.
  *
+ * A FOURTH GROUP JOINS THIS ROW ON A BOOK WITH OPTIONAL MODULES, and the
+ * arithmetic above survives it. `ModuleFilter`'s `All`/`Base` is 94.00px, both
+ * labels under the natural width and both lifted to a true 44 by the same
+ * `min-width`; measured against the SRD 2.0 dataset at 320x568, 360x800,
+ * 375x667, 393x852, 744x1133, 852x393 and 667x375, it lands on the SAME
+ * wrapped line as Category at all seven and this row's height does not move -
+ * 156 / 102 / 102 / 102 / 48 / 48 / 48 with it and without it. Line 1 is
+ * untouched, so the 334/335 flip below is untouched too.
+ *
  * ERGONOMICS. **Thumb arc:** band 2 begins at y74 on a 393x852 phone (10 of
  * overlay padding, 1 of border, 54 of the name-and-✕ band, 9 of band padding)
  * and the `Seg` row sits about 50px below that, so these controls live in the
@@ -647,6 +670,20 @@ function Chips<T extends string | number>({
  * filter chip that is 0.00px wide on glass at 320, and the band that pays it
  * scrolls with a scrollbar you can see.)
  *
+ * ON A BOOK WITH OPTIONAL MODULES THIS RAIL IS 445.30, NOT 345.30, and every
+ * number in the paragraphs above is about `data/srd-1.0.json`, where it is
+ * still exactly right. `ModuleFilter` adds a second `Seg` to this one rail
+ * when the collection has module content, which SRD 1.0's does not and SRD
+ * 2.0's does. Re-measured there: the rail is one line only at 744x1133,
+ * 852x393 and 667x375; at 393x852 it wraps where it used to fit, band 2 goes
+ * 108 -> 158 and the list 542 -> 492, five whole rows to four. At 320x568,
+ * 360x800 and 375x667 it was already two lines and does not grow at all,
+ * because the added group shares the line Reach is on and the chips keep
+ * theirs. The 391.3px
+ * threshold derived above is the threshold for the SRD 1.0 rail; the SRD 2.0
+ * rail has its own, and it is not restated here because nothing in this file
+ * depends on it.
+ *
  * ERGONOMICS, at 375x667 - the shortest viewport this project measures, and the
  * one that pays. **Thumb arc:** taking the same right-thumb pivot the rest of
  * this pass uses, viewport - 20 by height - 40, so (355, 627). The TIER `4`
@@ -687,6 +724,114 @@ const ChipRow = ({
     {children}
   </div>
 );
+
+/**
+ * The optional-module filter: two states, and the control it is not.
+ *
+ * SRD 2.0 prints three optional-equipment chapters, and their contents reach
+ * the pickers in the same collections as everything else: 76 of the 391
+ * weapons and 16 of the 85 sets of armor. At tier 1 - where a new character
+ * shops - that is 31 of 71 primary weapons, 12 of 25 secondaries and 7 of 15
+ * sets of armor, so a table running none of the three was reading a list that
+ * is nearly half somebody else's subsystem, with nothing on any row saying so.
+ *
+ * ## What this draws, and what it costs, measured
+ *
+ * A `Seg` of `All` / `Base`, 94.00 CSS pixels wide, added to a filter row that
+ * already wraps. Rendered against the SRD 2.0 dataset in Chrome at seven
+ * viewports and measured on both sides, the weapons picker's filter column is
+ * **byte-identical with it and without it** - 364 / 310 / 310 / 310 / 256 /
+ * 256 / 256 at 320x568, 360x800, 375x667, 393x852, 744x1133, 852x393 and
+ * 667x375 - because at every one of the seven the group lands on the same flex
+ * line as Category, which had room for it. The list keeps its rows: 1, 2, 1,
+ * 2, 7, 1, 1 with the control and without it.
+ *
+ * The armor picker pays, once. Its filters are a single `ChipRow wrap` - the
+ * rail `ChipRow`'s own note derives the 391.3px threshold for - so 94px takes
+ * it from 345.30 to 445.30 against a 347px content box, and it wraps a second
+ * line at 393x852 where it used to fit on one: band 2 goes 108 -> 158, the
+ * list 542 -> 492, and whole rows five -> four. At 320x568, 360x800 and
+ * 375x667 that rail is already two lines and the cost is ZERO - the control
+ * shares Reach's line and the chips keep theirs - and at 744x1133, 852x393 and
+ * 667x375 it is zero as well. **One row of armor at one viewport is the whole
+ * price of this lane's controls.** (Both numbers hold only with the group
+ * placed beside Reach; put after the TIER chips it is 4px worse at four
+ * viewports, for the reason written at that call site.)
+ *
+ * ## The control this is NOT, and the numbers that ruled it out
+ *
+ * A chip row - `MODULE  BASE RULES · EVERYDAY HERO STARTING EQUIPMENT ·
+ * WESTERN CAMPAIGNS · MONSTER HUNTING CAMPAIGNS`, this file's usual "empty
+ * means any" - is strictly more expressive, and it was built and measured
+ * rather than argued away. Its four chips are 74.70, 212.64, 118.59 and
+ * 168.75px and they wrap to four lines at 320, three at 360 and 375, two at
+ * 393 and 744. That is +202 / +152 / +152 / +102 / +102 on the filter column,
+ * and it comes out of the list: whole rows fall to 1, 1, 1, 1, 6, 1, 1 on
+ * weapons and 1, 2, 1, 4, 8, 1, 1 on armor - a row lost at three of seven
+ * viewports on one picker and four of seven on the other, with 360x800 and
+ * 393x852 dropping to a single weapon on glass. A screen whose only job is
+ * comparing gear may not show one row of it.
+ *
+ * (Not a horizontally scrolled rail either, which would be 44px flat. Its
+ * content is 638.28px against a 274px box at 320, so `MONSTER HUNTING
+ * CAMPAIGNS` would be 0.00px on glass behind a hidden scrollbar - the exact
+ * defect `ChipRow`'s note says it gave the armor TIER chips `wrap` to end.)
+ *
+ * What two states cannot say is *base plus exactly one module*. That is handed
+ * to the search box, which has no pixels to pay: `gear.ts` folds the module
+ * titles into the labels it reads, so "western" answers with those 20 weapons
+ * and "monster hunting" with those 24. See `ModuleChoice` in `gear.ts` for the
+ * full table, kept there so that reversing this is a re-measurement rather
+ * than an opinion.
+ *
+ * ## Ergonomics
+ *
+ * **Thumb arc.** It joins the `Seg` row rather than opening a row of its own,
+ * which puts it in the top fifth of the glass with Reach, Slot and Category -
+ * the far end of a one-handed sweep, and correctly so: like them it is set at
+ * most once per visit, and unlike them it is really a property of the table
+ * rather than of this pick. The list beneath it and Done at the bottom are
+ * what the thumb returns to, and neither moves. **Target size.** 44x44 per
+ * button on both axes, from the floor `Seg` states inline; `All` and `Base`
+ * are three and four characters, so both are under the natural width and both
+ * are lifted to a true 44 by the `min-width`, exactly as `All` and `Any` are
+ * in the two groups beside it. **Read versus touch.** The control is the touch
+ * half and answers one question - are we playing with the optional chapters.
+ * The read half is the row's own provenance stamp, which names the chapter in
+ * the book's words, so the player can tell *which* module a thing came from
+ * without the control having to spell four chapter titles across the glass.
+ *
+ * ## It draws nothing on the book this app ships
+ *
+ * `moduleSplit` is false for every collection in `data/srd-1.0.json`, so this
+ * returns `null` there and the pickers are unchanged to the pixel. The guard
+ * is on the data and not on a revision string: a control whose second state
+ * would empty the list, or would change nothing, is not drawn.
+ */
+function ModuleFilter({
+  rows,
+  value,
+  onChange,
+}: {
+  /** The whole collection, not the filtered rows: the control must not vanish
+   *  because the current filters happen to have removed all the module gear. */
+  rows: ReadonlyArray<{ module?: string }>;
+  value: ModuleChoice;
+  onChange: (v: ModuleChoice) => void;
+}): React.JSX.Element | null {
+  if (!moduleSplit(rows)) return null;
+  return (
+    <Seg
+      label="Rules"
+      value={value}
+      onChange={onChange}
+      options={[
+        ['all', 'All'],
+        ['base', 'Base'],
+      ]}
+    />
+  );
+}
 
 /**
  * Let the dice choose, out of exactly the rows on screen.
@@ -848,12 +993,78 @@ function CountRow({
   );
 }
 
-/** One line of a picker. Out of reach is dimmed and says so, never hidden. */
+/**
+ * One line of a picker. Out of reach is dimmed and says so, never hidden.
+ *
+ * ## The stamp, and the two places it could have gone
+ *
+ * `stamp` is where the row came from - `CORE SET`, `WESTERN CAMPAIGNS` - and
+ * it is empty on every record of `data/srd-1.0.json`, so this row is
+ * unchanged, to the pixel, on the book this app ships.
+ *
+ * On SRD 2.0 it is what makes two rows that would otherwise read the same
+ * distinguishable. The book prints two loot tables and two consumable tables,
+ * one per product, each numbered 1..60, so `Item.roll` is no longer unique in
+ * its collection: all 120 loot rolls and all 120 consumable rolls collide.
+ * Rendered at 393x852 on the SRD 2.0 dataset, the first two rows of the item
+ * picker were **Acidpaste, `CONSUMABLE · ROLL 36`** and **Arcticite Shard,
+ * `CONSUMABLE · ROLL 36`** - adjacent, on one screen, identical. That was the
+ * defect, and it was looked at rather than reasoned about.
+ *
+ * The alternative was appending it to `meta`, and that is a real alternative
+ * rather than a straw one: it is a string this file already builds and it
+ * needs no element. Both were built and measured in Chrome on the SRD 2.0
+ * dataset at three viewports, on the height of the first stamped row of each
+ * picker against the same row unstamped:
+ *
+ *   picker    viewport    own line    appended to meta
+ *   weapons   320x568      +20.0            +18.2
+ *   weapons   393x852       +1.8             +0.0
+ *   weapons   744x1133     +20.0             +0.0
+ *   armor     320x568      +20.0            +36.4
+ *   armor     393x852      +20.0            +18.2
+ *   armor     744x1133     +20.0             +0.0
+ *
+ * And on whole rows of the list, over those three viewports and all three
+ * pickers: the own-line version costs one row twice - armor at 744x1133, nine
+ * to eight, and loot at 744x1133, seven to six - and the appended version
+ * costs none. **On pixels alone the appended version wins**, and that is
+ * stated first because it is the honest half of the trade.
+ *
+ * It is a line of its own anyway, for two reasons, one seen and one arithmetic.
+ *
+ * SEEN: rendered side by side at 393x852 and looked at, the appended version
+ * reads `2d8+1 MAG · MELEE · STRENGTH · ONE-HANDED · MONSTER HUNTING
+ * CAMPAIGNS` - the chapter title in `.t-num`'s `600 13px` mono, the same ink,
+ * size and separator as the four axes before it. A player scanning that row
+ * has been told the weapon has a fifth stat. Provenance is not a stat, and
+ * this is the file that refuses to imply things about the armoury.
+ *
+ * ARITHMETIC: the own line costs a flat +20.0 on every stamped row of every
+ * picker at every viewport measured. The appended one costs 0.0, 18.2 or 36.4
+ * depending on where the meta happened to wrap, which depends on the item's
+ * name, its damage string and the width - so the row height stops being a
+ * property of the design and becomes a property of the dataset. `LIST_FLOOR`
+ * and every whole-row count in this file are built on knowing what a row is.
+ *
+ * `.t-meta` is `500 10px/1` against `.t-num`'s `600 13px/1`, so the widest
+ * stamp in the book, `EVERYDAY HERO STARTING EQUIPMENT`, is 211.2px on its own
+ * line against a row text box of 252px at 320 - the narrowest viewport this app
+ * is held to, 320 less the overlay's 2x10, the panel's 2 of border, the list's
+ * 2x12 and the row's 2x11. It fits on one line at every supported width, which
+ * is what makes the +20.0 flat.
+ *
+ * It sits under the numbers and above the feature text because that is the
+ * order the question is asked in - what is it, what does it do, whose rules is
+ * it from, what does it say - and because putting it last would seat it beside
+ * `reason`, the one line on this row that is a warning.
+ */
 function PickerRow({
   title,
   badge,
   badgeTone,
   meta,
+  stamp,
   body,
   reason,
   selected,
@@ -863,6 +1074,8 @@ function PickerRow({
   badge: string;
   badgeTone?: string;
   meta: string;
+  /** Which product and which module this came from. Empty when the book did not say. */
+  stamp?: string;
   body?: string;
   reason?: string | null;
   selected: boolean;
@@ -897,6 +1110,11 @@ function PickerRow({
         <span className="t-num" style={{ color: 'var(--text-2)', lineHeight: 1.4 }}>
           {meta}
         </span>
+        {stamp !== undefined && stamp !== '' && (
+          <span className="t-meta" style={{ color: 'var(--dim)', lineHeight: 1.4 }}>
+            {stamp.toUpperCase()}
+          </span>
+        )}
         {body !== undefined && body !== '' && (
           <span className="t-dense" style={{ whiteSpace: 'pre-line' }}>
             {body}
@@ -1025,6 +1243,13 @@ export function WeaponPicker({
                 ['Magic', 'Magic'],
               ]}
             />
+            {/* Measured to land on the same wrapped line as Category at all
+                seven viewports, so this row's height does not move. */}
+            <ModuleFilter
+              rows={weapons}
+              value={q.modules}
+              onChange={(modules) => patch({ modules })}
+            />
           </div>
           <ChipRow>
             <Chips
@@ -1087,6 +1312,7 @@ export function WeaponPicker({
           badge={value === item.id ? 'EQUIPPED' : `TIER ${item.tier}`}
           badgeTone={value === item.id ? 'var(--hope)' : undefined}
           meta={weaponSummary(item, stats)}
+          stamp={originStamp(item)}
           body={item.feature}
           reason={reason}
           selected={value === item.id}
@@ -1187,6 +1413,24 @@ export function ArmorPicker({
                 ['usable', 'Can use'],
               ]}
             />
+            {/* Beside Reach and BEFORE the divider, not after the TIER chips.
+                The divider is what separates the segmented controls from the
+                chips on this rail, and a `Seg` on the far side of it reads as
+                part of TIER. It was measured both ways expecting no
+                difference, and there is one: a wrapped line is as tall as its
+                tallest child, and a `Seg` is 48px against a chip's 44. Placed
+                last it lands on line 2 among the chips and makes that line 48
+                too - 48 + 6 + 48 - where beside Reach both controls share line
+                1 and line 2 is chips alone at 44. Measured on the SRD 2.0
+                dataset: the filter column is 150 rather than 154 at 320x568,
+                360x800, 375x667 and 393x852, the armor list 4px longer at each,
+                and `Rules` is on the first line at all seven viewports instead
+                of the second at four of them. See `ModuleFilter`. */}
+            <ModuleFilter
+              rows={armors}
+              value={q.modules}
+              onChange={(modules) => patch({ modules })}
+            />
             <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
             <Chips
               label="TIER"
@@ -1228,6 +1472,7 @@ export function ArmorPicker({
                 ? armorSummary(item, shown.thresholds, shown.armorScore)
                 : `${item.baseThresholds[0]}/${item.baseThresholds[1]} BASE · SCORE ${item.baseScore}`
             }
+            stamp={originStamp(item)}
             body={item.feature}
             reason={reason}
             selected={value === item.id}
@@ -1313,6 +1558,7 @@ export function ItemPicker({
             badge={have > 0 ? `CARRIED ×${have}` : 'ADD'}
             badgeTone={have > 0 ? 'var(--hope)' : undefined}
             meta={`${item.kind === 'loot' ? 'LOOT' : 'CONSUMABLE'}${item.roll === undefined ? '' : ` · ROLL ${item.roll}`}`}
+            stamp={originStamp(item)}
             body={item.text}
             selected={have > 0}
             onClick={() => onAdd(item)}
@@ -1341,6 +1587,24 @@ export function ItemPicker({
  *
  * It carries the numbers rather than only a name, because "Broadsword" alone
  * sends the player back into the picker to remember what it does.
+ *
+ * ## Three states, and the third one used to be drawn as the first
+ *
+ * Empty, filled, and *holding a ref this build cannot name* - and until the
+ * `unresolved` prop below there were two. The caller resolved the ref, got
+ * `undefined`, passed `title={undefined?.name ?? null}`, and this slot drew its
+ * `empty` string: `Search 391 weapons`, on a sheet whose
+ * `activePrimaryWeapon` was still set. That is not a cosmetic gap. It told the
+ * player the slot was empty when it was not, it hid the ref - the only thing
+ * anybody has to go on when a newer bundle would resolve it - and because the
+ * ✕ is gated on `title !== null` it also withheld the ONE control that clears
+ * the stored ref, so the state could not be got out of except by equipping
+ * something else over the top of it. Measured on the screen in
+ * `tests/ui/weapons-vanish.test.tsx`.
+ *
+ * `unresolved` is a `{ banner, ref }` object and not two props, so a caller
+ * cannot pass half of it: a banner with no ref names nothing, and a ref with no
+ * banner is a slug on its own.
  */
 export function GearSlot({
   label,
@@ -1348,6 +1612,7 @@ export function GearSlot({
   meta,
   note,
   empty,
+  unresolved = null,
   disabled = false,
   onOpen,
   onClear,
@@ -1359,10 +1624,38 @@ export function GearSlot({
   /** Out of tier, or blocked by something else on the sheet. */
   note?: string | null;
   empty: string;
+  /**
+   * The slot holds a ref this dataset does not print, with the words to say so
+   * - `WEAPON NOT IN THIS BUILD`, the same form the Play sheet uses for an
+   * armor and a domain card. Null when the slot is genuinely empty, which is a
+   * different fact and must not read as this one.
+   */
+  unresolved?: { banner: string; ref: Ref } | null;
   disabled?: boolean;
   onOpen: () => void;
   onClear?: () => void;
 }): React.JSX.Element {
+  // A slot cannot be both, and if a caller ever contrives it the name it
+  // resolved wins: something the player can read beats a slug.
+  const lost = title === null ? unresolved : null;
+  /*
+   * The three sides that are not the spine.
+   *
+   * Dashed for the unreadable slot, against the solid line the other two
+   * states carry: the shape is the signal and the colour on the spine only
+   * agrees with it, never carries it alone - `shapeCoding` is the standing
+   * proof in this codebase that colour on its own is not accepted.
+   *
+   * Per side, rather than the `border` shorthand this used to be. A shorthand
+   * carrying a `var()` is dropped outright by jsdom's CSS parser - measured:
+   * the button came back with no `border` property at all - so the dash would
+   * have been real in Chrome and invisible to every test that looks at the
+   * element. `border-left` survives, which is why the spine always did.
+   */
+  const side =
+    lost !== null
+      ? '1px dashed var(--edge)'
+      : `1px solid ${title === null ? 'var(--line-soft)' : 'var(--line)'}`;
   return (
     <div className="stack" style={{ gap: 6 }}>
       <span className="t-label">{label}</span>
@@ -1381,21 +1674,39 @@ export function GearSlot({
             textAlign: 'left',
             borderRadius: 'var(--r3)',
             background: title === null ? 'var(--panel)' : 'var(--raised)',
-            border: `1px solid ${title === null ? 'var(--line-soft)' : 'var(--line)'}`,
-            borderLeft: `3px solid ${title === null ? 'transparent' : 'var(--hope)'}`,
+            borderTop: side,
+            borderRight: side,
+            borderBottom: side,
+            borderLeft: `3px solid ${
+              lost !== null ? 'var(--damage)' : title === null ? 'transparent' : 'var(--hope)'
+            }`,
             opacity: disabled ? 0.42 : 1,
             cursor: disabled ? 'not-allowed' : 'pointer',
           }}
         >
           <span className="stack" style={{ flex: 1, minWidth: 0, gap: 4 }}>
-            <span
-              style={{
-                font: '700 14px/1.2 var(--sans)',
-                color: title === null ? 'var(--muted)' : 'var(--text)',
-              }}
-            >
-              {title ?? empty}
-            </span>
+            {lost !== null ? (
+              <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
+                {lost.banner}
+              </span>
+            ) : (
+              <span
+                style={{
+                  font: '700 14px/1.2 var(--sans)',
+                  color: title === null ? 'var(--muted)' : 'var(--text)',
+                }}
+              >
+                {title ?? empty}
+              </span>
+            )}
+            {/* The ref itself, because it is the whole of what is knowable
+                here: it is what the device this sheet came from resolved, and
+                what a later bundle may resolve again. */}
+            {lost !== null && (
+              <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+                {lost.ref}
+              </span>
+            )}
             {title !== null && meta !== undefined && (
               <span className="t-num" style={{ color: 'var(--text-2)' }}>
                 {meta}
@@ -1403,10 +1714,14 @@ export function GearSlot({
             )}
           </span>
           <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-            {title === null ? 'CHOOSE' : 'CHANGE'}
+            {lost !== null ? 'REPLACE' : title === null ? 'CHOOSE' : 'CHANGE'}
           </span>
         </button>
-        {onClear !== undefined && title !== null && (
+        {/* And the ✕ is offered, which is the half of this the player cannot do
+            without: the slot holds a ref, so there is something to clear, and
+            gating the control on a name the build cannot read meant the only
+            way out of the state was to equip something over the top of it. */}
+        {onClear !== undefined && (title !== null || lost !== null) && (
           <button
             type="button"
             className="btn btn-ghost"

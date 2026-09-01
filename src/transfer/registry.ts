@@ -42,6 +42,10 @@
  * last, so `hold-the-line` resolves to the domain card a loadout can hold
  * rather than to the environment a sheet can never point at. `idIn` is the
  * exact lookup for a caller that knows its collection.
+ *
+ * A `Character` field is allowed to want `idIn` rather than `idOf`, and one
+ * does: `transformationRef`. See `BANDED_COLLECTIONS` below for why the order
+ * was not changed to suit it.
  */
 import registryFile from '../../data/registry.json';
 import type { Ref } from '../../shared/types.ts';
@@ -107,10 +111,33 @@ export const RESERVED_MIN = 60_000;
  * environment - a loadout can hold the card, and no field on a sheet has ever
  * been able to hold an environment.
  *
- * `transformations` is appended rather than placed beside `communities` (where
- * `Dataset` keeps it, following the book's contents page) for exactly that
- * reason: nothing on a character references one yet, so it must not be able to
- * take a bare name away from something that is referenced.
+ * `transformations` is appended rather than placed beside `communities`, where
+ * `Dataset` keeps it, following the book's contents page.
+ *
+ * ## The reason it is last has changed, and the position has not
+ *
+ * This docblock used to say "nothing on a character references one yet, so it
+ * must not be able to take a bare name away from something that is referenced".
+ * That premise is **false as of `SCHEMA_VERSION` 7**: `Character` carries a
+ * `transformationRef`, and it is on the wire as of `CODEC_VERSION` 4.
+ *
+ * The position still stands, and now it stands on a measurement instead. SRD
+ * 2.0 prints an adversary VAMPIRE on folio 142 and a VAMPIRE transformation
+ * card on folio 45; run over the 2026-08-25 book, `parseAdversaries` and
+ * `parseTransformations` both emit the slug `vampire`. Moving
+ * `transformations` above `adversaries` would hand the bare name `vampire` to
+ * the card for every caller in the app - the GM's bestiary lookups included -
+ * in exchange for one field's convenience. Every id in this file is on the
+ * wire, and precedence decides which record a bare name resolves to; neither is
+ * a thing to change for a caller that has an exact lookup available.
+ *
+ * **So the one field that points here does not use the bare lookup at all.**
+ * `src/transfer/codec.ts` writes it with `idIn('transformations', slug)` and
+ * reads it back through `keyOf`, checking the collection half of the key; the
+ * runtime index does the same with `DatasetIndex.collections.transformations`
+ * rather than `byRef`. What that costs is two methods in the codec's ref
+ * writer and reader. What reordering would have cost is every other lookup of
+ * `vampire` in the app.
  */
 export const BANDED_COLLECTIONS = [
   'classes',

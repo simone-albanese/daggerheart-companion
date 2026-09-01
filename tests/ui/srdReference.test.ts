@@ -17,7 +17,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Dataset, RulesSection } from '@shared/types.ts';
 import {
   adversaryBenchmarks,
@@ -56,7 +56,7 @@ describe('adversaryBenchmarks', () => {
     ]);
     expect(table.columns.map((c) => c.tier)).toEqual([1, 2, 3, 4]);
     expect(table.title).toBe('Adversary Stat Block Benchmarks');
-    expect(table.page).toBe(73);
+    expect(table.page).toBe(95);
   });
 
   it('keeps every one of the sixteen cells exactly as the SRD writes it', () => {
@@ -115,7 +115,7 @@ describe('environmentBenchmarks', () => {
   it('reads the table thirty pages away, under its own subhead', () => {
     const table = environmentBenchmarks(rules);
     expect(table.title).toBe('BENCHMARK STATISTICS FOR ENVIRONMENTS BY TIER');
-    expect(table.page).toBe(102);
+    expect(table.page).toBe(159);
     expect(table.columns.map((c) => c.tier)).toEqual([1, 2, 3, 4]);
     // Two statistics, not the adversary table's four - and the selector reads
     // the shape rather than assuming it.
@@ -188,7 +188,7 @@ describe('fearGuidance', () => {
     expect(first?.kind).toBe('text');
     expect(first?.kind === 'text' ? first.text : '').toContain('1 Fear per PC');
     expect(guidance().title).toBe('Using Fear');
-    expect(guidance().page).toBe(65);
+    expect(guidance().page).toBe(87);
   });
 
   it('answers with nothing when the section is gone', () => {
@@ -228,7 +228,7 @@ describe('countdownAdvancement', () => {
     ]);
     expect(chart().columns).toEqual(['Progress Advancement', 'Consequence Advancement']);
     expect(chart().title).toBe('DYNAMIC COUNTDOWN ADVANCEMENT');
-    expect(chart().page).toBe(69);
+    expect(chart().page).toBe(91);
   });
 
   it('reads a number only where the SRD prints one, and the columns are not swapped', () => {
@@ -385,7 +385,7 @@ describe('rangeReference', () => {
       'Out of Range',
     ]);
     expect(guide().title).toBe('Maps, Range, and Movement');
-    expect(guide().page).toBe(40);
+    expect(guide().page).toBe(51);
   });
 
   it('converts every figure the SRD prints, and invents none where it prints nothing', () => {
@@ -510,7 +510,7 @@ describe('difficultyBenchmarks', () => {
       'strength',
     ]);
     expect(guide().title).toBe('Difficulty Benchmarks');
-    expect(guide().page).toBe(66);
+    expect(guide().page).toBe(88);
   });
 
   it('reads the verbs off the table’s own header, and one cell per verb', () => {
@@ -663,7 +663,7 @@ describe('ruleSection', () => {
       .flatMap((rule) => ruleSection(rules, rule.id)?.blocks ?? [])
       .flatMap((block) => block.parts)
       .filter((part) => part.kind === 'list');
-    expect(bullets).toHaveLength(64);
+    expect(bullets).toHaveLength(65);
   });
 
   it('answers null for a section this dataset does not carry', () => {
@@ -694,7 +694,7 @@ describe('gmMoves', () => {
       'GM Moves and Adversary Actions',
       'Pitfalls to Avoid',
     ]);
-    expect(sections().map((s) => s.page)).toEqual([63, 63, 64, 37, 64]);
+    expect(sections().map((s) => s.page)).toEqual([85, 85, 86, 48, 86]);
   });
 
   it('keeps the pitfall the SRD wrote in mixed case beside five in capitals', () => {
@@ -746,7 +746,7 @@ describe('adversaryExperiences', () => {
     // `character-creation`, so a lookup by name would have to know both
     // spellings - and knowing them means typing them into src.
     expect(examples().title).toBe('EXAMPLE EXPERIENCES:');
-    expect(examples().page).toBe(71);
+    expect(examples().page).toBe(93);
     expect(examples().items).toHaveLength(18);
     expect(examples().items[0]).toBe('Acrobatics');
     expect(examples().items[17]).toBe('Tracker');
@@ -769,7 +769,7 @@ describe('goldAndLoot', () => {
   it('reads the whole section, with the Average Costs table inside it', () => {
     expect(section().id).toBe('giving-out-gold-equipment-and-loot');
     expect(section().title).toBe('Giving Out Gold, Equipment, and Loot');
-    expect(section().page).toBe(69);
+    expect(section().page).toBe(91);
     // The SRD writes this section with no `## ` subhead at all, so it is one
     // block: four paragraphs of prose and the table, in the book's order.
     expect(section().blocks).toHaveLength(1);
@@ -901,7 +901,7 @@ describe('the Beastform and companion folios', () => {
 
   it('carries the Beastform preamble, from the folio the stat cards are on', () => {
     const section = rules.find((r) => r.id === 'beastform-options');
-    expect(section?.sourcePage).toBe(12);
+    expect(section?.sourcePage).toBe(15);
     // The sentence `beastformSource` applies Proficiency on the strength of.
     expect(section?.body).toContain(
       'you use the creature’s listed range, trait, and damage dice, but you use your Proficiency',
@@ -916,8 +916,8 @@ describe('the Beastform and companion folios', () => {
     expect(body('beastform-options')).not.toContain('Gain advantage on');
   });
 
-  it('carries the companion sheet, both columns of folio 18, in reading order', () => {
-    expect(rules.find((r) => r.id === 'ranger-companion')?.sourcePage).toBe(18);
+  it('carries the companion sheet, both columns of folio 21, in reading order', () => {
+    expect(rules.find((r) => r.id === 'ranger-companion')?.sourcePage).toBe(21);
     // Column one: the four steps. Step 4 is the one the sheet had no field for.
     expect(body('ranger-companion')).toContain('Choose whether they deal physical or magic damage');
     expect(body('ranger-companion')).toContain('Whenever you gain a new Experience, your companion also gains one');
@@ -942,15 +942,25 @@ describe('the Beastform and companion folios', () => {
     );
   });
 
-  it('leaves folio 19 out: it is the Rogue, and no companion text is on it', () => {
+  it('leaves the class folios out: no companion section carries Rogue text', () => {
     const companionSections = [
       'ranger-companion',
       'working-with-your-companion',
       'companion-taking-damage',
       'leveling-up-your-companion',
     ];
+    /*
+     * SRD 1.0 printed all four of these on folio 18 and this pinned 18 for
+     * each. SRD 2.0 spreads them over TWO folios - `ranger-companion` and
+     * `working-with-your-companion` on 21, the other two on 22 - so one number
+     * stopped being the truth here and the SET is what is pinned. What the
+     * check is FOR is unchanged: no section may have swallowed the class prose
+     * printed beside it.
+     */
+    expect(
+      companionSections.map((id) => rules.find((r) => r.id === id)?.sourcePage),
+    ).toEqual([21, 21, 22, 22]);
     for (const id of companionSections) {
-      expect(rules.find((r) => r.id === id)?.sourcePage).toBe(18);
       expect(body(id)).not.toContain('Rogues are scoundrels');
       expect(body(id)).not.toContain('Cloaked');
     }

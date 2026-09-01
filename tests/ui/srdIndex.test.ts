@@ -69,6 +69,10 @@ describe('the index of everything shipped', () => {
       beastform: dataset.beastforms.length,
       ancestry: dataset.ancestries.length,
       community: dataset.communities.length,
+      // Zero on the shipped SRD 1.0, which has no Transformations chapter. The
+      // kind exists so the search's vocabulary does not change under the reader
+      // when the dataset does; see the guard below, which excepts it by name.
+      transformation: dataset.transformations.length,
       weapon: dataset.weapons.length,
       armor: dataset.armors.length,
       loot: dataset.loot.length,
@@ -83,8 +87,8 @@ describe('the index of everything shipped', () => {
     // The two figures the plan and the file's header both quote. Derived, so
     // that a folio which adds a weapon moves them here instead of leaving two
     // documents quoting a number the dataset stopped carrying.
-    expect(total).toBe(849);
-    expect(beyondRules).toHaveLength(780);
+    expect(total).toBe(1422);
+    expect(beyondRules).toHaveLength(1353);
     expect(of('rules')).toHaveLength(69);
   });
 
@@ -109,7 +113,17 @@ describe('the index of everything shipped', () => {
     // added to the union and forgotten in `srdIndex` would draw an empty band
     // header and nothing under it, which is the shape of a promise with nothing
     // behind it.
-    for (const kind of SRD_KINDS) expect(of(kind).length, kind).toBeGreaterThan(0);
+    //
+    // `transformation` used to be excepted here, with the exception itself
+    // checked and a note saying it would go red "if the app shipped SRD 2.0,
+    // for exactly the right reason". It did, and it did. The exception is
+    // DELETED rather than widened - which is what that note asked for - and
+    // the shipped chapter is asserted so the deletion cannot be read as the
+    // guard quietly losing a kind.
+    expect(dataset.transformations, 'the shipped book prints six').toHaveLength(6);
+    for (const kind of SRD_KINDS) {
+      expect(of(kind).length, kind).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -219,7 +233,18 @@ describe('searching the book beyond the rules', () => {
 
     expect(searchRules(dataset.rules, 'Acid Burrower')).toEqual([]);
     const burrower = searchSrd(beyondRules, 'Acid Burrower');
-    expect(burrower.map((h) => [h.kind, h.name])).toEqual([['adversary', 'Acid Burrower']]);
+    /*
+     * TWO now, and the second is the point rather than noise: SRD 2.0's Vast
+     * Desert environment names the Acid Burrower in its own text, so the
+     * search answers with the adversary AND with the place that uses it. The
+     * adversary is first because it is asked for by name and the environment
+     * merely says it - the ordering rule the check below `puts the records
+     * asked for by name ahead` states.
+     */
+    expect(burrower.map((h) => [h.kind, h.name])).toEqual([
+      ['adversary', 'Acid Burrower'],
+      ['environment', 'Vast Desert'],
+    ]);
     // Asked for by name, so there is no line to add and the page is the book's.
     expect(burrower[0]!.where).toBe('title');
     expect(burrower[0]!.line).toBeNull();

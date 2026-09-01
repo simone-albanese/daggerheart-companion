@@ -152,6 +152,11 @@ export function wizard(patch: Partial<Character> = {}): Character {
     subclassRefs: ['school-of-knowledge'],
     ancestryRefs: ['elf'],
     communityRef: 'loreborne',
+    // `null`, because the registry this fixture measures against is the
+    // committed one and SRD 1.0 prints no transformations. A sheet holding one
+    // is `tests/transformations.test.ts`'s to build, against a registry that
+    // has the band.
+    transformationRef: null,
     multiclassRef: null,
     multiclassDomain: null,
 

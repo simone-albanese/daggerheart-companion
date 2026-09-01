@@ -468,6 +468,7 @@ import { askLoaded, loadAsk, MOMENTS, searchAsk, type AskEntry, type Moment } fr
 import { sectionsIn } from './moments.ts';
 import { CHAPTER_LABELS, sectionsInChapter, type SrdChapter } from './chapters.ts';
 import { BlockView, type BlockTarget } from './BlockView.tsx';
+import { srdStamp } from '../../store/dataset.ts';
 
 /** How much of a long line to keep on either side of the marks. */
 const BEFORE = 34;
@@ -744,7 +745,7 @@ function marked(runs: ReadonlyArray<[number, number]>): number {
   return sum;
 }
 
-const stamp = (page: number | null): string => `SRD 1.0${page === null ? '' : ` · P.${String(page)}`}`;
+const stamp = (page: number | null): string => srdStamp(page);
 
 /**
  * A previewed line with every one of the GM's words lifted out of it.

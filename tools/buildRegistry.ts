@@ -320,7 +320,7 @@ export const serializeRegistry = (file: RegistryFile): string =>
 // CLI
 // ---------------------------------------------------------------------------
 
-const SRD_PATH = fileURLToPath(new URL('../data/srd-1.0.json', import.meta.url));
+const SRD_PATH = fileURLToPath(new URL('../data/srd-2.0.json', import.meta.url));
 const REGISTRY_PATH = fileURLToPath(new URL('../data/registry.json', import.meta.url));
 
 function main(): void {
@@ -328,7 +328,7 @@ function main(): void {
 
   if (!existsSync(SRD_PATH)) {
     console.error(
-      `data/srd-1.0.json not found.\n` +
+      `data/srd-2.0.json not found.\n` +
         `The registry is generated from the built dataset, so build it first:\n` +
         `  npm run build:srd`,
     );

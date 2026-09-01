@@ -53,7 +53,7 @@ import { recallCard } from '../src/engine/loadout.ts';
 import { newCompanion } from '../src/engine/companion.ts';
 import { beastformOptions } from '../src/engine/beastform.ts';
 
-export const SRD_PATH = fileURLToPath(new URL('../data/srd-1.0.json', import.meta.url));
+export const SRD_PATH = fileURLToPath(new URL('../data/srd-2.0.json', import.meta.url));
 
 export const hasDataset = (): boolean => existsSync(SRD_PATH);
 
@@ -775,8 +775,16 @@ export interface FullMatrixRow extends Sample {
   level: number;
 }
 
-/** 18 subclasses x 18 ancestries x 10 levels. */
-export const FULL_MATRIX_SIZE = 3240;
+/**
+ * 26 subclasses x 24 ancestries x 10 levels.
+ *
+ * 18 x 18 x 10 = 3240 while the app shipped SRD 1.0. SRD 2.0 adds four classes
+ * (eight subclasses) and six ancestries, so the matrix nearly doubles. The
+ * number is written down rather than derived because `fullMatrix` takes the
+ * dataset as a parameter and callers pass their own; deriving it here would
+ * make the check "the matrix is as big as the matrix".
+ */
+export const FULL_MATRIX_SIZE = 6240;
 
 /**
  * Ids for the full matrix start here, clear of `EXPERIENCE_ID_FLOOR + 2n` for
@@ -980,7 +988,7 @@ function fromANewerDevice(ds: Dataset, ix: DatasetIndex, n: number): Sample {
 
 function main(): void {
   if (!hasDataset()) {
-    console.error(`data/srd-1.0.json not found. Build it first:\n  npm run build:srd`);
+    console.error(`data/srd-2.0.json not found. Build it first:\n  npm run build:srd`);
     process.exitCode = 1;
     return;
   }

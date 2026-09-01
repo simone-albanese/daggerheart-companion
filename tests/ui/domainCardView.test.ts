@@ -44,7 +44,7 @@ const SOURCE = 'src/ui/shared/DomainCardView.tsx';
 const TOKENS = 'src/ui/tokens.css';
 const WIZARD = 'src/ui/build/Wizard.tsx';
 
-const srd = JSON.parse(readFileSync('data/srd-1.0.json', 'utf8')) as {
+const srd = JSON.parse(readFileSync('data/srd-2.0.json', 'utf8')) as {
   domainCards: DomainCard[];
   classes: CharClass[];
 };
@@ -175,8 +175,8 @@ describe('the line budget, against the cards the SRD actually offers', () => {
     list.filter((c) => wrappedLines(c.text, columnPx, 13) <= READING_LINES).length / list.length;
 
   it('has the dataset it is sized against', () => {
-    expect(cards.length).toBe(189);
-    expect(level1.length).toBe(27);
+    expect(cards.length).toBe(210);
+    expect(level1.length).toBe(30);
   });
 
   it('shows every card creation offers, whole, at a one-column phone measure', () => {

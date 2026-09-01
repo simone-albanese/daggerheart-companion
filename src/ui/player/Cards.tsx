@@ -77,6 +77,61 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
     return next;
   };
 
+  /*
+   * The domains THIS dataset prints, in the order a person should meet them.
+   *
+   * Same rule as `allLevels` and `allRecalls` below, and it was the one list on
+   * this screen that did not follow it: the strip mapped `DOMAINS_FOR_DISPLAY`,
+   * which is what the *code* can represent. `DOMAINS` gained `dread` for SRD
+   * 2.0 while the app still ships `data/srd-1.0.json`, whose `domains` array is
+   * the nine - so the shipped build drew a tenth chip over a dataset with no
+   * Dread card behind it. Measured in Chrome on the running app at 1440x900:
+   * the readout goes `42 OF 189` -> `0 OF 189` and the grid becomes the single
+   * line "No cards match those filters." A filter whose only possible outcome
+   * is the empty state is a control that lies about what is in the book.
+   *
+   * Intersected in `DOMAINS_FOR_DISPLAY`'s order rather than mapped from
+   * `dataset.domains` directly, because those are two different orders and only
+   * one of them belongs on a screen. `dataset.domains` is the book's order -
+   * SRD 2.0 prints Codex at folio 7, so `codex` sits at index 7 there - while
+   * the grid under this strip sorts its rows by `domain.localeCompare`. Mapping
+   * the dataset raw would have put the chips in one order over cards in
+   * another. Nothing here sorts `DOMAINS`, whose own order is the wire format.
+   *
+   * THE GEOMETRY IS DELIBERATELY UNCHANGED, and the numbers are why. Measured
+   * in Chrome on this screen, filters open, with `--control` at 44: the strip's
+   * twelve chips are 929.65px of content at ten domains and 853.29px at nine,
+   * so the tenth costs **76.36px** (926.46 / 850.10 above 1179px, where
+   * `--control` is 34). Swept from 320 to 1440 in 2px steps at both 852 and
+   * 360 tall, that 76.36px forces one extra wrapped line - 50px of block - in
+   * exactly three width bands, 336-354, 466-506 and 894-968, and in none of the
+   * others. Across seventeen viewports it changes the number of whole cards on
+   * the glass at scroll 0 at exactly one - 480x800, where nine domains show two
+   * and ten show none - and nothing lands in 466-506 in this project's own
+   * sweep, whose widths are 320, 360, 375, 390, 393, 430, 640, 852, 744, 768,
+   * 820, 1024, 1180 and 1440.
+   *
+   * Five ways of buying that 50px back were rendered and measured, at content
+   * width / smallest chip on a phone / whole cards at 480x800: 6px of chip
+   * padding 841.65 / 44x44 / 2; the domain mark dropped 759.65 / 44x44 / 2;
+   * three-letter labels 772.80 / 44x44 / 2; `gap: 4` 907.65 / 44x44 / 0; the
+   * two non-domain chips lifted out 788.95 / 64.09x44 / 2. None of them touches
+   * the tap target on a phone - every chip states `minWidth: var(--control)`,
+   * so a shorter label buys width and never shrinks the target - so every one
+   * of them is paid for out of what is READ. `dread` and `bone` become `dre`
+   * and `bon`; the mark is the only place the shape and the name are printed
+   * together outside the Settings legend; 6px padding takes the desktop `All`
+   * from 40.81 to 34. And horizontal scroll, the sixth, is the defect this row
+   * was rewritten to remove: measured at 393x852 it puts all twelve on one line
+   * and hands seven of them - codex, dread, grace, midnight, sage, splendor,
+   * valor - to `elementFromPoint` as unreachable, with no cut chip at the fold.
+   * Two cards at one synthetic width is not worth any of that.
+   */
+  const domainsOnOffer = useMemo(
+    () => DOMAINS_FOR_DISPLAY.filter((d) => dataset.domains.some((entry) => entry.id === d)),
+    [dataset.domains],
+  );
+
   // Whatever the dataset actually holds, not 1-10 and 0-5 by assumption.
   const { allLevels, allRecalls } = useMemo(() => {
     const l = new Set<number>();
@@ -301,7 +356,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
       <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
         All
       </FilterChip>
-      {DOMAINS_FOR_DISPLAY.map((d) => (
+      {domainsOnOffer.map((d) => (
         <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
           <DomainMark domain={d} size={11} shapes={shapes} />
           <span style={{ textTransform: 'capitalize' }}>{d}</span>
@@ -379,8 +434,12 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           control there is room for.
 
           Nothing in either arrangement scrolls sideways: every row wraps, so
-          all eleven domain chips, all ten levels and all six recall costs are
-          on the glass at once, which is the first time any of them has been.
+          every domain chip, all ten levels and all six recall costs are on the
+          glass at once, which is the first time any of them has been. "Eleven
+          domain chips" stood here and is now a number the dataset owns - two
+          scope chips plus one per domain in `dataset.domains`, so eleven on
+          SRD 1.0 and twelve on SRD 2.0; see `domainsOnOffer` for what that
+          costs in pixels, which is 76.36 and no card on any real viewport.
           Both rails used to be `overflowX: 'auto', scrollbarWidth: 'none'`,
           and their content is a constant 853px and 816px against a port of the
           viewport less 24 on a phone and less 40 at 720 and up. Measured: at

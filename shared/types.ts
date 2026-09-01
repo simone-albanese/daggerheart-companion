@@ -58,8 +58,26 @@ export type Ref = string;
  * `Dataset.schemaVersion` is typed off THIS constant, a `Dataset` change that
  * left the constant still would make the number lie about the artifact it is
  * stamped on.
+ *
+ * ## Seven, and why this one is the ordinary kind of bump
+ *
+ * Six was the odd one: five `Dataset` changes and not a single `Character`
+ * field, so the converter leaving 5 copies and seeds nothing and the refusal an
+ * old build now gives a schema-6 sheet buys that sheet nothing at all.
+ *
+ * Seven is the shape the machinery was built for. `Character` grows exactly one
+ * field - `transformationRef` - and a schema-6 build reading a schema-7 sheet
+ * would drop it, because `readCharacterRecord` spreads the file over
+ * `newCharacter()` and a build with no such key on its blank sheet keeps
+ * nothing it does not know. So the refusal is the point this time: it stops a
+ * player's transformation being deleted by an app that is one version behind
+ * and then written back over the file that had it.
+ *
+ * The converter leaving 6 seeds `null`, which is not a guess - a schema-6 build
+ * had no field, no picker and no way to hold one, so `null` is what every
+ * schema-6 sheet meant.
  */
-export const SCHEMA_VERSION = 6 as const;
+export const SCHEMA_VERSION = 7 as const;
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -766,6 +784,46 @@ export interface Character {
   subclassRefs: Ref[];
   ancestryRefs: Ref[];
   communityRef: Ref | null;
+  /**
+   * The transformation card this character holds, or `null`. SRD 2.0 prints
+   * six (folios 43-45); SRD 1.0 prints none, so on the dataset the app ships
+   * today this is `null` on every sheet and nothing can set it.
+   *
+   * ## Shaped after `communityRef`, and standing here for the same reason
+   *
+   * One nullable `Ref`, in the identity block, beside the other two things a
+   * character IS rather than carries. `BeastformState` was the other model
+   * available and is the wrong one: a beastform is a state you are IN, with an
+   * `activatedAt` and a snapshot of what it overrides, and leaving it restores
+   * the sheet. A transformation is not left. It is closer to a community - the
+   * book hands it over, its features are then part of the character, and the
+   * sheet reads them beside the ancestry's.
+   *
+   * ## Held, and never applied
+   *
+   * `deriveStats` does not read this field and must not. Folio 42's own rules
+   * about it - "Transformation cards do not count toward your loadout maximum",
+   * "A PC can't have more than one transformation" - are facts about holding
+   * one, which this field's shape already states: it is one ref, not a list,
+   * and it is not in `loadout`. Everything printed on the card is prose, and
+   * prose in this contract is rendered, never modelled (rule 2 at the top of
+   * this file). Ancestry and community features work exactly this way already.
+   *
+   * ## `transformations` stays LAST in `BANDED_COLLECTIONS`, and this is why
+   * that now needs saying
+   *
+   * That array's docblock justified the position with "nothing on a character
+   * references one yet". This field ends that sentence, and the position still
+   * has to hold: SRD 2.0 prints an adversary VAMPIRE (folio 142) as well as the
+   * VAMPIRE card (folio 45), measured - `parseTransformations` and
+   * `parseAdversaries` over the 2026-08-25 book both produce the slug
+   * `vampire`. Moving `transformations` up the list would take the bare name
+   * `vampire` off the adversary for every other caller in the app. So the
+   * codec and the runtime index reach this ref through the EXACT lookup
+   * instead - `Registry.idIn('transformations', ...)` and
+   * `DatasetIndex.collections.transformations` - and never through a bare slug.
+   */
+  transformationRef: Ref | null;
   /** Second class taken at level 5+, with its own subclass in subclassRefs. */
   multiclassRef: Ref | null;
   multiclassDomain: DomainId | null;

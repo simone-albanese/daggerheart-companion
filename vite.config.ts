@@ -106,7 +106,19 @@ export default defineConfig({
           // emitted and it was never named here either - it lived inside the
           // import worker, which rollup emitted as its own bundle - and the
           // importer, the worker and the dependency have all been removed.
-          return id.includes('data/srd-1.0.json') ? 'srd' : undefined;
+          /*
+           * Matched by SHAPE and not by filename, because the filename is what
+           * broke. `id.includes('data/srd-1.0.json')` stood here, and the
+           * switch to `data/srd-2.0.json` silently folded 956 KB of dataset
+           * into the app-shell chunk: no `srd-*.js` was emitted at all, and
+           * `tests/pwa/serviceWorker.test.ts` caught it - three of its checks,
+           * because the service worker precaches this chunk separately so an
+           * app-shell update does not re-download the whole book. Nothing in
+           * the app's import graph reaches any other `data/srd-*.json`, so the
+           * pattern selects exactly one file today and keeps selecting it
+           * across the next revision bump.
+           */
+          return /data\/srd-[0-9.]+\.json$/.test(id) ? 'srd' : undefined;
         },
       },
     },

@@ -33,6 +33,23 @@ import { loadedWizard, normalizeHandles, registryWithout, testRegistry, wizard }
  *
  *   crc32 over the whole payload with bytes 1-4 zeroed, big-endian in 1-4.
  */
+/**
+ * A payload written by an older build, read off disk rather than re-encoded.
+ *
+ * `tests/fixtures/codec/*.codec2.b64` are the bytes `encodeCharacter` produced
+ * at `CODEC_VERSION = 2`, base64 in a text file so a diff can see that they
+ * have not moved. They are the codec's half of the policy the schema fixtures
+ * already keep: a format this build can still read needs a payload this build
+ * did not write, or the compatibility claim is the code agreeing with itself.
+ */
+const committed = (name: string): Uint8Array =>
+  Uint8Array.from(
+    Buffer.from(
+      readFileSync(fileURLToPath(new URL(`../fixtures/codec/${name}`, import.meta.url)), 'utf8').trim(),
+      'base64',
+    ),
+  );
+
 const reseal = (payload: Uint8Array): Uint8Array => {
   const out = payload.slice();
   const scratch = out.slice();
@@ -581,7 +598,26 @@ describe('the format number', () => {
    * the only thing between a player and their months of play.
    */
   it('reads a format-1 payload, which has no checksum, and says so', async () => {
-    const v2 = await encodeCharacter(wizard(), testRegistry);
+    /*
+     * The format-2 bytes are COMMITTED, not re-encoded here, and that is a
+     * change format 4 forced rather than a tidy-up.
+     *
+     * This test used to build both payloads out of `encodeCharacter`'s current
+     * output: strip the four checksum bytes, relabel the nibble, and you have a
+     * format-1 payload. That worked on an unstated assumption - that formats 1
+     * and 2 and whatever this build writes all share one body - and format 4
+     * ends it, because it adds a varint after `communityRef`. Re-encoding here
+     * would have produced a format-4 body wearing a format-1 header: not an old
+     * payload, and not a payload any build has ever written.
+     *
+     * So the old bytes come from the old build. `wizard.codec2.b64` is the
+     * output of `encodeCharacter(wizard(), registry)` on the commit before this
+     * one, at `CODEC_VERSION = 2`, and it is evidence rather than a fixture to
+     * be refreshed - regenerating it from this build would prove only that the
+     * current code can read its own output.
+     */
+    const v2 = committed('wizard.codec2.b64');
+    expect(v2[0]! & 0x0f, 'the committed bytes are format 2').toBe(2);
     const v1 = new Uint8Array(v2.length - 4);
     v1[0] = (v2[0]! & 0xf0) | 1;
     v1.set(v2.subarray(5), 1);

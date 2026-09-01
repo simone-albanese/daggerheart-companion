@@ -432,7 +432,7 @@ export function FeatureBlock({
   );
 }
 
-/** Shown when data/srd-1.0.json has not been built. Honest, not a crash. */
+/** Shown when data/srd-2.0.json has not been built. Honest, not a crash. */
 export function DatasetEmpty({ what }: { what: string }): React.JSX.Element {
   return (
     <div
@@ -445,7 +445,7 @@ export function DatasetEmpty({ what }: { what: string }): React.JSX.Element {
       <p className="t-body" style={{ margin: 0 }}>
         The SRD dataset has not been generated on this device, so there is nothing to choose from.
         Run <code style={{ font: '500 13px/1 var(--mono)', color: 'var(--text)' }}>npm run
-        build:srd</code> to produce <code style={{ font: '500 13px/1 var(--mono)' }}>data/srd-1.0.json</code>,
+        build:srd</code> to produce <code style={{ font: '500 13px/1 var(--mono)' }}>data/srd-2.0.json</code>,
         then reload. Everything you have already typed is kept.
       </p>
     </div>

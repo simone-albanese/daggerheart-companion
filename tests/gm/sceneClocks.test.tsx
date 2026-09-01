@@ -22,7 +22,7 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Dataset } from '@shared/types.ts';
 import type { SessionItem } from '@shared/campaigns.ts';
 import { countdownsOf } from '@shared/campaigns.ts';

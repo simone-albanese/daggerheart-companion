@@ -29,6 +29,7 @@ import {
   type Standard,
 } from './conditionsStore.ts';
 import { blockNamed, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
+import { SRD_LABEL } from '../../store/dataset.ts';
 
 const LABEL: Record<Standard, string> = {
   hidden: 'HIDDEN',
@@ -784,7 +785,7 @@ function ConditionsDialog({
         <div className="spread" style={{ flex: 'none', alignItems: 'center', padding: '14px 16px 10px' }}>
           <span className="t-label">Conditions</span>
           <span className="t-meta" style={{ color: 'var(--dim)' }}>
-            SRD 1.0
+            {SRD_LABEL}
           </span>
         </div>
 

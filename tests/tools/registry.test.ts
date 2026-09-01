@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BANDED_COLLECTIONS,
   BANDS,
+  bandOf,
   createRegistry,
   parseRegistryKey,
   registry,
@@ -33,7 +34,17 @@ import type { Dataset } from '../../shared/types.ts';
 
 const REPO = new URL('../../', import.meta.url);
 const REGISTRY_PATH = fileURLToPath(new URL('data/registry.json', REPO));
-const SRD_PATH = fileURLToPath(new URL('data/srd-1.0.json', REPO));
+const SRD_PATH = fileURLToPath(new URL('data/srd-2.0.json', REPO));
+/*
+ * The book the app used to ship, still committed and still read HERE.
+ *
+ * Two checks below need a dataset with no cross-collection slug collision in
+ * it, because what they test is what the validator does when one appears - and
+ * SRD 2.0 has two real ones, so synthesising a third on top of it proves
+ * nothing. And `V1_ROWS` needs the exact row set version 1 of the registry was
+ * built from, which is this file's slugs and nothing else.
+ */
+const SRD1_PATH = fileURLToPath(new URL('data/srd-1.0.json', REPO));
 
 const committed = (): RegistryFile => JSON.parse(readFileSync(REGISTRY_PATH, 'utf8')) as RegistryFile;
 
@@ -43,12 +54,39 @@ const committed = (): RegistryFile => JSON.parse(readFileSync(REGISTRY_PATH, 'ut
  * half this change was allowed to move, and it notices any number changing
  * hands, any number disappearing and any number appearing.
  */
-const nameDigest = (file: RegistryFile): string => {
+const nameDigest = (file: RegistryFile, only?: ReadonlySet<string>): string => {
   const lines = Object.entries(file.ids)
+    .filter(([key]) => only === undefined || only.has(key))
     .map(([key, id]) => `${id}\t${parseRegistryKey(key)?.slug ?? key}`)
     .sort();
   return createHash('sha256').update(lines.join('\n')).digest('hex');
 };
+
+/**
+ * The exact set of rows version 1 of the registry held, DERIVED and not typed.
+ *
+ * Version 1 was built from `data/srd-1.0.json` and from nothing else, so its
+ * row set is that file's slugs keyed by their collection - 771 of them, which
+ * is the count version 1 carried. The switch to SRD 2.0 added 581 rows, so the
+ * whole-file digest below could not stay a whole-file digest without either
+ * being re-pinned (which would assert nothing) or the old rows being named one
+ * by one (771 lines of them). This narrows it instead, and the pin survives.
+ *
+ * It is also the second reason `data/srd-1.0.json` is still in the tree: not
+ * only can the 1.0 parse still be checked against it, this suite cannot state
+ * "no number moved" without it.
+ */
+const V1_ROWS = ((): ReadonlySet<string> => {
+  const srd = JSON.parse(readFileSync(SRD1_PATH, 'utf8')) as Record<
+    string,
+    Array<{ id: string }> | undefined
+  >;
+  const out = new Set<string>();
+  for (const collection of BANDED_COLLECTIONS) {
+    for (const entity of srd[collection] ?? []) out.add(registryKey(collection, entity.id));
+  }
+  return out;
+})();
 
 describe('the numbers did not move', () => {
   /**
@@ -65,7 +103,42 @@ describe('the numbers did not move', () => {
   const V1_NAME_DIGEST = '136927a271d0f6b69f3b2ee90fd0649a521fe179f464fcb40e3090062c3d1d92';
 
   it('names every number exactly what version 1 named it', () => {
-    expect(nameDigest(committed())).toBe(V1_NAME_DIGEST);
+    // Not vacuous: the row set really is derived, and it really is 771 of the
+    // 1352 rows the file now holds, so a digest over the wrong subset fails.
+    expect(V1_ROWS.size).toBe(771);
+    expect(Object.keys(committed().ids).length).toBeGreaterThan(V1_ROWS.size);
+    expect(nameDigest(committed(), V1_ROWS)).toBe(V1_NAME_DIGEST);
+  });
+
+  it('kept the nine weapons SRD 2.0 stopped printing, on their own numbers', () => {
+    /*
+     * The one rule, at the only moment it has ever been load-bearing. These
+     * nine slugs are in `data/srd-1.0.json` and in no collection of
+     * `data/srd-2.0.json`, so the switch is the first build in which a row had
+     * to survive its record leaving the dataset. A recycled id here would turn
+     * somebody's Ghostblade into whichever weapon took the number.
+     */
+    const file = committed();
+    const nine = {
+      'weapons/axe-of-fortunis': 7039,
+      'weapons/blessed-anlace': 7043,
+      'weapons/firestaff': 7063,
+      'weapons/ghostblade': 7067,
+      'weapons/gilded-bow': 7068,
+      'weapons/ilmaris-rifle': 7084,
+      'weapons/mage-orb': 7164,
+      'weapons/runes-of-ruination': 7178,
+      'weapons/widogast-pendant': 7203,
+    };
+    const shipped = JSON.parse(readFileSync(SRD_PATH, 'utf8')) as { weapons: Array<{ id: string }> };
+    const printed = new Set(shipped.weapons.map((w) => w.id));
+    for (const [key, id] of Object.entries(nine)) {
+      expect(printed.has(key.slice('weapons/'.length)), `${key} is still printed`).toBe(false);
+      expect(file.ids[key], `${key} lost or moved its id`).toBe(id);
+    }
+    // And nothing else took those numbers.
+    const taken = Object.entries(file.ids).filter(([k, v]) => Object.values(nine).includes(v) && !(k in nine));
+    expect(taken).toEqual([]);
   });
 
   it('still holds the three ids the architecture documents, and the colliding one', () => {
@@ -77,7 +150,15 @@ describe('the numbers did not move', () => {
     expect(registry.idOf('hold-the-line')).toBe(5910);
     expect(registry.keyOf(5910)).toBe('domainCards/hold-the-line');
     expect(registry.idIn('domainCards', 'hold-the-line')).toBe(5910);
-    expect(registry.idIn('environments', 'hold-the-line')).toBeNull();
+    /*
+     * And now the other half of the collision exists. SRD 1.0 printed no
+     * environment by that name and this line read `.toBeNull()`; SRD 2.0
+     * prints one, so it has its own row in the environments band - which is
+     * the whole point of the version-2 key. The bare `idOf` above still
+     * answers with the card, because `BANDED_COLLECTIONS` puts domainCards
+     * first and that is what a stored SRD 1.0 character means by the name.
+     */
+    expect(registry.idIn('environments', 'hold-the-line')).toBe(11_034);
   });
 
   it('keys every committed row by the collection the dataset actually puts it in', () => {
@@ -95,10 +176,30 @@ describe('the numbers did not move', () => {
     for (const key of Object.keys(file.ids)) {
       const parsed = parseRegistryKey(key);
       expect(parsed, `"${key}" is not collection/slug`).not.toBeNull();
-      expect(owners.get(parsed!.slug), `${key} is keyed by a collection the dataset disagrees with`)
+      const owner = owners.get(parsed!.slug);
+      /*
+       * A RETIRED row has no owner to disagree with, and that is not a hole.
+       * The switch left nine weapons in the registry that no collection of the
+       * shipped dataset prints, and the rule is that they keep their ids
+       * forever; `buildRegistry` derives their key from the band the id
+       * already sits in. So the check is: if the dataset still prints the
+       * slug, the key must name a collection that prints it; if it does not,
+       * the key's collection must be the one its BAND is for.
+       */
+      if (owner === undefined) {
+        expect(
+          bandOf(file.ids[key]!)?.collections,
+          `${key} is retired and keyed outside its own band`,
+        ).toContain(parsed!.collection);
+        continue;
+      }
+      expect(owner, `${key} is keyed by a collection the dataset disagrees with`)
         .toContain(parsed!.collection);
     }
-    expect(Object.keys(file.ids)).toHaveLength(771);
+    // Not vacuous: some rows really are retired, and some really are not.
+    const retired = Object.keys(file.ids).filter((k) => !owners.has(parseRegistryKey(k)!.slug));
+    expect(retired).toHaveLength(9);
+    expect(Object.keys(file.ids)).toHaveLength(1352);
     expect(file.version).toBe(REGISTRY_VERSION);
   });
 });
@@ -303,9 +404,23 @@ describe('the transformations band', () => {
     expect(r.idOf('vampire')).toBe(5601);
   });
 
-  it('adds no row to the committed registry, because SRD 1.0 has no such chapter', () => {
-    for (const key of Object.keys(committed().ids)) {
-      expect(key.startsWith('transformations/')).toBe(false);
+  it('holds exactly the six cards the shipped book prints, and no more', () => {
+    /*
+     * This read "adds no row to the committed registry, because SRD 1.0 has no
+     * such chapter". SRD 2.0 has one, so the empty band was the SHIPPED BOOK's
+     * answer and not the band's - which is exactly what the check was for. It
+     * now asks the same question of the book that is actually shipped.
+     */
+    const shipped = JSON.parse(readFileSync(SRD_PATH, 'utf8')) as {
+      transformations: Array<{ id: string }>;
+    };
+    const rows = Object.keys(committed().ids).filter((k) => k.startsWith('transformations/'));
+    expect(rows.sort()).toEqual(shipped.transformations.map((t) => `transformations/${t.id}`).sort());
+    expect(rows).toHaveLength(6);
+    for (const key of rows) {
+      const id = committed().ids[key]!;
+      expect(id).toBeGreaterThanOrEqual(14_001);
+      expect(id).toBeLessThanOrEqual(14_999);
     }
   });
 });
@@ -355,15 +470,39 @@ describe('what the re-key did not touch', () => {
  * that stopped the SRD 2.0 build. It now says what it always meant.
  */
 describe('the duplicate-id check in tools/validate.ts', () => {
-  const dataset = (): Dataset => JSON.parse(readFileSync(SRD_PATH, 'utf8')) as Dataset;
+  /*
+   * SRD 1.0 on purpose. The two checks that synthesise a collision need a
+   * dataset that has none, and SRD 2.0 has two real ones - `vampire`
+   * (adversary folio 142 vs transformation folio 45) and `hold-the-line`
+   * (environment vs Valor card). The check directly below asserts on those two
+   * against the shipped file; everything after it bends this one.
+   */
+  const dataset = (): Dataset => JSON.parse(readFileSync(SRD1_PATH, 'utf8')) as Dataset;
   const errors = (issues: Issue[]): Issue[] => issues.filter((i) => i.severity === 'error');
   const warnings = (issues: Issue[]): Issue[] => issues.filter((i) => i.severity === 'warning');
 
-  it('passes the committed dataset with no id complaint at all', () => {
+  it('passes the SRD 1.0 dataset with no id complaint at all', () => {
     const said = validate(dataset())
       .filter((i) => /duplicate id|the slug is also/.test(i.message))
       .map((i) => `${i.severity} ${i.where}: ${i.message}`);
     expect(said).toEqual([]);
+  });
+
+  it('warns about the shipped dataset\'s two real collisions, and errors on neither', () => {
+    /*
+     * The gate that used to say "ids must be unique across the whole dataset"
+     * is what stopped the SRD 2.0 build. This is the shipped book going
+     * through it: two warnings, both naming the other collection, zero errors.
+     * If it ever went quiet, the build would be shipping a byRef lookup that
+     * silently answers with the wrong kind and nothing would say so.
+     */
+    const shipped = JSON.parse(readFileSync(SRD_PATH, 'utf8')) as Dataset;
+    const issues = validate(shipped).filter((i) => /duplicate id|the slug is also/.test(i.message));
+    expect(errors(issues)).toEqual([]);
+    expect(warnings(issues).map((i) => i.where).sort()).toEqual([
+      'adversaries/vampire',
+      'environments/hold-the-line',
+    ]);
   });
 
   it('still errors when ONE collection prints the same slug twice', () => {

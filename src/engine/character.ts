@@ -23,6 +23,7 @@ import type {
   Subclass,
   Tier,
   Trait,
+  Transformation,
   Weapon,
 } from '../../shared/types.ts';
 import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
@@ -166,13 +167,21 @@ export function baseProficiency(level: number): number {
  * `indexDataset(srd2).byRef.get('hold-the-line')` return the ENVIRONMENT - the
  * record a `Character` has no field for - and lose the card a loadout holds.
  *
- * `transformations` is absent because `indexDataset` has never carried it, and
- * this is not the lane that adds it. That absence is why the second collision
- * SRD 2.0 prints - the Vampire adversary (folio 142) against the VAMPIRE
- * transformation card (folio 45) - is not a collision *here*: measured,
- * `byRef.get('vampire')` returns the adversary, which is also what
- * `BANDED_COLLECTIONS` decides, so adding transformations later at the end of
- * this list would not move it.
+ * `transformations` is absent, and since `Character.transformationRef` exists
+ * that absence is a decision rather than a gap. `indexDataset` DOES carry the
+ * collection now - `collections.transformations`, the exact map - but this
+ * list is the bare-slug precedence and the card must stay out of it.
+ *
+ * The reason is the second collision SRD 2.0 prints: the Vampire adversary
+ * (folio 142) against the VAMPIRE transformation card (folio 45). Measured on
+ * the 2026-08-25 book, `parseAdversaries` and `parseTransformations` both
+ * produce the slug `vampire`. Appended here the card would lose the bare name
+ * to the adversary anyway (adversaries come first), so it would buy nothing;
+ * inserted higher it would TAKE that name from the adversary, which is a change
+ * to what every other caller in the app means by `vampire` in exchange for a
+ * lookup that has an exact map of its own. `byRef.get('vampire')` therefore
+ * still returns the adversary, which is what `BANDED_COLLECTIONS` decides, and
+ * `collections.transformations.get('vampire')` returns the card.
  */
 export const INDEXED_COLLECTIONS = [
   'classes',
@@ -222,6 +231,25 @@ export interface CollectionIndex {
   consumables: Map<Ref, Item>;
   adversaries: Map<Ref, Adversary>;
   environments: Map<Ref, Environment>;
+  /**
+   * The one collection here that is NOT in `INDEXED_COLLECTIONS`, and the only
+   * way to resolve a `transformationRef`.
+   *
+   * It is deliberately reachable only through its own map. SRD 2.0 prints an
+   * adversary VAMPIRE (folio 142) and a VAMPIRE transformation card (folio 45),
+   * and both slugify to `vampire` - measured on the 2026-08-25 book, not
+   * assumed. Putting transformations into the bare-slug map would either take
+   * that name off the adversary (if it went first) or hand a
+   * `transformationRef` the adversary (if it went last), and the second is the
+   * quiet one: `byRef.get('vampire')` would return a stat block and the sheet
+   * would draw its features as a transformation's.
+   *
+   * So `byRef` keeps exactly the twelve collections it had, the precedence
+   * `BANDED_COLLECTIONS` fixes is untouched, and the one field on `Character`
+   * that points here asks this map by name. `Registry.idIn` is the same
+   * decision one layer down, on the wire.
+   */
+  transformations: Map<Ref, Transformation>;
 }
 
 export interface DatasetIndex {
@@ -263,6 +291,7 @@ export function indexDataset(ds: Dataset): DatasetIndex {
     consumables: put(ds.consumables),
     adversaries: put(ds.adversaries),
     environments: put(ds.environments),
+    transformations: put(ds.transformations),
   };
   /*
    * The bare-slug view, filled in `INDEXED_COLLECTIONS` order and never
@@ -644,6 +673,9 @@ export function newCharacter(
     subclassRefs: [],
     ancestryRefs: [],
     communityRef: null,
+    // Also the fallback for every file older than schema 7, because
+    // `readCharacterRecord` spreads the file over a blank sheet.
+    transformationRef: null,
     multiclassRef: null,
     multiclassDomain: null,
     level: 1,

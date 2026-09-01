@@ -24,7 +24,7 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Adversary, Dataset } from '@shared/types.ts';
 import { indexDataset } from '@engine/character.ts';
 import { makeCombatant, type SceneCombatant } from '../../src/engine/encounter.ts';

@@ -66,6 +66,7 @@ import {
   vaultCard,
   type SwapCheck,
 } from '../../engine/loadout.ts';
+import { unresolvedWeapons } from '../../engine/holdings.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
@@ -1820,6 +1821,92 @@ function BeastformSeal({ what }: { what: string }): React.JSX.Element {
   );
 }
 
+/**
+ * A weapon this build cannot name, drawn where its row would have been.
+ *
+ * ## What was here before, measured
+ *
+ * Nothing. `Equipped` resolved both weapon slots with `index.weapons.get`, got
+ * `undefined` for a ref the bundle no longer prints, and `[primary, secondary]
+ * .filter(Boolean)` then dropped it - so a character holding one had no row, no
+ * marker and no warning anywhere on this screen, while the armor one slot over
+ * announced itself in the defence band and an unreadable domain card drew
+ * `GhostRow`. The weapon slots were the only silent ones, and they are the
+ * slots that carry a damage die. See `tests/ui/weapons-vanish.test.tsx`.
+ *
+ * ## Why this is a `<div>` and not a `<button>` like every row beside it
+ *
+ * READ, NOT TOUCH, and that is the whole design of this row. Every other row in
+ * this section is armable: tapping one declares it, and `DualityRoll` then
+ * offers its damage. There is nothing to declare here - no trait, no range, no
+ * dice - so a control would be a `var(--tap)` target in the middle of the thumb
+ * arc that answers a tap with nothing at all, which teaches the player that the
+ * ROW is broken rather than that the WEAPON is missing. It costs no target and
+ * it takes no reach: it is a paragraph, in the place where the sentence it
+ * corrects would have been.
+ *
+ * ## Why it is not marked by colour alone
+ *
+ * `1px dashed` all round, against the solid `panel` border every real row
+ * carries, plus a `var(--damage)` spine where an armed row has `var(--hope)`
+ * and an idle one has `var(--edge)`. The dash is the signal; the colour agrees
+ * with it. `shapeCoding` is the standing proof in this codebase that colour on
+ * its own is not accepted, and the domain-card `GhostRow` above is drawn the
+ * same way for the same reason.
+ *
+ * It names the ref, because that is all anybody has to go on - it is what a
+ * newer bundle, or the device this sheet came from, would resolve - and it says
+ * which of the two slots it was in, because there are two and they fail
+ * identically.
+ */
+function VanishedWeapon({
+  slot,
+  refId,
+}: {
+  slot: 'PRIMARY' | 'SECONDARY';
+  refId: Ref;
+}): React.JSX.Element {
+  return (
+    <div
+      className="stack"
+      style={{
+        flex: 'none',
+        gap: 4,
+        borderRadius: 'var(--r3)',
+        background: 'var(--app)',
+        // Per side, and not the `border` shorthand: a shorthand carrying a
+        // `var()` is dropped outright by jsdom's CSS parser, so the dash - the
+        // signal that is not a colour - would exist in Chrome and be invisible
+        // to every test that looks at the element. Three sides plus the spine
+        // survive both.
+        borderTop: '1px dashed var(--edge)',
+        borderRight: '1px dashed var(--edge)',
+        borderBottom: '1px dashed var(--edge)',
+        borderLeft: '3px solid var(--damage)',
+        padding: '10px 11px',
+      }}
+    >
+      <span className="spread">
+        <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
+          WEAPON NOT IN THIS BUILD
+        </span>
+        <span
+          className="t-meta"
+          style={{ flex: 'none', color: 'var(--dim)', letterSpacing: '0.08em' }}
+        >
+          {slot}
+        </span>
+      </span>
+      <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+        {refId}
+      </span>
+      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        No damage this build can roll — choose again in Build.
+      </span>
+    </div>
+  );
+}
+
 function Equipped({
   stats,
   arming,
@@ -1859,6 +1946,15 @@ function Equipped({
     ? index.weapons.get(character.activeSecondaryWeapon)
     : undefined;
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
+  /*
+   * The two slots that hold a ref this build cannot name, which used to resolve
+   * to `undefined` and be filtered away with the empty ones. Read as a pair off
+   * `unresolvedWeapons` rather than tested twice here: the whole failure of the
+   * thing this replaces was that the two weapon fields were handled apart, and
+   * the map below now walks BOTH slots by name so a row can no longer be
+   * repaired for one of them alone.
+   */
+  const missing = unresolvedWeapons(character, index);
   const unarmed = arming.declared?.kind === 'unarmed';
   const worn = stats.beastform;
   const beast = beastformSource(stats);
@@ -1870,11 +1966,20 @@ function Equipped({
     // and left its label sitting on top of the next one.
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
       {!bare && <div className="t-label">Equipped</div>}
-      {primary === undefined && secondary === undefined && armor === undefined && (
-        <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
-          Nothing equipped — choose gear in Build.
-        </div>
-      )}
+      {/* And the empty-state gate counts the unreadable refs, because a sheet
+          holding a weapon this build cannot name is not a sheet with nothing
+          equipped - it is the one case this section now has something to say
+          about, and printing «Nothing equipped» over it would be the app
+          contradicting the row directly underneath. */}
+      {primary === undefined &&
+        secondary === undefined &&
+        armor === undefined &&
+        missing.primary === null &&
+        missing.secondary === null && (
+          <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+            Nothing equipped — choose gear in Build.
+          </div>
+        )}
       {/*
        * THE FORM'S OWN ATTACK, WHICH THIS SCREEN COULD NOT ROLL.
        *
@@ -1916,7 +2021,16 @@ function Equipped({
           </span>
         </button>
       )}
-      {[primary, secondary].filter(Boolean).map((w) => {
+      {(
+        [
+          { slot: 'PRIMARY', weapon: primary, gone: missing.primary },
+          { slot: 'SECONDARY', weapon: secondary, gone: missing.secondary },
+        ] as const
+      ).map(({ slot, weapon: w, gone }) => {
+        // The unreadable ref FIRST, and in the slot's own place in the order,
+        // so the sheet reads primary-then-secondary whichever of the two the
+        // build has lost.
+        if (gone !== null) return <VanishedWeapon key={slot} slot={slot} refId={gone} />;
         if (!w) return null;
         // weaponDamage, not a regex. The inline `replace(/^(\d*)d/, ...)` that
         // used to live here is exactly what the note in
@@ -3474,11 +3588,28 @@ function PlayPhone({
 
   if (!character) return <div />;
 
-  const equippedCount = [
-    character.activePrimaryWeapon,
-    character.activeSecondaryWeapon,
-    character.activeArmor,
-  ].filter((r) => r !== null && index.byRef.has(r)).length;
+  /*
+   * What the shut fold says is in it, counted off what the fold DRAWS.
+   *
+   * That is why the weapons and the armor are not counted the same way, and the
+   * asymmetry is deliberate. A weapon whose ref this build cannot name is now
+   * drawn - `VanishedWeapon`, naming the ref - so it counts. An armor in the
+   * same state is not drawn in this section at all: it announces itself in the
+   * defence band, which is outside this fold and on screen without opening it.
+   * A summary that disagreed with its own contents would be worse than either
+   * number on its own, which is the same sentence `GhostRow` is written under.
+   *
+   * The lookups are per-collection (`index.weapons`, `index.armors`) rather
+   * than the bare-slug `index.byRef` this line used to ask, so the count agrees
+   * with the rows: `Equipped` resolves a weapon out of `index.weapons`, and a
+   * slug that some other collection also prints would have been counted as
+   * present here while drawing nothing there.
+   */
+  const equippedCount =
+    [character.activePrimaryWeapon, character.activeSecondaryWeapon].filter(
+      (r) => r !== null && r !== '',
+    ).length +
+    (character.activeArmor !== null && index.armors.has(character.activeArmor) ? 1 : 0);
   const carried = character.inventory.length;
   /*
    * How many features are behind the lineage fold, so a shut fold says what is

@@ -141,6 +141,10 @@ interface Hole {
  */
 const NULLABLE_ON_A_CHARACTER: ReadonlySet<string> = new Set([
   'communityRef',
+  // Null on all 3240, and it has to be: a transformation is granted by the GM
+  // from the sheet, not taken by any advancement the matrix walks, and SRD 1.0
+  // prints none to take.
+  'transformationRef',
   'multiclassRef',
   'multiclassDomain',
   'evasionOverride',
@@ -577,7 +581,22 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
           .map(([name]) => `no sheet in the matrix is ${name} - the rule it carries went unproven`),
       );
       expect(shapes.unarmored).toBeGreaterThan(200);
-      expect(shapes.companion).toBe(dataset.ancestries.length * 10);
+      /*
+       * Every Beastbound sheet and no other, asked of the rows.
+       *
+       * This read `dataset.ancestries.length * 10`, which encoded "one
+       * subclass x every ancestry x every level" and happened to be right
+       * while the matrix was 18 x 18 x 10. It is not the same arithmetic on
+       * SRD 2.0 - the generator also hands a Beastbound subclass to
+       * multiclassed rows - so the count is 528 against the 240 that formula
+       * gives. What the check is FOR is the biconditional, so that is what it
+       * asks now: a companion on exactly the sheets that carry the subclass
+       * granting one.
+       */
+      expect(shapes.companion).toBe(
+        rows.filter((r) => r.character.subclassRefs.includes('beastbound')).length,
+      );
+      expect(shapes.companion).toBeGreaterThan(0);
       const kinds = new Set(rows.flatMap((r) => r.character.levelUpHistory.map((h) => h.kind)));
       expect([...kinds].sort()).toEqual([
         'domainCard',

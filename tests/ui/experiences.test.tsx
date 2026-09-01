@@ -93,9 +93,9 @@ describe('what the step says an Experience is', () => {
 describe('the examples, behind a fold', () => {
   it('names the list and its page open and shut alike', () => {
     expect(fold().textContent).toContain('EXAMPLE EXPERIENCES');
-    expect(fold().textContent).toContain('SRD 1.0 · P.4');
+    expect(fold().textContent).toContain('SRD 2.0 · P.4');
     act(() => fold().click());
-    expect(fold().textContent).toContain('SRD 1.0 · P.4');
+    expect(fold().textContent).toContain('SRD 2.0 · P.4');
   });
 
   it('starts shut, and not one of the seventy-nine names is on the page until it opens', () => {

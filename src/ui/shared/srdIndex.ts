@@ -3,8 +3,8 @@
  *
  * ## The measurement this file exists to answer
  *
- * `searchRules` searches `dataset.rules`: **69 sections** out of the **849**
- * records the app ships. The other 780 - every weapon, every domain card, every
+ * `searchRules` searches `dataset.rules`: **69 sections** out of the **1422**
+ * records the app ships. The other 1353 - every weapon, every domain card, every
  * adversary in the bestiary this same app draws - were not in any haystack.
  * Typing `Rally` got the honest silence the search draws for a word that is not
  * in the book, and `Rally` is the Bard's class feature, printed on the sheet of
@@ -45,7 +45,7 @@
  * it has to *be* the book's, down to the case the JSON was written in;
  * capitalising it would put a string this repository composed inside a haystack
  * and inside a preview. That is what makes the invariant checkable in one
- * assertion - `srdIndex.test.ts` walks every line of all 849 records and finds
+ * assertion - `srdIndex.test.ts` walks every line of all 1422 records and finds
  * each one verbatim among the dataset's own strings - and an invariant with an
  * exception list is an invariant that grows one more exception a year.
  *
@@ -84,7 +84,7 @@
  * The fallback earns its place over sections because a section is a large body
  * where one inflection - `sets` where the GM typed `setting` - can hide the
  * answer, and eighteen sections is a list a person can still read. An OR over
- * **780 short records** is neither: a common word reaches hundreds of them, and
+ * **1353 short records** is neither: a common word reaches hundreds of them, and
  * a list of hundreds is not an answer at any size of type. The owner's standing
  * constraint of 2026-08-26 - readability and glanceability in consultation,
  * nothing too small - forbids the only way such a list would fit. So when
@@ -106,6 +106,7 @@ import type {
   Ref,
   RulesSection,
   Subclass,
+  Transformation,
   Weapon,
   Armor,
 } from '../../../shared/types.ts';
@@ -117,7 +118,7 @@ import { ruleTerms, wholeWordIn, type RuleMatchKind } from './srdReference.ts';
  * One per array in `Dataset`, plus `loot` and `consumable` split out of the
  * single `Item` shape because the two are separate collections in the dataset
  * and separate things at a table. `rules` is a kind like any other: the index
- * is *everything the app ships*, and a caller that wants only the 780 the rules
+ * is *everything the app ships*, and a caller that wants only the 1353 the rules
  * search cannot reach says so at its own call site rather than being handed a
  * second, quietly different index.
  */
@@ -130,6 +131,7 @@ export type SrdKind =
   | 'beastform'
   | 'ancestry'
   | 'community'
+  | 'transformation'
   | 'weapon'
   | 'armor'
   | 'loot'
@@ -147,6 +149,7 @@ export const SRD_KIND_LABELS: Record<SrdKind, string> = {
   beastform: 'BEASTFORMS',
   ancestry: 'ANCESTRIES',
   community: 'COMMUNITIES',
+  transformation: 'TRANSFORMATIONS',
   weapon: 'WEAPONS',
   armor: 'ARMOR',
   loot: 'LOOT',
@@ -172,6 +175,7 @@ export const SRD_KINDS: readonly SrdKind[] = [
   'beastform',
   'ancestry',
   'community',
+  'transformation',
   'weapon',
   'armor',
   'loot',
@@ -296,6 +300,22 @@ const communityFields = (c: Community): SrdField[] => [
   ...field('FEATURE', featureLines([c.feature])),
 ];
 
+/**
+ * A transformation card: its prose, its features, its questions.
+ *
+ * The three fields are the three the book prints, in the order it prints them
+ * (folios 43-45: name, prose, `TRANSFORMATION FEATURES`, `TRANSFORMATION
+ * QUESTIONS`), and each is the record's own strings. QUESTIONS is a field
+ * rather than being dropped for the reason `CharClass.backgroundQuestions` is
+ * indexed: a prompt is a line a player reads and therefore a line they can
+ * look for, and it is the book's wording, not this repository's.
+ */
+const transformationFields = (t: Transformation): SrdField[] => [
+  ...field('ABOUT', [t.description]),
+  ...field('FEATURES', featureLines(t.features)),
+  ...field('QUESTIONS', t.questions),
+];
+
 const weaponFields = (w: Weapon): SrdField[] => [
   ...field('CATEGORY', [w.category]),
   ...field('SLOT', [w.slot]),
@@ -355,8 +375,11 @@ const build = (
 });
 
 /**
- * Every record the app ships, flattened. **849** in the shipped dataset - the
- * 69 rules sections and the 780 the rules search cannot reach.
+ * Every record the app ships, flattened. **1422** in the shipped dataset - the
+ * 69 rules sections and the 1353 the rules search cannot reach.
+ *
+ * 849 and 780 on SRD 1.0. Both figures are pinned in `tests/ui/srdIndex.test.ts`
+ * and moved with the switch; the six transformations are in the 1353.
  *
  * ## What is deliberately not in a haystack
  *
@@ -379,7 +402,7 @@ const build = (
  * work exactly once, and a layer that rewrites a collection rebuilds it by
  * changing the identity of `dataset`. Searching it costs what `searchRules`
  * costs and less: the reject is one `includes` per term against a haystack that
- * is a few hundred characters where a section's is a few thousand, and 780
+ * is a few hundred characters where a section's is a few thousand, and 1353
  * short rejects are cheaper than 69 long ones.
  */
 export function srdIndex(dataset: Dataset): SrdRecord[] {
@@ -394,6 +417,18 @@ export function srdIndex(dataset: Dataset): SrdRecord[] {
   for (const b of dataset.beastforms) out.push(build('beastform', b.id, b.name, b.sourcePage, beastformFields(b)));
   for (const a of dataset.ancestries) out.push(build('ancestry', a.id, a.name, a.sourcePage, ancestryFields(a)));
   for (const c of dataset.communities) out.push(build('community', c.id, c.name, c.sourcePage, communityFields(c)));
+  /*
+   * Six on SRD 2.0, none on SRD 1.0, and the empty case is why this loop was
+   * missing rather than why it should be. `Dataset.transformations` is required
+   * and empty for a book without the chapter (its docblock: "empty is the
+   * honest value"), so on the dataset the app ships today this contributes
+   * nothing and `SRD_KIND_LABELS.transformation` labels a band with no rows in
+   * it. The alternative - a kind that appears only when the dataset has one -
+   * is a search whose vocabulary changes under the reader.
+   */
+  for (const t of dataset.transformations) {
+    out.push(build('transformation', t.id, t.name, t.sourcePage, transformationFields(t)));
+  }
   for (const w of dataset.weapons) out.push(build('weapon', w.id, w.name, w.sourcePage, weaponFields(w)));
   for (const a of dataset.armors) out.push(build('armor', a.id, a.name, a.sourcePage, armorFields(a)));
   for (const i of dataset.loot) out.push(build('loot', i.id, i.name, i.sourcePage, itemFields(i)));

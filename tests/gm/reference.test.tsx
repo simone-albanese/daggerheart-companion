@@ -259,10 +259,10 @@ describe('what the reference draws', () => {
     openReference();
     const stamps = [...container.querySelectorAll<HTMLElement>('span')]
       .map((el) => (el.textContent ?? '').trim())
-      .filter((t) => t.startsWith('SRD 1.0'));
+      .filter((t) => t.startsWith('SRD 2.0'));
     // 73 is the adversary table, 102 is the environment table thirty pages
     // away. One stamp for the topic would put one of these over the other.
-    expect(stamps).toEqual(['SRD 1.0 · P.73', 'SRD 1.0 · P.102']);
+    expect(stamps).toEqual(['SRD 2.0 · P.95', 'SRD 2.0 · P.159']);
   });
 
   it('draws the campaign’s own tier first, and marks it as the app’s own note', () => {
@@ -384,14 +384,14 @@ describe('the Fear guidance, beside the Fear counter', () => {
     expect(fold().getAttribute('aria-expanded')).toBe('true');
     expect(text()).toContain('0-1 Fear');
     expect(text()).toContain('Interrupt the players to steal the spotlight and make a move');
-    expect(text()).toContain('SRD 1.0 · P.65');
+    expect(text()).toContain('SRD 2.0 · P.87');
   });
 
   it('says what is behind it open and closed alike', () => {
     openFearBoard();
-    expect((fold().textContent ?? '')).toContain('SRD 1.0');
+    expect((fold().textContent ?? '')).toContain('SRD 2.0');
     click(fold());
-    expect((fold().textContent ?? '')).toContain('SRD 1.0');
+    expect((fold().textContent ?? '')).toContain('SRD 2.0');
   });
 
   it('leaves the twelve targets exactly where they were, at 52px', () => {
@@ -431,7 +431,7 @@ describe('the Fear guidance, beside the Fear counter', () => {
     openReference();
     click(named('Fear'));
     expect(text()).toContain('0-1 Fear');
-    expect(text()).toContain('SRD 1.0 · P.65');
+    expect(text()).toContain('SRD 2.0 · P.87');
     // The whole section, not the two parts a screen might have picked: the
     // large-pool advice and the anatomy of a Fear move are here too.
     expect(text()).toContain('Spending Fast');
@@ -559,7 +559,7 @@ describe('the advancement chart, on a dynamic countdown', () => {
     click(chartFold()!);
     expect(text()).toContain('Progress countdowns');
     expect(text()).toContain('Consequence countdowns');
-    expect(text()).toContain('SRD 1.0 · P.69');
+    expect(text()).toContain('SRD 2.0 · P.91');
   });
 
   it('is not offered on a standard countdown, whose rule this is not', () => {
@@ -617,7 +617,7 @@ describe('the distances, and the metres the SRD does not print', () => {
   it('prints the SRD’s own sentence for every range', () => {
     distance();
     expect(text()).toContain('Close enough to see fine details, about 5-10 feet away.');
-    expect(text()).toContain('SRD 1.0 · P.40');
+    expect(text()).toContain('SRD 2.0 · P.51');
     // The six names, including the two the SRD gives no distance for.
     for (const name of ['Melee', 'Very Close', 'Close', 'Far', 'Very Far', 'Out of Range']) {
       expect(text(), name).toContain(name);
@@ -706,7 +706,7 @@ describe('setting a Difficulty, with the SRD’s worked examples', () => {
 
   it('opens on a trait, every verb, and the six numbers', () => {
     difficulty();
-    expect(text()).toContain('SRD 1.0 · P.66');
+    expect(text()).toContain('SRD 2.0 · P.88');
     // Every verb by default: the question a GM arrives with is a scan, not a
     // lookup, and the filter is for the one who already knows the verb.
     expect(text()).toContain('Sprint within Close range across an open field with an enemy present.');
@@ -808,11 +808,11 @@ describe('the GM chapter, behind five folds', () => {
   it('names the five sections and opens none of them', () => {
     moves();
     expect(folds().map((b) => (b.textContent ?? '').trim())).toEqual([
-      'GM PrinciplesSRD 1.0 · P.63',
-      'GM PracticesSRD 1.0 · P.63',
-      'Making GM MovesSRD 1.0 · P.64',
-      'GM Moves and Adversary ActionsSRD 1.0 · P.37',
-      'Pitfalls to AvoidSRD 1.0 · P.64',
+      'GM PrinciplesSRD 2.0 · P.85',
+      'GM PracticesSRD 2.0 · P.85',
+      'Making GM MovesSRD 2.0 · P.86',
+      'GM Moves and Adversary ActionsSRD 2.0 · P.48',
+      'Pitfalls to AvoidSRD 2.0 · P.86',
     ]);
     // Four pages between them, so the stamp sits on each fold and never on the
     // topic: one number over the other four would be false four times.
@@ -851,7 +851,7 @@ describe('the adversary Experiences', () => {
     experiences();
     expect(text()).toContain('EXPERIENCE (OPTIONAL)');
     expect(text()).toContain('spend a Fear');
-    expect(text()).toContain('SRD 1.0 · P.71');
+    expect(text()).toContain('SRD 2.0 · P.93');
     for (const name of ['Acrobatics', 'Hunt from Above', 'Magical Knowledge', 'Tracker']) {
       expect(text(), name).toContain(name);
     }
@@ -886,7 +886,7 @@ describe('the costs, which are the eighth topic', () => {
   it('draws the SRD’s twelve prices under the sentence that says to change them', () => {
     costs();
     expect(text()).toContain('Giving Out Gold, Equipment, and Loot');
-    expect(text()).toContain('SRD 1.0 · P.69');
+    expect(text()).toContain('SRD 2.0 · P.91');
     expect(text()).toContain('adjusting the entries in the Average Costs table');
     // Both columns, both ends of the table, and the header the book wrote.
     expect(text()).toContain('Expense');

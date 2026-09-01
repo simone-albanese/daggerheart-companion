@@ -186,6 +186,58 @@ const WEAPON_MODS: Record<Ref, Row[]> = {
   // Double Duty: +1 to Armor Score; +1 to primary weapon damage within Melee
   // range. Only the first half is a sheet number; the damage half is a roll.
   'spiked-shield': [{ stat: 'armorScore', amount: 1, feature: 'Double Duty' }],
+
+  /*
+   * SRD 2.0. Twenty rows for twelve printed features, added when the app
+   * switched books - `tests/engine/modifiers.test.ts`'s reverse scan named
+   * every one of them and refused to let the switch through until they were
+   * priced. Not one of them is a new SHAPE: every string here is a feature the
+   * book already prints on an SRD 1.0 weapon, on a record SRD 2.0 adds.
+   *
+   * The four-tier families are written out four times, the way the ones above
+   * are - see the note at the head of this map.
+   */
+  // Cumbersome: -1 to Finesse (primary)
+  lance: [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'firework-launcher': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  // Heavy: -1 to Evasion (primary)
+  'butchers-axe': [{ stat: 'evasion', amount: -1, feature: 'Heavy' }],
+  // Massive: -1 to Evasion; ... (primary)
+  sledgehammer: [{ stat: 'evasion', amount: -1, feature: 'Massive' }],
+  // Destructive: -1 to Agility; ... (primary)
+  'severed-dragon-claw': [{ stat: 'agility', amount: -1, feature: 'Destructive' }],
+  // Incendiary: -1 to Agility; ... (primary)
+  'black-powder-serpentine': [{ stat: 'agility', amount: -1, feature: 'Incendiary' }],
+  // Protective: +N to Armor Score (secondary). The four Rune Shields step 1-4
+  // the way the Round Shields above do; the other two are single-tier rows.
+  'enchanted-shillelagh': [{ stat: 'armorScore', amount: 1, feature: 'Protective' }],
+  'barrel-lid-shield': [{ stat: 'armorScore', amount: 1, feature: 'Protective' }],
+  'rune-shield': [{ stat: 'armorScore', amount: 1, feature: 'Protective' }],
+  'improved-rune-shield': [{ stat: 'armorScore', amount: 2, feature: 'Protective' }],
+  'advanced-rune-shield': [{ stat: 'armorScore', amount: 3, feature: 'Protective' }],
+  'legendary-rune-shield': [{ stat: 'armorScore', amount: 4, feature: 'Protective' }],
+  // Padded: +N to damage thresholds (secondary), stepping 2-5.
+  'fighting-cloak': [{ stat: 'thresholds', amount: 2, feature: 'Padded' }],
+  'improved-fighting-cloak': [{ stat: 'thresholds', amount: 3, feature: 'Padded' }],
+  'advanced-fighting-cloak': [{ stat: 'thresholds', amount: 4, feature: 'Padded' }],
+  'legendary-fighting-cloak': [{ stat: 'thresholds', amount: 5, feature: 'Padded' }],
+  /*
+   * Barrier: +2 to Armor Score; -1 to Evasion (secondary). Both halves, because
+   * a row that took only the bonus would hand the player two points of armour
+   * and quietly forget what they cost.
+   */
+  'table-shield': [
+    { stat: 'armorScore', amount: 2, feature: 'Barrier' },
+    { stat: 'evasion', amount: -1, feature: 'Barrier' },
+  ],
+  /*
+   * Double Duty: +1 to Armor Score; +1 to primary weapon damage within Melee
+   * range (secondary). The armour half is a number the sheet stores; the damage
+   * half is a per-attack modifier with a range condition on it, which this
+   * register has no stat for and `DualityRoll` does not read - the same reason
+   * `sledge-axe`'s "roll an additional damage die" is not here.
+   */
+  'segmented-staff': [{ stat: 'armorScore', amount: 1, feature: 'Double Duty' }],
 };
 
 /** Worn as `activeArmor`. */
@@ -230,6 +282,38 @@ const ARMOR_MODS: Record<Ref, Row[]> = {
     { stat: 'instinct', amount: -1, feature: 'Difficult' },
     { stat: 'presence', amount: -1, feature: 'Difficult' },
     { stat: 'knowledge', amount: -1, feature: 'Difficult' },
+  ],
+  /*
+   * SRD 2.0. Twelve rows for six printed features, on armour the switch
+   * brought in. Every shape here is already above: Cumbersome, Bulky, Heavy,
+   * Very Heavy, Flexible and Vigilant.
+   */
+  // Cumbersome: -1 to Finesse
+  'scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'improved-scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'advanced-scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'legendary-scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  /*
+   * Bulky: -1 to Evasion; when you take Severe damage, you must mark a Stress.
+   * The Evasion is the half the sheet stores. The Stress is a consequence of
+   * an event, not a number - `maxStress` is a maximum and this does not move
+   * it - so it is not a row, the way `bravesword`'s attack rider is not.
+   */
+  'banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  'improved-banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  'advanced-banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  'legendary-banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  // Heavy: -1 to Evasion
+  'tree-bark-armor': [{ stat: 'evasion', amount: -1, feature: 'Heavy' }],
+  // Flexible: +1 to Evasion
+  'quilted-clothing': [{ stat: 'evasion', amount: 1, feature: 'Flexible' }],
+  // Vigilant: +2 to Evasion - the first armour in either book that raises it
+  // by two.
+  'skywardens-lamellar': [{ stat: 'evasion', amount: 2, feature: 'Vigilant' }],
+  // Very Heavy: -2 to Evasion; -1 to Agility
+  'baking-tray-breastplate': [
+    { stat: 'evasion', amount: -2, feature: 'Very Heavy' },
+    { stat: 'agility', amount: -1, feature: 'Very Heavy' },
   ],
 };
 
@@ -283,6 +367,12 @@ const SUBCLASS_MODS: Record<Ref, SubclassRow[]> = {
     { card: 'specialization', stat: 'thresholds', amount: 2, feature: 'Unrelenting' },
     { card: 'mastery', stat: 'thresholds', amount: 3, feature: 'Undaunted' },
   ],
+  /*
+   * SRD 2.0's Brawler. "Rugged - Gain a permanent +3 bonus to your Severe
+   * damage threshold", on the Foundation card, which is the same sentence
+   * shape `winged-sentinel`'s Ascendant carries above.
+   */
+  juggernaut: [{ card: 'foundation', stat: 'severe', amount: 3, feature: 'Rugged' }],
 };
 
 /**

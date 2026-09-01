@@ -72,18 +72,32 @@ const rules = dataset.rules;
  */
 const PAGES: Readonly<Record<string, number>> = {
   'q-no-rule': 3,
-  'q-difficulty': 66,
-  'q-impossible': 64,
-  'q-npc-difficulty': 69,
-  'q-blank-consequence': 64,
-  'q-party-flees': 40,
-  'q-scene-stalled': 64,
-  'q-surrender': 72,
-  'q-death-move-refused': 42,
-  'q-chase': 69,
-  'q-safety': 63,
-  'q-session-ends': 112,
+  'q-difficulty': 88,
+  'q-impossible': 86,
+  'q-npc-difficulty': 91,
+  'q-blank-consequence': 86,
+  'q-party-flees': 51,
+  'q-scene-stalled': 86,
+  'q-surrender': 94,
+  'q-death-move-refused': 53,
+  'q-chase': 91,
+  'q-safety': 85,
+  'q-session-ends': 183,
 };
+
+/*
+ * The eleven that moved when SRD 2.0 became the shipped book, and what did NOT
+ * move with them.
+ *
+ * The SRD 1.0 numbers were 3 / 66 / 64 / 69 / 64 / 40 / 64 / 72 / 42 / 69 / 63
+ * / 112. `q-no-rule` is the only one still on its own folio. Everything else in
+ * this file - every `at.section`, every `at.heading`, and every one of the ten
+ * `at.part` indices - resolved unchanged: `HEADS` below is byte-identical
+ * across the two books, measured by running the resolution over both datasets
+ * rather than by re-pinning until green. A part index surviving a whole book
+ * being re-laid out is the property `at.part` was chosen for, and this is the
+ * first printing that has tested it.
+ */
 
 /**
  * The most characters a question may be.

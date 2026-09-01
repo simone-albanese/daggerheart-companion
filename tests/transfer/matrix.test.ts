@@ -52,12 +52,11 @@ import {
 } from '../../src/transfer/fileIo.ts';
 import {
   RESERVED_MIN,
-  bandFor,
   bandOf,
   isUnresolvedRef,
   unresolvedIdOf,
   unresolvedRef,
-  type Band,
+  type BandedCollection,
 } from '../../src/transfer/registry.ts';
 import { hasDataset, loadDataset, sampleMatrix, type Sample } from '../../tools/sampleCharacters.ts';
 import {
@@ -120,7 +119,7 @@ describe.skipIf(!hasDataset())('the transfer matrix', () => {
       const levels = new Set(chars.map((c) => c.level));
       const kinds = new Set(chars.flatMap((c) => c.levelUpHistory.map((h) => h.kind)));
 
-      expect(classes.size).toBe(9);
+      expect(classes.size).toBe(13);
       expect([...levels].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
       // Every advancement the rules offer is somewhere in the history, so the
       // level-up records are round-tripped in every shape the codec has a
@@ -557,37 +556,55 @@ describe.skipIf(!hasDataset())('the transfer matrix', () => {
 
   describe('the registry, over everything the matrix references', () => {
     it('has an id for every reference, and every id is in its own band', () => {
-      const bandOfKind = (kind: Parameters<typeof bandFor>[0]): Band => bandFor(kind);
-      const checks: Array<{ refs: Ref[]; band: Band; what: string }> = [];
+      /*
+       * A KIND, not a band, and the difference is the whole repair.
+       *
+       * This walked `bandFor(kind)` - the FIRST band that names a collection -
+       * and asserted the id fell inside it. `domainCards` has two: 5000-5999
+       * and the `domainCards+` continuation at 12000-13999, which holds the
+       * tenth domain onwards. SRD 1.0 opened nine domains, so no card had ever
+       * landed in the second one and the check could not tell the difference.
+       * SRD 2.0 opens ten: `blighting-strike` holds 12102, and this test read
+       * that as "outside the domainCards band" rather than as what it is.
+       *
+       * The property is "the band this id sits in is a band for this kind", so
+       * that is what is asked now. It is not looser: an id in the wrong band,
+       * or in no band at all, still fails.
+       */
+      const checks: Array<{ refs: Ref[]; collection: BandedCollection; what: string }> = [];
 
       for (const { label, character: c } of MATRIX) {
-        const add = (refs: Array<Ref | null>, band: Band, what: string): void => {
+        const add = (refs: Array<Ref | null>, collection: BandedCollection, what: string): void => {
           checks.push({
             refs: refs.filter((r): r is Ref => typeof r === 'string' && r !== ''),
-            band,
+            collection,
             what: `${label}: ${what}`,
           });
         };
-        add([c.classRef, c.multiclassRef], bandOfKind('classes'), 'class');
-        add(c.subclassRefs, bandOfKind('subclasses'), 'subclass');
-        add(c.ancestryRefs, bandOfKind('ancestries'), 'ancestry');
-        add([c.communityRef], bandOfKind('communities'), 'community');
-        add([...c.loadout, ...c.vault], bandOfKind('domainCards'), 'domain card');
-        add([c.activePrimaryWeapon, c.activeSecondaryWeapon], bandOfKind('weapons'), 'weapon');
-        add([c.activeArmor], bandOfKind('armors'), 'armor');
-        add(c.inventory.map((e) => e.ref), bandOfKind('loot'), 'inventory');
-        add([c.beastform?.ref ?? null], bandOfKind('beastforms'), 'beastform');
+        add([c.classRef, c.multiclassRef], 'classes', 'class');
+        add(c.subclassRefs, 'subclasses', 'subclass');
+        add(c.ancestryRefs, 'ancestries', 'ancestry');
+        add([c.communityRef], 'communities', 'community');
+        add([...c.loadout, ...c.vault], 'domainCards', 'domain card');
+        add([c.activePrimaryWeapon, c.activeSecondaryWeapon], 'weapons', 'weapon');
+        add([c.activeArmor], 'armors', 'armor');
+        add(c.inventory.map((e) => e.ref), 'loot', 'inventory');
+        add([c.beastform?.ref ?? null], 'beastforms', 'beastform');
       }
 
       let counted = 0;
-      for (const { refs, band, what } of checks) {
+      for (const { refs, collection, what } of checks) {
         for (const ref of refs) {
           if (isUnresolvedRef(ref)) continue; // checked below: those are ids, not slugs
           counted += 1;
           const id = testRegistry.idOf(ref);
           expect(id, `${what} "${ref}" has no id in data/registry.json`).not.toBeNull();
-          expect(id!, `${what} "${ref}" holds ${id}, outside the ${band.name} band`).toBeGreaterThanOrEqual(band.min);
-          expect(id!, `${what} "${ref}" holds ${id}, outside the ${band.name} band`).toBeLessThanOrEqual(band.max);
+          const band = bandOf(id!);
+          expect(band, `${what} "${ref}" holds ${id}, which is in no band at all`).not.toBeNull();
+          expect(
+            band!.collections,
+            `${what} "${ref}" holds ${id}, in the ${band?.name ?? '?'} band, which is not for ${collection}`,
+          ).toContain(collection);
           expect(id!, `${what} "${ref}" is at or above the reserved ${RESERVED_MIN}`).toBeLessThan(
             RESERVED_MIN,
           );

@@ -25,7 +25,7 @@
  * ends of a two-item pool are proved reachable over 400 seeds.
  */
 import { describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Armor, Dataset, Tier, Weapon } from '@shared/types.ts';
 import { seededRng } from '../../src/engine/dice.ts';
 import { ofTiers, randomGear, tiersIn, type Tiered } from '../../src/engine/randomGear.ts';
@@ -51,16 +51,16 @@ describe('the premise: which gear the SRD gives a tier', () => {
    * feature, which is the only way this particular premise can rot.
    */
   it('gives every weapon and every set of armor one, and no loot or consumable any', () => {
-    expect(weapons.length, 'weapons in the shipped dataset').toBe(204);
-    expect(tiered(weapons), 'weapons carrying a tier').toBe(204);
+    expect(weapons.length, 'weapons in the shipped dataset').toBe(391);
+    expect(tiered(weapons), 'weapons carrying a tier').toBe(391);
 
-    expect(armors.length, 'sets of armor in the shipped dataset').toBe(34);
-    expect(tiered(armors), 'sets of armor carrying a tier').toBe(34);
+    expect(armors.length, 'sets of armor in the shipped dataset').toBe(85);
+    expect(tiered(armors), 'sets of armor carrying a tier').toBe(85);
 
-    expect(dataset.loot.length, 'loot entries in the shipped dataset').toBe(60);
+    expect(dataset.loot.length, 'loot entries in the shipped dataset').toBe(120);
     expect(tiered(dataset.loot), 'loot entries carrying a tier').toBe(0);
 
-    expect(dataset.consumables.length, 'consumables in the shipped dataset').toBe(60);
+    expect(dataset.consumables.length, 'consumables in the shipped dataset').toBe(120);
     expect(tiered(dataset.consumables), 'consumables carrying a tier').toBe(0);
   });
 });
@@ -153,13 +153,13 @@ describe('randomGear', () => {
   });
 
   it('spreads over the items and not over the tiers', () => {
-    // The distribution the docblock argues for. With TIER 1 (4 sets) and TIER
-    // 4 (10 sets) both lit, a uniform draw over the 14 items gives each tier-1
-    // set 1/14 = 7.1% and the tier-1 group 4/14 = 28.6%. Rolling the tier
+    // The distribution the docblock argues for. With TIER 1 (15 sets) and TIER
+    // 4 (23 sets) both lit, a uniform draw over the 38 items gives each tier-1
+    // set 1/38 = 2.6% and the tier-1 group 15/38 = 39.5%. Rolling the tier
     // first would give the group 50%, which is what this kills.
     const want = new Set<Tier>([1, 4]);
     const pool = ofTiers(armors, want);
-    expect(pool.length, 'the two tiers together').toBe(14);
+    expect(pool.length, 'the two tiers together').toBe(38);
 
     let low = 0;
     const N = 4_000;
@@ -167,8 +167,8 @@ describe('randomGear', () => {
     for (let i = 0; i < N; i++) {
       if (randomGear(armors, want, rng)?.tier === 1) low += 1;
     }
-    // 4/14 = 0.2857; five standard errors at this N is 0.0357. A tier-first
-    // draw would sit at 0.5, fourteen sigma away.
-    expect(Math.abs(low / N - 4 / 14), 'the tier-1 share').toBeLessThan(0.036);
+    // 15/38 = 0.3947; five standard errors at this N is 0.0387. A tier-first
+    // draw would sit at 0.5, thirteen sigma away.
+    expect(Math.abs(low / N - 15 / 38), 'the tier-1 share').toBeLessThan(0.039);
   });
 });

@@ -36,23 +36,45 @@ export interface Book {
   /** Searched in order. The first path that exists wins. */
   localPaths: readonly string[];
   /**
-   * The committed dataset this book is the source of, or `null` for a book the
-   * app does not ship.
+   * The committed dataset this book is the source of, or `null` for a book that
+   * has no committed dataset at all.
    *
    * It is a property of the BOOK because it was a constant in
    * `tools/build-srd.ts` - `const OUT = 'data/srd-1.0.json'` - which `--pdf`
    * did not touch. Once the parsers learned to read SRD 2.0, running the build
    * against it would have written SRD 2.0's dataset over SRD 1.0's file: the
    * very artifact whose byte-identity is the only proof that reading a second
-   * book changed nothing about the first. The footgun was harmless only while
-   * the SRD 2.0 run still threw in `equipment.ts`, which is to say it was armed
-   * by this wave succeeding.
+   * book changed nothing about the first.
    *
-   * `null` is not "write it somewhere else". `data/srd-1.0.json` is a static
-   * import in `src/store/dataset.ts` and in ~20 test files, so which revision
-   * the app ships is a decision with a diff, not a side effect of a build flag.
+   * ## Why BOTH books have one now, and why that is not the old footgun
+   *
+   * The footgun was one path for two books. It is gone because each book names
+   * its OWN file: `--pdf <SRD 2>` writes `data/srd-2.0.json` and can no longer
+   * reach `data/srd-1.0.json`, whatever order the flags are in.
+   *
+   * The field used to carry a second meaning - "the revision the app ships" -
+   * and the two came apart the moment SRD 2.0 became the shipped one. Nulling
+   * SRD 1.0 here to say "not shipped" would have taken its dataset out of the
+   * only gate that can check it: MEASURED, with SRD 1.0 nulled,
+   * `npm run build:srd -- --check --pdf Manuali/Daggerheart-SRD-9-09-25.pdf`
+   * prints "srd-1.0-2025-09-09 is not the committed revision, so there is
+   * nothing to compare against" and exits 0 without reading a byte of
+   * `data/srd-1.0.json`. That file is the only evidence the 1.0 parse still
+   * works, and an unverifiable artifact is not evidence. So `shipped` below
+   * carries the other half, and this one keeps meaning exactly what it says.
    */
   datasetPath: string | null;
+  /**
+   * The revision the APP ships: the dataset `src/store/dataset.ts` imports and
+   * every screen draws. Exactly one book carries it - `SRD` below throws if
+   * that stops being true, because "which book is this app" cannot have two
+   * answers or none.
+   *
+   * Separate from `datasetPath` because a book can have a committed dataset and
+   * not be shipped, which is precisely SRD 1.0's state after the switch: built,
+   * committed, checked by CI, drawn by nothing.
+   */
+  shipped: boolean;
 }
 
 /**
@@ -80,19 +102,40 @@ export const BOOKS: readonly Book[] = [
     sourceDate: '2025-09-09T00:00:00.000Z',
     url: 'https://www.daggerheart.com/wp-content/uploads/2025/09/Daggerheart-SRD-9-09-25.pdf',
     localPaths: ['Manuali/Daggerheart-SRD-9-09-25.pdf', 'tools/.cache/Daggerheart-SRD-9-09-25.pdf'],
+    /*
+     * Still built, still committed, still checked - and no longer drawn.
+     *
+     * `data/srd-1.0.json` stays in the tree because it is the only artifact
+     * that can fail when the 1.0 parse breaks. Twelve parsers now read two
+     * books each off one set of range-finding rules; a change made for 2.0 that
+     * quietly mangles 1.0 has nothing else to trip over. Keeping the FILE
+     * without keeping the `datasetPath` would have kept a fossil instead of a
+     * gate - see the field's docblock.
+     *
+     * It is not dead weight the app carries: `src/store/dataset.ts` imports
+     * `data/srd-2.0.json` and nothing imports this one outside `tools/` and
+     * `tests/`, so it is not in the bundle. Measured, not assumed - see the
+     * bundle figures in `tests/tools/switch.test.ts`.
+     */
     datasetPath: 'data/srd-1.0.json',
+    shipped: false,
   },
   {
     /*
-     * SRD 2.0. Known, read end to end, and NOT the shipped dataset.
+     * SRD 2.0. Known, read end to end, and THE SHIPPED DATASET.
      *
      * The sentence that stood here said "pointing the build here today
      * produces wrong output, not an error", because the parsers were keyed to
      * the 1.0 geometry - 67 spreads of 1224x792 against this book's 224 single
      * 612x792 pages. That is no longer true: every parser now takes its range
      * from the book's own contents page or from a banner the page prints, and
-     * this revision parses to 14 populated collections. What keeps it out of
-     * `data/` is `datasetPath: null` and the reason above it.
+     * this revision parses to 15 populated collections.
+     *
+     * The sentence after it said what kept the book out of `data/`:
+     * `datasetPath: null`, "a decision with a diff, not a flag". This is that
+     * diff. `data/srd-2.0.json` is named for the book it holds, because a file
+     * called `srd-1.0.json` carrying 2.0 content is the class of lie three
+     * waves have been spent removing.
      *
      * `sourceDate` is the date the file is published under, which is how the
      * revision is identified; the PDF's own CreationDate is 2026-08-21. They
@@ -105,12 +148,38 @@ export const BOOKS: readonly Book[] = [
     sourceDate: '2026-08-25T00:00:00.000Z',
     url: null,
     localPaths: ['Manuali/DH_SRD_2_2026_08_25.pdf', 'tools/.cache/DH_SRD_2_2026_08_25.pdf'],
-    datasetPath: null,
+    datasetPath: 'data/srd-2.0.json',
+    shipped: true,
   },
 ];
 
-/** The revision the committed dataset is built from. */
-export const SRD: Book = BOOKS[0]!;
+/**
+ * The revision the app ships, found by asking the books rather than by index.
+ *
+ * `BOOKS[0]!` used to be the whole of it, which made "which book is shipped"
+ * a property of ARRAY ORDER: adding a revision at the top, or reordering the
+ * list into publication order, would have moved the shipped dataset with no
+ * line of the change saying so. The throws are not defensive noise - each is a
+ * state this file can reach by editing one word of `BOOKS`.
+ */
+export const SRD: Book & { datasetPath: string } = (() => {
+  const shipped = BOOKS.filter((b) => b.shipped);
+  if (shipped.length !== 1) {
+    throw new Error(
+      `Exactly one book in BOOKS must be \`shipped\`; ${String(shipped.length)} are. ` +
+        `See tools/loadSrd.ts.`,
+    );
+  }
+  const book = shipped[0]!;
+  const { datasetPath } = book;
+  if (datasetPath === null) {
+    throw new Error(
+      `${book.revision} is marked shipped and has no datasetPath. ` +
+        `The app imports a committed dataset; a shipped book must have one.`,
+    );
+  }
+  return { ...book, datasetPath };
+})();
 
 export const bookBySha = (sha256: string): Book | undefined =>
   BOOKS.find((b) => b.sha256 === sha256);
@@ -158,7 +227,7 @@ export interface LoadedSrd {
   /** How the dataset should name this source on screen. */
   label: string;
   sourceDate: string;
-  /** The book's `datasetPath`; `null` for a revision the app does not ship. */
+  /** The book's `datasetPath`; `null` for a book with no committed dataset. */
   datasetPath: string | null;
   raw: RawPage[];
   pages: BookPage[];

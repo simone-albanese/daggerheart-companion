@@ -38,16 +38,31 @@ jobs:
       # something that looks like a parser bug.
       #
       # This probe runs FIRST because the poppler install below is gated on it.
-      # It only tests for two files, so it needs neither `npm ci` nor poppler.
-      - name: Look for the SRD PDF
+      # It only tests for files, so it needs neither `npm ci` nor poppler.
+      #
+      # BOTH books, and the shipped one first. This looked for
+      # `Daggerheart-SRD-9-09-25.pdf` alone, which was SRD 1.0's filename and
+      # the shipped revision's; after the switch that name gates re-extraction
+      # on a book the app no longer draws, so a runner given ONLY the SRD 2.0
+      # PDF would have skipped the one check that can prove the shipped dataset
+      # still comes out of its source. `two` and `one` are reported separately
+      # because the re-extraction step below runs a different command for each.
+      - name: Look for the SRD PDFs
         id: srd
         run: |
+          if [ -f "Manuali/DH_SRD_2_2026_08_25.pdf" ] \
+            || [ -f "tools/.cache/DH_SRD_2_2026_08_25.pdf" ]; then
+            echo "two=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "two=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SRD 2.0 PDF absent::Re-extraction of the shipped dataset is skipped. The app builds against the committed data/srd-2.0.json; parser tests that need the PDF skip themselves."
+          fi
           if [ -f "Manuali/Daggerheart-SRD-9-09-25.pdf" ] \
             || [ -f "tools/.cache/Daggerheart-SRD-9-09-25.pdf" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "one=true" >> "$GITHUB_OUTPUT"
           else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=SRD PDF absent::Re-extraction is skipped. The app builds against the committed data/srd-1.0.json; parser tests that need the PDF skip themselves."
+            echo "one=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SRD 1.0 PDF absent::The 1.0 parse is not re-checked. data/srd-1.0.json is still committed and still the only thing that can fail when that parse breaks."
           fi
 
       # pdftotext and pdftohtml, for tools/loadSrd.ts. This used to run
@@ -60,7 +75,7 @@ jobs:
       # unconditional apt hung twice in a row and blocked the only workflow that
       # typechecks.
       - name: Install poppler-utils
-        if: steps.srd.outputs.present == 'true'
+        if: steps.srd.outputs.two == 'true' || steps.srd.outputs.one == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends poppler-utils
@@ -70,10 +85,21 @@ jobs:
 
       # That JSON, unlike the PDF, is a committed build artifact: without it the
       # app has no rules at all, and tsc would only say "cannot find module".
-      - name: Check the committed dataset
+      #
+      # BOTH files. `data/srd-2.0.json` is what `src/store/dataset.ts` imports;
+      # `data/srd-1.0.json` is no longer imported by the app and is still
+      # committed, because it is the only artifact that can fail when the 1.0
+      # parse breaks and twelve parsers now read two books off one set of
+      # range-finding rules. A missing 1.0 file would take that gate away
+      # silently, so it is an error here too.
+      - name: Check the committed datasets
         run: |
+          if [ ! -f "data/srd-2.0.json" ]; then
+            echo "::error title=Missing dataset::data/srd-2.0.json is the dataset the app ships and it is absent. Regenerate it with 'npm run build:srd' (needs the SRD 2.0 PDF) and commit the result."
+            exit 1
+          fi
           if [ ! -f "data/srd-1.0.json" ]; then
-            echo "::error title=Missing dataset::data/srd-1.0.json is a committed build artifact and it is absent. Regenerate it with 'npm run build:srd' (needs the SRD PDF) and commit the result."
+            echo "::error title=Missing dataset::data/srd-1.0.json is not shipped any more, and it is still a committed build artifact: it is what proves the SRD 1.0 parse still works. Regenerate it with 'npm run build:srd -- --pdf Manuali/Daggerheart-SRD-9-09-25.pdf' and commit the result."
             exit 1
           fi
 
@@ -115,6 +141,15 @@ jobs:
       #
       # Installing a linter is a decision, and it is the owner's. Do not add one
       # in order to close this comment.
+      # NEEDS NO PDF, so unlike the two re-extraction steps at the foot of this
+      # file it actually runs on every push. It reads the committed dataset and
+      # the committed registry and fails if the registry would change - which
+      # is what stops `data/registry.json` drifting behind a dataset rebuild,
+      # and what would have caught the switch shipping 771 ids for a book with
+      # 1352 slugs in it.
+      - name: Check the committed id registry
+        run: npm run build:registry -- --check
+
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -140,11 +175,24 @@ jobs:
       # Only reachable on a runner that has been given the PDF. It proves the
       # parsers still produce exactly the dataset that is committed, which is
       # the one thing a stock runner cannot check.
-      - name: Re-extract the SRD and diff it against the committed dataset
-        if: steps.srd.outputs.present == 'true'
+      - name: Re-extract the shipped SRD and diff it against the committed dataset
+        if: steps.srd.outputs.two == 'true'
         run: |
           npm run build:srd
           git diff --exit-code -- data/ || {
-            echo "::error title=Dataset out of date::The parsers no longer produce the committed data/srd-1.0.json. Run 'npm run build:srd' and commit the result."
+            echo "::error title=Dataset out of date::The parsers no longer produce the committed data/srd-2.0.json. Run 'npm run build:srd' and commit the result."
+            exit 1
+          }
+
+      # The other half, and it is the reason `data/srd-1.0.json` is still in
+      # the tree. Every parser reads both books off one set of range-finding
+      # rules, so a change made for 2.0 that quietly mangles 1.0 has nothing
+      # else to trip over.
+      - name: Re-extract SRD 1.0 and diff it against its committed dataset
+        if: steps.srd.outputs.one == 'true'
+        run: |
+          npm run build:srd -- --pdf Manuali/Daggerheart-SRD-9-09-25.pdf
+          git diff --exit-code -- data/ || {
+            echo "::error title=SRD 1.0 parse changed::The parsers no longer produce the committed data/srd-1.0.json. That file is not shipped, and it is the only thing that can catch a 2.0 change breaking the 1.0 read."
             exit 1
           }

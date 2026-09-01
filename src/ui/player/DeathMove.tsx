@@ -67,6 +67,7 @@ import { MAX_NAMED, useConditions, useConditionsFor } from './conditionsStore.ts
 // became a fourth surface that has to ask the same question.
 import { rollAffordance, type RollAffordance } from '../shared/rollAffordance.ts';
 import { paragraphs, ruleBullets } from '../shared/ruleText.ts';
+import { srdStamp } from '../../store/dataset.ts';
 
 const ORDER: DeathMoveId[] = ['blaze', 'avoid', 'risk'];
 
@@ -270,7 +271,7 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
         <div className="spread" style={{ flex: 'none', alignItems: 'center', padding: '16px 18px 12px' }}>
           <span className="t-vital">Death Move</span>
           <span className="t-meta" style={{ color: 'var(--dim)', flex: 'none' }}>
-            SRD 1.0{rules.page === null ? '' : ` · P.${rules.page}`}
+            {srdStamp(rules.page)}
           </span>
         </div>
 

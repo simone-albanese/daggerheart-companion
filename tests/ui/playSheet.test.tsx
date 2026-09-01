@@ -347,8 +347,11 @@ describe('what a phone shows of the character sheet', () => {
     expect(body, 'the pronouns are on the Play screen nowhere at all').toContain(
       c.pronouns.toUpperCase(),
     );
-    expect(body).toContain(dataset.classes[0]!.name);
-    expect(body).toContain(dataset.subclasses.find((s) => s.classRef === dataset.classes[0]!.id)!.name);
+    // Asked of the CHARACTER rather than of `dataset.classes[0]`, which is not
+    // the fixture's class any more - see `tests/ui/fixture.ts`.
+    const klass = dataset.classes.find((k) => k.id === c.classRef)!;
+    expect(body).toContain(klass.name);
+    expect(body).toContain(dataset.subclasses.find((s) => s.id === c.subclassRefs[0])!.name);
   });
 
   it('carries the ancestry, the community and the domains, one fold away', () => {
@@ -4352,7 +4355,17 @@ describe('the spell, and the +0 that rolls nothing', () => {
      * is not currently visible.
      */
     openEquipped();
-    expect(text()).not.toContain('Spellcast');
+    /*
+     * The PANEL, not the word. This read `expect(text()).not.toContain(
+     * 'Spellcast')`, which was true on SRD 1.0 and stopped being true at the
+     * switch for a reason that has nothing to do with this character: the
+     * fixture's tier-1 armor moved from Gambeson Armor to Mage Robes, whose
+     * printed feature is "Gain a bonus to your damage thresholds equal to your
+     * Spellcast trait". The word is on the sheet because the BOOK put it on
+     * the armor. What must not be on the sheet is the panel, so that is what
+     * is asked - through the same query the rest of this describe uses.
+     */
+    expect(() => panel()).toThrow(/no Spellcast panel/);
     expect(dieChips()).toHaveLength(0);
   });
 });

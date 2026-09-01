@@ -64,11 +64,11 @@ function everyFeature(ds: Dataset): Feature[] {
 }
 
 describe('what the version number is stamped on', () => {
-  it('is six, and the chain leaves exactly the version below it', () => {
+  it('is seven, and the chain leaves exactly the version below it', () => {
     // The literal, not the constant, on both sides: `toBe(SCHEMA_VERSION)`
     // would agree with itself whatever the constant said.
-    expect(SCHEMA_VERSION).toBe(6);
-    expect(MIGRATIONS.map((m) => m.from)).toEqual([3, 4, 5]);
+    expect(SCHEMA_VERSION).toBe(7);
+    expect(MIGRATIONS.map((m) => m.from)).toEqual([3, 4, 5, 6]);
   });
 
   it('stamps the shipped dataset with the schema this build is', () => {
@@ -82,12 +82,25 @@ describe('what the version number is stamped on', () => {
 });
 
 describe('the collection the bump adds', () => {
-  it('is present in the shipped dataset, and empty, because SRD 1.0 has no such chapter', () => {
-    // `toEqual([])` and not `.toBeDefined()`: an absent key and an empty array
-    // are different facts, and the structural diff of this rebuild names the
-    // added key by exactly this value.
-    expect(baseDataset.transformations).toEqual([]);
+  it('is present in the shipped dataset, and holds the six the book prints', () => {
+    /*
+     * This asserted `toEqual([])` while the app shipped SRD 1.0, which prints
+     * no Transformations chapter - and the point of the empty array over
+     * `.toBeDefined()` was that an absent key and an empty array are different
+     * facts. Both halves survive the switch: the key is still asked for
+     * separately, and the value is now the six cards SRD 2.0 prints on folios
+     * 43-45. The empty case has not been lost - `tests/tools/transformations.test.ts`
+     * still asserts it against SRD 1.0's own pages.
+     */
     expect(Object.keys(baseDataset)).toContain('transformations');
+    expect(baseDataset.transformations.map((t) => t.id).sort()).toEqual([
+      'demigod',
+      'ghost',
+      'reanimated',
+      'shapeshifter',
+      'vampire',
+      'werewolf',
+    ]);
   });
 
   it('holds the shape SRD 2.0 folios 43-45 print', () => {
@@ -132,20 +145,25 @@ describe('the four things the contract could not say', () => {
    * neither existed.
    */
   it('finds every spelling in the shipped dataset inside the widened union', () => {
-    const admitted = new Set<string>(['phy', 'mag', 'phy or mag', 'phy/mag']);
+    const admitted = new Set<string>(['phy', 'mag', 'phy or mag', 'phy/mag', 'direct phy', 'direct mag']);
     const weapons = new Set(baseDataset.weapons.map((w) => w.damageType as string));
     const attacks = new Set(baseDataset.adversaries.map((a) => a.attack.damageType as string));
-    expect([...weapons].sort()).toEqual(['mag', 'phy', 'phy or mag']);
+    // `phy or mag` was SRD 1.0's spelling, on the Ghostblade; SRD 2.0 writes
+    // `phy/mag` on the four Shadowblades. Both are in the union, which is what
+    // the widening was for.
+    expect([...weapons].sort()).toEqual(['mag', 'phy', 'phy/mag']);
     // `direct phy` / `direct mag` are `AdversaryAttack`'s own members and
     // neither is in SRD 1.0; this asserts the census rather than the type.
-    expect([...attacks].sort()).toEqual(['mag', 'phy', 'phy/mag']);
+    // `direct phy` arrives with SRD 2.0: it was in `AdversaryAttack`'s union
+    // and in no record of SRD 1.0, and the shipped book now prints it.
+    expect([...attacks].sort()).toEqual(['direct phy', 'mag', 'phy', 'phy/mag']);
     for (const t of [...weapons, ...attacks]) expect(admitted.has(t), t).toBe(true);
 
-    const ghostblade = baseDataset.weapons.find((w) => w.id === 'ghostblade');
-    expect(ghostblade?.damageType).toBe('phy or mag');
+    const shadowblade = baseDataset.weapons.find((w) => w.id === 'shadowblade');
+    expect(shadowblade?.damageType).toBe('phy/mag');
     const spellblade = baseDataset.adversaries.find((a) => a.id === 'spellblade');
     expect(spellblade?.attack.damageType).toBe('phy/mag');
-    expect(spellblade?.sourcePage).toBe(82);
+    expect(spellblade?.sourcePage).toBe(110);
   });
 
   it('admits Evolution as a feature kind, and lets a feature carry the features it grants', () => {
@@ -180,15 +198,44 @@ describe('what SRD 1.0 does with the new room: nothing', () => {
    * using the space the bump opened. A parser that began emitting `stress:
    * null` or a nested feature for SRD 1.0 would be a real regression that the
    * diff of one rebuild would show and a later one would not.
+   *
+   * Asked of `data/srd-1.0.json` rather than of `baseDataset`, because the
+   * bundle is SRD 2.0 now and SRD 2.0 uses every one of these: Evolution
+   * features, nested features, adversaries with no Stress track, and module
+   * gear. The claim being kept is about the OLD book, so it has to be asked of
+   * the old book - which is one of the two reasons that file is still
+   * committed. The second `it` below is the new half: the shipped book fills
+   * the room, so the bump was not decoration.
    */
+  const one = JSON.parse(readFileSync(fileURLToPath(new URL('../../data/srd-1.0.json', import.meta.url)), 'utf8')) as Dataset;
+
   it('uses no Evolution, no nesting, no absent Stress track and no module', () => {
-    const features = everyFeature(baseDataset);
+    const features = everyFeature(one);
     expect(features.length).toBeGreaterThan(400);
     expect(features.filter((f) => f.kind === 'Evolution')).toEqual([]);
     expect(features.filter((f) => f.features !== undefined)).toEqual([]);
+    expect(one.adversaries.filter((a) => a.stress === null)).toEqual([]);
+    expect([...one.weapons, ...one.armors].filter((g) => g.module !== undefined)).toEqual([]);
+  });
+
+  it('and SRD 2.0 uses two of the four, which is a census and not a prediction', () => {
+    /*
+     * MEASURED, and it refutes the obvious guess. The bump opened four doors
+     * and the shipped book walks through exactly two: six `Evolution` features
+     * and 92 pieces of module gear. Nothing nests - `features.features` is
+     * undefined on all 1205 of them - and no adversary has a null Stress
+     * track. The room was still worth making (the type had to admit what the
+     * parsers now emit), but "SRD 2.0 uses all four" would have been a
+     * sentence written from the shape of the change rather than from the file.
+     */
+    const features = everyFeature(baseDataset);
+    expect(features).toHaveLength(1374);
+    expect(features.filter((f) => f.kind === 'Evolution')).toHaveLength(6);
+    expect(features.filter((f) => f.features !== undefined)).toEqual([]);
     expect(baseDataset.adversaries.filter((a) => a.stress === null)).toEqual([]);
-    expect([...baseDataset.weapons, ...baseDataset.armors].filter((g) => g.module !== undefined))
-      .toEqual([]);
+    expect(
+      [...baseDataset.weapons, ...baseDataset.armors].filter((g) => g.module !== undefined),
+    ).toHaveLength(92);
   });
 });
 
@@ -198,11 +245,19 @@ describe('the 5 -> 6 converter', () => {
     const after = migrateCharacterRecord(before);
 
     expect(after.from).toBe(5);
+    // Two notes, not one: `migrateCharacterRecord` walks to the CURRENT schema,
+    // which is 7, so the 6 -> 7 step runs behind this one. Asserting the whole
+    // list rather than the first entry is what keeps the step this describe
+    // block is about identifiable after later bumps.
     expect(after.applied).toEqual([
       'the dataset grew a transformations collection and four widened fields; no schema-5 character field changed',
+      'a character can hold one transformation card, starting with none',
     ]);
-    // Every field, not a spot check: the whole record apart from the stamp.
-    expect({ ...after.record, schemaVersion: 5 }).toEqual(before);
+    // Every field the 5 -> 6 step could have touched, and it touched none: the
+    // whole record apart from the stamp and the one key the 6 -> 7 step adds.
+    const { transformationRef, ...rest } = after.record;
+    expect(transformationRef, 'seeded by the 6 -> 7 step, not by this one').toBeNull();
+    expect({ ...rest, schemaVersion: 5 }).toEqual(before);
     expect(after.record['schemaVersion']).toBe(SCHEMA_VERSION);
   });
 

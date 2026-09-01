@@ -256,6 +256,7 @@ import { useApp } from '../../store/state.ts';
 import { Fold } from '../shared/Fold.tsx';
 import { RuleTableView } from '../shared/RuleTableView.tsx';
 import { ruleSection, type BlockPart } from '../shared/srdReference.ts';
+import { srdStamp } from '../../store/dataset.ts';
 
 /**
  * How much is on the counter, and where the two numbers come from.
@@ -407,7 +408,7 @@ export function Merchant({
                 WHAT THINGS COST
               </span>
               <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-                SRD 1.0{costs.page === null ? '' : ` · P.${String(costs.page)}`}
+                {srdStamp(costs.page)}
               </span>
             </div>
             {costTables.map((table, i) => (
@@ -440,7 +441,7 @@ export function Merchant({
                 {gold.title.toUpperCase()}
               </span>
               <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-                SRD 1.0{gold.page === null ? '' : ` · P.${String(gold.page)}`}
+                {srdStamp(gold.page)}
               </span>
             </div>
             <p className="t-read" style={{ margin: 0, maxWidth: '62ch' }}>

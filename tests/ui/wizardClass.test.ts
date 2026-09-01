@@ -66,7 +66,7 @@ describe('the nine class cards', () => {
     // is pressed. Every class in the shipped SRD carries a page.
     for (const c of classes) {
       expect(c.sourcePage).toBeTypeOf('number');
-      expect(opening).toContain(`SRD 1.0 · P.${String(c.sourcePage)}`);
+      expect(opening).toContain(`SRD 2.0 · P.${String(c.sourcePage)}`);
     }
   });
 

@@ -67,6 +67,7 @@ import {
 import { BlockView, type BlockTarget } from '../shared/BlockView.tsx';
 import { RuleTableView } from '../shared/RuleTableView.tsx';
 import { useGm } from './gmStore.ts';
+import { srdStamp } from '../../store/dataset.ts';
 
 /**
  * What to give a creature you are inventing, and the room it is standing in.
@@ -201,7 +202,7 @@ function BenchmarkGrid({
           {table.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{table.page === null ? '' : ` · P.${String(table.page)}`}
+          {srdStamp(table.page)}
         </span>
       </div>
       <div
@@ -335,7 +336,7 @@ export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.El
           {fear.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{fear.page === null ? '' : ` · P.${String(fear.page)}`}
+          {srdStamp(fear.page)}
         </span>
       </div>
 
@@ -514,7 +515,7 @@ export function CountdownChart({ countdown }: { countdown: Countdown | null }): 
           {chart.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{chart.page === null ? '' : ` · P.${String(chart.page)}`}
+          {srdStamp(chart.page)}
         </span>
       </div>
       {chart.lead !== '' && (
@@ -656,7 +657,7 @@ export function RangeReference(): React.JSX.Element {
           {ranges.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{ranges.page === null ? '' : ` · P.${String(ranges.page)}`}
+          {srdStamp(ranges.page)}
         </span>
       </div>
 
@@ -809,7 +810,7 @@ export function DifficultyLadder(): React.JSX.Element {
           {guide.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{guide.page === null ? '' : ` · P.${String(guide.page)}`}
+          {srdStamp(guide.page)}
         </span>
       </div>
 
@@ -961,7 +962,7 @@ export function GmMoves(): React.JSX.Element {
         <Fold
           key={section.id}
           label={section.title}
-          summary={`SRD 1.0${section.page === null ? '' : ` · P.${String(section.page)}`}`}
+          summary={srdStamp(section.page)}
         >
           {section.blocks.map((block, i) => (
             <BlockView key={`${block.heading ?? ''}-${String(i)}`} block={block} />
@@ -1015,7 +1016,7 @@ export function AdversaryExperiences(): React.JSX.Element {
           {examples.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{examples.page === null ? '' : ` · P.${String(examples.page)}`}
+          {srdStamp(examples.page)}
         </span>
       </div>
       {examples.lead !== null && <BlockView block={examples.lead} />}
@@ -1099,7 +1100,7 @@ export function GoldAndLoot(): React.JSX.Element {
           {section.title}
         </span>
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-          SRD 1.0{section.page === null ? '' : ` · P.${String(section.page)}`}
+          {srdStamp(section.page)}
         </span>
       </div>
       {section.blocks.map((block, i) => (

@@ -35,7 +35,7 @@ const EMPTY: RegistryFile = { version: REGISTRY_VERSION, ids: {} };
 const idOf = (file: RegistryFile, collection: string, slug: string): number | undefined =>
   file.ids[registryKey(collection, slug)];
 const REPO = new URL('../../', import.meta.url);
-const SRD_PATH = fileURLToPath(new URL('data/srd-1.0.json', REPO));
+const SRD_PATH = fileURLToPath(new URL('data/srd-2.0.json', REPO));
 const REGISTRY_PATH = fileURLToPath(new URL('data/registry.json', REPO));
 
 describe('bands', () => {
@@ -357,17 +357,37 @@ describe('the committed data/registry.json', () => {
         Array<{ id: string }> | undefined
       >;
       const committed = JSON.parse(readFileSync(REGISTRY_PATH, 'utf8')) as RegistryFile;
+      /*
+       * "A band for this kind", not "the first band naming this kind".
+       * `bandFor('domainCards')` answers 5000-5999 and there is a second one,
+       * `domainCards+` at 12000-13999, for the tenth domain onwards. SRD 2.0
+       * opens ten domains, so `domainCards/blighting-strike` holds 12102 - a
+       * correct id that the old form of this check called out of band.
+       */
+      let checked = 0;
+      const continuation: string[] = [];
       for (const collection of BANDED_COLLECTIONS) {
-        const band = bandFor(collection);
         for (const entity of source[collection] ?? []) {
           const id = committed.ids[registryKey(collection, entity.id)];
           expect(id, `${collection}/${entity.id} has no id`).toBeDefined();
+          const band = bandOf(id!);
+          expect(band, `${collection}/${entity.id} holds ${id}, which is in no band at all`).not.toBeNull();
           expect(
-            id! >= band.min && id! <= band.max,
-            `${collection}/${entity.id} holds ${id}, outside the ${band.name} band`,
-          ).toBe(true);
+            band!.collections,
+            `${collection}/${entity.id} holds ${id}, in the ${band?.name ?? '?'} band`,
+          ).toContain(collection);
+          checked += 1;
+          if (band !== bandFor(collection)) continuation.push(`${collection}/${entity.id}`);
         }
       }
+      /*
+       * Not vacuous, and this is the half that would have caught the bug
+       * earlier: the shipped book really does put cards in the second band, so
+       * a check that only ever looked at the first was passing by luck.
+       */
+      expect(checked).toBe(1343);
+      expect(continuation).toHaveLength(21);
+      expect(continuation.every((k) => k.startsWith('domainCards/'))).toBe(true);
     });
 
     it('is up to date with the dataset', () => {

@@ -11,7 +11,7 @@
  * made to pass by choosing its own feature text.
  */
 import { describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Dataset } from '@shared/types.ts';
 
 const dataset = srd as unknown as Dataset;
@@ -48,7 +48,7 @@ describe('finding an adversary by what it does to you', () => {
     // Not "more than none": the gap is the measurement. Seventeen adversaries
     // in the shipped book impose Restrained in a feature's text and say so
     // nowhere else, so a GM searching the obvious word got nothing back.
-    expect(now.length - before.length).toBe(17);
+    expect(now.length - before.length).toBe(46);
     expect(now.map((a) => a.name)).toContain('Bear');
   });
 

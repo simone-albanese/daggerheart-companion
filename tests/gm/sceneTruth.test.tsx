@@ -26,7 +26,7 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Adversary, Dataset, Environment } from '@shared/types.ts';
 import { indexDataset } from '@engine/character.ts';
 import { makeCombatant } from '../../src/engine/encounter.ts';
@@ -415,7 +415,10 @@ describe('the Difficulty of a place that prints none', () => {
     // The premise every other test in this block stands on. If a rebuild adds
     // a third or renames one of these, the substitute is being drawn for
     // something nobody reasoned about.
-    expect(special().map((e) => e.name).sort()).toEqual(['Ambushed', 'Ambushers']);
+    // Three on the shipped book: SRD 2.0 adds Duel to the two SRD 1.0 wrote
+    // as Special. The premise is the same - every one of them prints no
+    // number - and the substitute below is drawn for all three.
+    expect(special().map((e) => e.name).sort()).toEqual(['Ambushed', 'Ambushers', 'Duel']);
     for (const e of special()) expect(e.difficulty).toBe(0);
   });
 
@@ -535,7 +538,7 @@ describe('the Difficulty of a place that prints none', () => {
     expect(text()).toContain('SPECIAL');
     expect(text()).not.toContain('—');
     expect(dataset.environments.filter((e) => e.type === 'Event' && e.difficulty > 0)).toHaveLength(
-      4,
+      10,
     );
   });
 

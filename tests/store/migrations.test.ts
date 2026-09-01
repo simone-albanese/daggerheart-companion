@@ -149,6 +149,7 @@ describe('the committed fixtures', () => {
       'a count of consecutive short rests was added, starting at zero',
       'a companion records whether their damage is physical or magic, starting physical',
       'the dataset grew a transformations collection and four widened fields; no schema-5 character field changed',
+      'a character can hold one transformation card, starting with none',
     ]);
     expect(migrated.record['consecutiveShortRests']).toBe(0);
     expect(migrated.record['schemaVersion']).toBe(SCHEMA_VERSION);

@@ -30,22 +30,38 @@ describe('the books this build knows', () => {
     expect(new Set(revisions).size, 'two entries share a revision').toBe(revisions.length);
   });
 
-  it('builds the committed dataset from the first entry', () => {
-    // `SRD` is what `findSrdPdf` searches for and what the dataset is built
-    // from. Pinning it stops a later entry being prepended and silently
-    // changing which book a plain `npm run build:srd` reads.
-    expect(SRD).toBe(BOOKS[0]);
-    expect(SRD.revision).toBe('srd-1.0-2025-09-09');
-    expect(SRD.label).toBe('SRD 1.0');
+  it('builds the app it ships from the one book marked shipped, not from BOOKS[0]', () => {
+    /*
+     * `SRD` is what `findSrdPdf` searches for and what a plain
+     * `npm run build:srd` reads. It used to be `BOOKS[0]!`, and this check used
+     * to pin `SRD` TO `BOOKS[0]` - which made "which book does this app ship"
+     * a property of array order, so prepending a revision would have moved it
+     * with nothing in the diff saying so. It is now derived from `shipped`, and
+     * what is pinned is the derivation: exactly one book carries the flag, that
+     * book is the one `SRD` names, and it is not the first entry any more.
+     */
+    expect(BOOKS.filter((b) => b.shipped)).toHaveLength(1);
+    expect(SRD.shipped).toBe(true);
+    expect(SRD.revision).toBe('srd-2.0-2026-08-25');
+    expect(SRD.label).toBe('SRD 2.0');
+    expect(SRD.datasetPath).toBe('data/srd-2.0.json');
+    // Not vacuous: it really is not the first entry, so the old pin would fail.
+    expect(SRD.revision).not.toBe(BOOKS[0]!.revision);
   });
 
-  it('knows SRD 2, and does not build from it', () => {
-    // Listed so the geometry can be measured against the real file without the
-    // escape hatch that used to lie about the name. NOT the default: the
-    // parsers are still keyed to the 1.0 folios.
-    const two = BOOKS.find((b) => b.revision === 'srd-2.0-2026-08-25');
-    expect(two).toBeDefined();
-    expect(two).not.toBe(SRD);
+  it('still knows SRD 1, still builds its dataset, and no longer draws it', () => {
+    /*
+     * The half of the switch that is easy to get wrong by deletion.
+     * `data/srd-1.0.json` is the only artifact that can fail when the SRD 1.0
+     * parse breaks, and it can only fail while the book still names a file for
+     * `npm run build:srd -- --check --pdf <SRD 1>` to compare against. So the
+     * `datasetPath` stays and `shipped` is what went false.
+     */
+    const one = BOOKS.find((b) => b.revision === 'srd-1.0-2025-09-09');
+    expect(one).toBeDefined();
+    expect(one?.shipped).toBe(false);
+    expect(one?.datasetPath).toBe('data/srd-1.0.json');
+    expect(one).not.toBe(SRD);
   });
 
   it('looks a book up by hash, and says nothing for one it does not know', () => {

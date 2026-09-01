@@ -125,6 +125,15 @@ const looksStatic = (text: string): boolean => STATIC_SHAPES.some((r) => r.test(
 const SITUATIONAL: Record<string, string> = {
   'subclass|warden-of-the-elements':
     'Elemental Dominion, "+1 bonus to your Proficiency for attacks and spells that deal damage" - and only "While Channeling", which begins by marking a Stress and ends at Severe damage or the next rest. A duration, not a fact the sheet stores.',
+  /*
+   * The two SRD 2.0 brought that are not facts either, and both are here with
+   * the sentence rather than a category name - the other thirty-one static
+   * bonuses the switch introduced were PRICED, in `src/engine/modifiers.ts`.
+   */
+  'subclass|moon':
+    'Lunar Phases, the Witch/Moon mastery card: "At the beginning of each session, roll a d6 and place it on this card. You gain the matching effect until the end of session." The die chooses one of four effects - a Hope spend on 1, "+2 to damage rolls" on 2-3, "+3 to damage thresholds" on 4, "+1 to Evasion" on 5-6 - and a Hope can step it again once per rest. So it is not one bonus and it is not permanent: it is a value on a card that this app has no field for, changing every session and sometimes mid-session. Pricing any one face would put a number on the sheet that is wrong five times out of six.',
+  'loot|eclipse-coin':
+    'Eclipse Coin: "Once per rest, flip a coin. On heads, you gain a +1 bonus to attack rolls until your next successful attack. On tails, you gain +1 to your Evasion until an attack fails against you." Carrying it grants nothing - the flip does, one side of it moves Evasion, and it ends at the next failed attack against you. A duration behind a coin, not a fact the sheet stores. The six Relics beside it in `LOOT_MODS` are the contrast: they say "You gain", full stop.',
 };
 
 // ---------------------------------------------------------------------------
@@ -243,7 +252,20 @@ describe('the register against the book', () => {
             continue;
           }
           if (row.stat === 'thresholds') {
-            const want = new RegExp(`\\${row.amount as number > 0 ? '+' : '-'}${Math.abs(row.amount as number)} bonus to your damage thresholds`, 'i');
+            /*
+             * `bonus to your` is OPTIONAL, the way it already is for every
+             * WORD stat below, and the switch is what showed it had to be.
+             * Stalwart writes "+1 bonus to your damage thresholds"; SRD 2.0's
+             * Fighting Cloak writes "Padded: +2 to damage thresholds". This
+             * check is about POSITION - the number sitting immediately before
+             * the words it is claimed for - and both spellings satisfy that.
+             * Widening the middle does not loosen it: `-1` claimed for a `+2`
+             * sentence still fails, which is the case the design round broke.
+             */
+            const want = new RegExp(
+              `\\${row.amount as number > 0 ? '+' : '-'}${Math.abs(row.amount as number)}\\s+(bonus\\s+)?to\\s+(your\\s+)?damage thresholds`,
+              'i',
+            );
             if (!want.test(text)) {
               wrong.push(`${lane}|${ref}: priced ${String(row.amount)} to both thresholds, unstated`);
             }

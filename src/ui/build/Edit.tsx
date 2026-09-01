@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
+import { unresolvedWeapons } from '../../engine/holdings.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -28,8 +29,10 @@ import {
 } from './GearPicker.tsx';
 import {
   Callout,
+  Choice,
   Columns,
   ExperienceEditor,
+  FeatureBlock,
   GoldEditor,
   InventoryEditor,
   LabelledInput,
@@ -63,6 +66,20 @@ export function Edit({
       ? undefined
       : index.weapons.get(character.activeSecondaryWeapon);
   const armor = character.activeArmor === null ? undefined : index.armors.get(character.activeArmor);
+  /*
+   * The refs on this sheet that this build cannot name, read as a pair so the
+   * two weapon slots cannot be repaired one at a time - which is exactly how
+   * they came to be silent. `unresolvedWeapons` is the same fact `Play` reads
+   * to draw its `VanishedWeapon` row, asked once in the engine rather than
+   * re-derived here: two routes to one answer is two answers eventually.
+   *
+   * The armor is worked out on the spot, because there is no shared helper for
+   * it: `deriveStats` carries `unresolvedArmor` for its own arithmetic, and
+   * `stats` is in hand here - so the third slot tells the truth for free rather
+   * than being left as the one that still says «Search 85 sets of armor» over a
+   * ref the sheet is still holding.
+   */
+  const missing = unresolvedWeapons(character, index);
   const lineage = [
     ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
     (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
@@ -149,6 +166,8 @@ export function Edit({
               </p>
             </Section>
 
+            <TransformationSection character={character} onPatch={patch} />
+
             <Section label="Traits" hint="A DOT MEANS MARKED THIS TIER">
               <div className="stack" style={{ gap: 7 }}>
                 {TRAITS.map((t: Trait) => (
@@ -197,6 +216,11 @@ export function Edit({
                   meta={primary && weaponSummary(primary, stats)}
                   note={primary && tierNote(primary.tier, character.level)}
                   empty={`Search ${dataset.weapons.length} weapons`}
+                  unresolved={
+                    missing.primary === null
+                      ? null
+                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.primary }
+                  }
                   onOpen={() => setPicking('primary')}
                   onClear={() => patch({ activePrimaryWeapon: null })}
                 />
@@ -213,6 +237,11 @@ export function Edit({
                       : secondary && tierNote(secondary.tier, character.level)
                   }
                   empty="Optional"
+                  unresolved={
+                    missing.secondary === null
+                      ? null
+                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.secondary }
+                  }
                   onOpen={() => setPicking('secondary')}
                   onClear={() => patch({ activeSecondaryWeapon: null })}
                 />
@@ -222,6 +251,11 @@ export function Edit({
                   meta={armor && armorSummary(armor, stats.thresholds, stats.armorScore)}
                   note={armor && tierNote(armor.tier, character.level)}
                   empty={`Search ${dataset.armors.length} sets of armor`}
+                  unresolved={
+                    stats.unresolvedArmor === null
+                      ? null
+                      : { banner: 'ARMOR NOT IN THIS BUILD', ref: stats.unresolvedArmor }
+                  }
                   onOpen={() => setPicking('armor')}
                   onClear={() => {
                     patch({ activeArmor: null });
@@ -319,6 +353,253 @@ export function Edit({
         )
       )}
     </div>
+  );
+}
+
+/**
+ * The transformation a character holds: one card, added here and removed here.
+ *
+ * ## Why this screen, and why this position on it
+ *
+ * The owner settled two halves of the placement before it was built - not a
+ * step in character creation, and not a fifth nav entry - and both of those are
+ * refusals. What is left is where it goes, and the answer is the screen whose
+ * mode is literally called `sheet` (`Build.tsx`), in the LEFT column
+ * immediately under Identity.
+ *
+ * **Read-vs-touch.** These are two different lifetimes in one section. The
+ * *touch* - choosing a card, or dropping it - happens once or twice in a
+ * campaign, when the GM hands it over; folio 42 gives them away, so the player
+ * never browses these. The *read* - two features, verbatim - happens whenever
+ * someone asks what the card does. So the picker is folded away behind one row
+ * and the features are not folded at all: the rare gesture pays a tap, the
+ * frequent read pays nothing.
+ *
+ * **Thumb arc.** Nothing here is placed for the thumb, and that is the
+ * decision rather than an oversight. On a 393x852 phone the comfortable arc is
+ * roughly the lower half of the glass, and it is spent on this screen's two
+ * permanent controls - the mode switch and, at the very bottom, Delete. A
+ * once-a-campaign control competing for that band would be taking room from
+ * gestures made every session. Under Identity it is reached by a short scroll,
+ * which is the right price for a gesture made once.
+ *
+ * **Target size.** Every control here is `Choice` or a `btn` at `var(--tap)`,
+ * which is the 44px floor; nothing is smaller, and the six picker rows are full
+ * column width, so the smallest target in the section is 44 x the column.
+ *
+ * ## Shown, never applied
+ *
+ * Nothing in this component computes. It writes one `Ref` and it renders the
+ * dataset's own strings through `FeatureBlock`, the same component the Wizard
+ * draws an ancestry's features with. `deriveStats` does not read
+ * `transformationRef`, and `normalizeActive()` is deliberately NOT called after
+ * a pick - there is no maximum to re-clamp, because nothing about Evasion,
+ * thresholds, Stress or the armor track moved.
+ *
+ * ## The section that draws itself when there is nothing to pick
+ *
+ * SRD 1.0 prints no transformations, so on the dataset the app ships today
+ * `dataset.transformations` is empty and this whole section is absent - an
+ * empty picker over a chapter the book does not have would be furniture.
+ *
+ * It is absent *unless the character holds one anyway*, which is a real state:
+ * a sheet imported by QR or file from a build shipping SRD 2.0 arrives with a
+ * `transformationRef` this build cannot name, parked as `?14005`. Hiding the
+ * section then would be the exact defect already measured on a dropped weapon -
+ * a reference on the sheet with no trace of it anywhere on the glass. So it
+ * draws the same ghost the armor path draws, in the same words and the same
+ * colour, naming the raw ref and offering the one thing this build can honestly
+ * do with it: leave it, or drop it.
+ */
+function TransformationSection({
+  character,
+  onPatch,
+}: {
+  character: Character;
+  onPatch: (p: Partial<Character>) => void;
+}): React.JSX.Element | null {
+  const dataset = useApp((s) => s.dataset);
+  const index = useApp((s) => s.index);
+  const [picking, setPicking] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [reading, setReading] = useState(false);
+
+  const ref = character.transformationRef;
+  // `collections.transformations`, never `byRef`: SRD 2.0 prints an adversary
+  // VAMPIRE (folio 142) beside the VAMPIRE card (folio 45) and both slugify to
+  // `vampire`, so the bare-slug map answers with the stat block.
+  const held = ref === null ? undefined : index.collections.transformations.get(ref);
+  const cards = dataset.transformations;
+
+  if (cards.length === 0 && ref === null) return null;
+
+  return (
+    <Section label="Transformation" hint="GRANTED BY THE GM · SHOWN, NEVER APPLIED">
+      {ref !== null && held === undefined && (
+        <div
+          className="panel stack"
+          style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
+        >
+          <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
+            TRANSFORMATION NOT IN THIS BUILD
+          </span>
+          <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+            {ref}
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            onClick={() => {
+              onPatch({ transformationRef: null });
+            }}
+          >
+            Drop it
+          </button>
+        </div>
+      )}
+
+      {held !== undefined && (
+        <div className="panel stack" style={{ gap: 10, padding: '12px 13px' }}>
+          <span className="spread" style={{ alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ font: '800 17px/1.15 var(--sans)', letterSpacing: '-0.01em' }}>
+              {held.name}
+            </span>
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              {held.features.length} FEATURE{held.features.length === 1 ? '' : 'S'}
+            </span>
+          </span>
+          {/*
+            The FEATURES first and the card's prose folded under them, which is
+            the opposite of the order the book prints and is a decision taken by
+            looking at the rendered card rather than at the page.
+            
+            Measured in Chrome on the real VAMPIRE card (folio 45, 1055
+            characters of prose), one DOM node moved and nothing else - same
+            CSS, same content, the offset of the `Fangs` heading from the top
+            of the section:
+            
+              393x852    92.05 features first   371.79 the book's order   -279.74
+              1280x800   77.05                  293.32                    -216.27
+            
+            The prose alone measures 269.74px on the phone. Prose is read once,
+            when the GM hands the card over; `Fangs` and `Feed` are read every
+            time somebody asks what the card does. So the frequent read pays
+            nothing and the rare one pays a tap - read-vs-touch cutting the same
+            way it does for the picker above. Folded, the whole held card is
+            521.59px at 393x852 against 801.33 with the text open.
+          */}
+          {held.features.map((f) => (
+            <FeatureBlock key={f.name} name={f.name} text={f.text} />
+          ))}
+          {held.description !== '' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                aria-expanded={reading}
+                style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+                onClick={() => {
+                  setReading(!reading);
+                }}
+              >
+                {reading ? 'Hide the card’s text' : 'Read the card’s text'}
+              </button>
+              {reading && (
+                <p className="t-dense" style={{ margin: 0, whiteSpace: 'pre-line' }}>
+                  {held.description}
+                </p>
+              )}
+            </>
+          )}
+          {held.questions.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                aria-expanded={asking}
+                style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+                onClick={() => {
+                  setAsking(!asking);
+                }}
+              >
+                {asking ? 'Hide' : 'Show'} {held.questions.length} questions
+              </button>
+              {asking && (
+                <ul className="stack" style={{ gap: 6, margin: 0, paddingLeft: 18 }}>
+                  {held.questions.map((q) => (
+                    <li key={q} className="t-dense">
+                      {q}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {picking ? (
+        <div className="stack" style={{ gap: 8 }}>
+          {cards.map((t) => (
+            <Choice
+              key={t.id}
+              selected={t.id === ref}
+              onClick={() => {
+                /*
+                 * A second tap on the card already held removes it, which is
+                 * the same gesture `aria-pressed` already promises. No
+                 * `normalizeActive()` on either branch: nothing derived moved.
+                 */
+                onPatch({ transformationRef: t.id === ref ? null : t.id });
+                setPicking(false);
+              }}
+              title={t.name}
+              meta={`${t.features.map((f) => f.name.toUpperCase()).join(' · ')}`}
+              body={t.description}
+              clamp={2}
+            />
+          ))}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            onClick={() => {
+              setPicking(false);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        cards.length > 0 && (
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ minHeight: 'var(--tap)' }}
+              onClick={() => {
+                setPicking(true);
+              }}
+            >
+              {held === undefined ? `Add a transformation` : 'Change it'}
+            </button>
+            {held !== undefined && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ minHeight: 'var(--tap)' }}
+                onClick={() => {
+                  onPatch({ transformationRef: null });
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )
+      )}
+    </Section>
   );
 }
 

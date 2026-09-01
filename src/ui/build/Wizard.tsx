@@ -82,6 +82,7 @@ import {
   Section,
   Segmented,
 } from './parts.tsx';
+import { srdStamp } from '../../store/dataset.ts';
 
 /** The fixed array the traits step distributes. Placed, never rolled. */
 const TRAIT_ARRAY = [2, 1, 1, 0, 0, -1] as const;
@@ -196,7 +197,7 @@ function ChoiceWithReader({
       {children}
       <Fold
         label={`About ${name}`}
-        summary={`SRD 1.0${page === undefined ? '' : ` · P.${String(page)}`}`}
+        summary={srdStamp(page)}
       >
         <p className="t-read" style={{ margin: 0, padding: '0 2px', whiteSpace: 'pre-line' }}>
           {description}
@@ -1569,7 +1570,7 @@ export function StepExperiences({
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const srd = useMemo(() => playerExperiences(dataset.rules), [dataset]);
-  const stamp = `SRD 1.0${srd.page === null ? '' : ` · P.${String(srd.page)}`}`;
+  const stamp = srdStamp(srd.page);
 
   return (
     <Section label="Two Experiences, each at +2" hint="Spend a Hope to add one to a roll">
