@@ -34,8 +34,10 @@
  * There is no format 3, 5, 6 or 7, and 9 is the first one whose number does not
  * live in the nibble. `CODEC_VERSION` says why at length; the short version is
  * that a format number's whole job is to be far from the other format numbers,
- * 1, 2, 4 and 8 are the four nibble values that are one bit away from nothing
- * readable, and once they were spent the choice was a worse number or a wider
+ * and 1, 2, 4 and 8 are the four this file spent keeping them two bits apart.
+ * They were NOT the only four available - that claim is in the docblock below,
+ * and the correction is beside it - but they are the four that were spent, and
+ * the choice at this bump was a number nobody would recognise or a wider
  * header. This is the wider header.
  *
  * WHY THE CHECKSUM IS HERE AND NOT ONLY ONE LAYER UP. Measured: 8136 single-bit
