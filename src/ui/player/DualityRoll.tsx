@@ -51,6 +51,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { rollAffordance, type RollAffordance } from '../shared/rollAffordance.ts';
 import { experiencesFor, type ArmedAttack, type AttackSource } from './attack.ts';
 import { DamageRow } from './DamageRoll.tsx';
+import { FavorRow } from './FavorRow.tsx';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
 
 export type RollTrait = Trait | 'spellcast';
@@ -554,11 +555,23 @@ const BLANK: Manual = { hope: null, fear: null, advantage: null, bonus: {}, reso
  * arithmetic of the NEXT roll and has to stay live; the Difficulty is not an
  * addend of the total at all; and the Experiences are cleared by the roll that
  * spent them, so anything armed after it is drawn under `NEXT:` already.
+ *
+ * `hopeGained` IS IN HERE AND IS NOT AN ADDEND OF ANYTHING. It is the one fact
+ * about a roll that cannot be recovered from its `DualityResult`, because the
+ * clamp that produces it does not live in the engine: `resolve` marks the Hope
+ * through `Math.min(c.hope.max, …)`, so a player already at their maximum has
+ * `effects.hope` of 1 and a track that did not move. `FavorRow` trades that
+ * Hope back, and asked afterwards the question has no answer - a sheet sitting
+ * at 6 of 6 cannot say whether this roll took it there or found it there. So it
+ * is recorded at the instant it is applied, and frozen with the result for the
+ * same reason `traitLabel` is: it belongs to THIS roll and to no later one.
  */
 interface Rolled {
   result: DualityResult;
   /** The trait this total was made with, in the words the panel prints. */
   traitLabel: string;
+  /** What this roll actually put on the Hope track: 0 or 1, after the ceiling. */
+  hopeGained: number;
 }
 
 /**
@@ -1220,8 +1233,38 @@ export function DualityRoll({
         bonusDice: sides,
         ...(fixed ? { fixed } : {}),
       });
+      /*
+       * The roll's Hope and Stress consequences are proposed by applying them,
+       * because they are unambiguous; the GM's Fear is theirs to track.
+       *
+       * IT RUNS BEFORE THE FREEZE NOW, AND THAT IS WHAT `hopeGained` COSTS. It
+       * used to sit two hundred lines down, after the log line, which was fine
+       * while the write was the end of the story. It is not: `Math.min` means
+       * the Hope this roll GRANTS and the Hope it PAYS can differ by one, only
+       * `c` knows which, and `Rolled` has to carry the answer - see its
+       * docblock, and `FavorRow`, which trades that Hope back and would
+       * otherwise take a point off a track this roll never moved. Reading `c`
+       * inside the updater rather than the closure's `character` is the same
+       * choice the body already made: `update` calls the mutator once,
+       * synchronously, against the record it is about to write.
+       */
+      let hopeGained = 0;
+      if (character) {
+        update((c) => {
+          // An Experience is declared before the roll, so its Hope comes out of
+          // what you had - never out of the Hope this roll is about to pay.
+          const paid = Math.max(0, c.hope.marked - hopeCost);
+          let hope = paid;
+          let stress = c.stress.marked;
+          if (r.effects.hope > 0) hope = Math.min(c.hope.max, paid + r.effects.hope);
+          if (r.effects.stress < 0) stress = Math.max(0, stress + r.effects.stress);
+          hopeGained = hope - paid;
+          return { ...c, hope: { ...c.hope, marked: hope }, stress: { ...c.stress, marked: stress } };
+        });
+      }
+
       // The trait goes into the total and is frozen with it: see `Rolled`.
-      setRoll({ result: r, traitLabel });
+      setRoll({ result: r, traitLabel, hopeGained });
       /*
        * AND THE KEYPAD SHUTS, WHICHEVER ONE IS OPEN.
        *
@@ -1309,20 +1352,6 @@ export function DualityRoll({
               proficiency: stats.proficiency,
             },
       );
-
-      // The roll's Hope and Stress consequences are proposed by applying them,
-      // because they are unambiguous; the GM's Fear is theirs to track.
-      if (character) {
-        update((c) => {
-          // An Experience is declared before the roll, so its Hope comes out of
-          // what you had - never out of the Hope this roll is about to pay.
-          let hope = Math.max(0, c.hope.marked - hopeCost);
-          let stress = c.stress.marked;
-          if (r.effects.hope > 0) hope = Math.min(c.hope.max, hope + r.effects.hope);
-          if (r.effects.stress < 0) stress = Math.max(0, stress + r.effects.stress);
-          return { ...c, hope: { ...c.hope, marked: hope }, stress: { ...c.stress, marked: stress } };
-        });
-      }
 
       /*
        * EVERY ADDEND OF THE TOTAL, SIGNED, SO THE LINE THE TABLE CHECKS ADDS UP.
@@ -2229,14 +2258,49 @@ export function DualityRoll({
           </button>
         </div>
         {/*
+         * The Hope this roll just paid, offered back as a Favor - below ROLL
+         * for the reason the damage row is below ROLL, and above the damage row
+         * for a reason of its own.
+         *
+         * Everything above ROLL in this stack is declared BEFORE the dice; both
+         * of the rows here come after them, so both are below it. Between the
+         * two, the damage row keeps the bottom edge: it is the number the table
+         * is waiting on, and this is a bookkeeping choice that can be made at
+         * any point before the next roll. It is also the one of the two that
+         * SPENDS something - it moves a Hope off the track - and this file's
+         * own rule is that the resting point of an idle thumb gets the harmless
+         * control.
+         *
+         * Measured in Chrome at 393x852, driving a Warlock through the real
+         * app: the row is 369x44 laid out 6px under a 317x56 ROLL, so it costs
+         * the column 50; a statement measured 41 and costs 47; the record
+         * measured 31 and costs 37. At 320x568 the control grows to 66 rather
+         * than clipping its second sentence, which is what `minHeight` buys and
+         * what `FavorRow`'s own ergonomics note carries the arithmetic for. It
+         * costs nothing at all on every roll a Bard makes, on every roll with
+         * Fear and on every reaction roll - see `favorOffer`, which is the gate,
+         * and which was driven too: 25 rolls on a Bard, 13 of them with Hope
+         * and one a critical, and the word FAVOR never reached the screen.
+         */}
+        <FavorRow
+          /* `favor-` and not the bare `rollId` the damage row uses: these two
+             are siblings in one children list, so an identical key on both is a
+             duplicate key - React warns and reconciles them against each other,
+             and the row measurably stopped keeping its own `taken` state. */
+          key={`favor-${String(rollId)}`}
+          result={result}
+          hopeGained={roll?.hopeGained ?? 0}
+          layout="phone"
+        />
+        {/*
          * Last, and therefore hard against the bottom edge of the glass.
          *
-         * When it exists it is the only thing you are about to press, so it
-         * gets the easiest point in the thumb arc; the Duality bar moves up by
-         * 58px to make room and is still well inside it. It also must stay
+         * It gets the easiest point in the thumb arc, because when both rows
+         * exist it is the one the table is waiting on; the Duality bar moves up
+         * by 58px to make room and is still well inside it. It also must stay
          * below ROLL rather than above it, because everything above ROLL in
-         * this stack is something you declare *before* the dice, and this is
-         * the only thing here that comes after them.
+         * this stack is something you declare *before* the dice, and both this
+         * and the Favor row above it come after them.
          */}
         <DamageRow key={rollId} attack={attack} affordance={affordance} layout="phone" />
       </div>
@@ -2548,10 +2612,27 @@ export function DualityRoll({
        * never out of the log's floor, which is the point of a floor.
        *
        * The placement is right for a reason that does not depend on any of
-       * that: the two things a player presses stay adjacent and stay last. ROLL
-       * and the damage offer are one scroll apart at worst instead of one
-       * scroll apart with a readout in the gap.
+       * that: the things a player presses stay adjacent and stay last. ROLL,
+       * the Favor offer and the damage offer are one scroll apart at worst
+       * instead of one scroll apart with a readout in the gap - which is why
+       * the Favor row goes between them rather than after the log. The two
+       * post-roll rows are in the phone's order, and the argument for that
+       * order is written over the phone's copy of them.
+       *
+       * The panel's idle budget above is untouched by it, which is why that
+       * table still sums to 426.2 over the children it names: `FavorRow` is
+       * `result === null` on an idle panel and draws nothing at all. What it
+       * asks for once a roll has landed comes out of the same scroll the armed
+       * dice come out of, which is the term that exists to absorb exactly this.
        */}
+      <FavorRow
+        // Prefixed for the reason the phone's copy is prefixed: one children
+        // list, two rows, and a shared key is a duplicate key.
+        key={`favor-${String(rollId)}`}
+        result={result}
+        hopeGained={roll?.hopeGained ?? 0}
+        layout="desktop"
+      />
       <DamageRow key={rollId} attack={attack} affordance={affordance} layout="desktop" />
 
       <RecentLog />

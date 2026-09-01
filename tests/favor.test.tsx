@@ -28,7 +28,8 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_FAVOR, SCHEMA_VERSION } from '../shared/types.ts';
 import { MIGRATIONS, migrateCharacterRecord } from '../shared/migrations.ts';
-import { COUNTER_CEILINGS, grantsFavor, indexDataset, newCharacter } from '../src/engine/character.ts';
+import { COUNTER_CEILINGS, drawsFavor, grantsFavor, indexDataset, newCharacter } from '../src/engine/character.ts';
+import { characterFeatures } from '../src/engine/features.ts';
 import { hasDataset, loadDataset } from '../tools/sampleCharacters.ts';
 import { feature, makeClass, makeDataset } from './fixtures/factories.ts';
 import { parseCharacterFile } from '../src/transfer/fileIo.ts';
@@ -229,6 +230,88 @@ describe('where the three Favor come from, and where they do not', () => {
       favor: { marked: 6, max: 6 },
     });
     expect(after.record['favor']).toEqual({ marked: 0, max: MAX_FAVOR });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Who holds Favor, which is not who was born with it
+// ---------------------------------------------------------------------------
+
+describe('drawsFavor: the live question, with the multiclass arm on it', () => {
+  it('reads BOTH slots, which is the whole difference from the seed', () => {
+    /*
+     * The pair the block above ends on, asked the other question. `grantsFavor`
+     * answers what a sheet is CREATED holding and deliberately ignores
+     * `multiclassRef`, because a level-5 pact is not a beginning; this answers
+     * what a sheet can DO, and a Warlock multiclass hands over the class
+     * features. So the SAME character has three Favor from neither slot and the
+     * feature from the second.
+     */
+    const pact = newCharacter({ classRef: 'plain', multiclassRef: 'warlockish', level: 5 }, LAYER);
+    expect(pact.favor.marked, 'seeded nothing').toBe(0);
+    expect(drawsFavor(pact, LAYER), 'and still holds the feature').toBe(true);
+    // The first slot, which both predicates agree on.
+    expect(drawsFavor(newWarlock(), LAYER)).toBe(true);
+    // And neither slot.
+    expect(drawsFavor(newCharacter({ classRef: 'plain' }, LAYER), LAYER)).toBe(false);
+  });
+
+  it('agrees with the feature list the app already prints, on every class in the book', () => {
+    /*
+     * THE PROPERTY THE MULTICLASS ARM IS ACTUALLY WARRANTED BY, and it is not a
+     * reading of the SRD. The advancement says *"gain its class feature"* -
+     * singular, against a Warlock that has two - so the sentence alone does not
+     * settle it. What settles it is that `characterFeatures` has always pushed
+     * the multiclass's WHOLE `classFeatures` list onto the sheet, so the app
+     * prints "Favor" among a multiclassed Warlock's features. A row that then
+     * refused the trade would be the app contradicting its own feature list.
+     *
+     * So this asserts the agreement rather than the arm: whatever
+     * `characterFeatures` lists, `drawsFavor` answers. Change one and this goes
+     * red - which is the only way the sentence above stays true.
+     */
+    const named = (c: ReturnType<typeof newCharacter>): boolean =>
+      characterFeatures(c, LAYER).features.some((f) => /\bfavor\b/i.test(f.name));
+    for (const [classRef, multiclassRef] of [
+      ['plain', null],
+      ['plain', 'warlockish'],
+      ['warlockish', null],
+      ['warlockish', 'plain'],
+    ] as const) {
+      const c = newCharacter({ classRef, multiclassRef }, LAYER);
+      expect([classRef, multiclassRef, drawsFavor(c, LAYER)]).toEqual([
+        classRef,
+        multiclassRef,
+        named(c),
+      ]);
+    }
+    // Teeth: the loop above would pass if both sides answered false throughout.
+    expect(named(newCharacter({ classRef: 'plain', multiclassRef: 'warlockish' }, LAYER))).toBe(true);
+  });
+
+  it('says no to a ref the index cannot name, rather than throwing', () => {
+    // A character whose class this build has never met is the ordinary state of
+    // a sheet imported from a layer that is not installed - `normalizeIncoming`
+    // exists for exactly it - and this is asked on every roll that sheet makes.
+    const c = newCharacter({ classRef: 'nothing-here', multiclassRef: 'nor-this' }, LAYER);
+    expect(drawsFavor(c, LAYER)).toBe(false);
+    expect(drawsFavor({ ...c, classRef: '', multiclassRef: null }, LAYER)).toBe(false);
+  });
+
+  it.skipIf(!hasDataset())('is the Warlock and only the Warlock, over the real book', () => {
+    const dataset = loadDataset();
+    const ix = indexDataset(dataset);
+    const held = dataset.classes.filter((k) =>
+      drawsFavor(newCharacter({ classRef: k.id }, ix), ix),
+    );
+    expect(held.map((k) => k.id)).toEqual(['warlock']);
+    // And the second slot reaches it from any of the other twelve.
+    for (const k of dataset.classes) {
+      expect([
+        k.id,
+        drawsFavor(newCharacter({ classRef: k.id, multiclassRef: 'warlock' }, ix), ix),
+      ]).toEqual([k.id, true]);
+    }
   });
 });
 

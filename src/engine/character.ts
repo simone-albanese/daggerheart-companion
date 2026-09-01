@@ -149,11 +149,12 @@ const STARTING_FAVOR = 3;
  * predicate exists to end.
  *
  * Takes the class and not the character, because the question it answers is
- * what a sheet is CREATED holding. The live question - does this sheet DRAW a
- * Favor row - has a second arm, `multiclassRef`, the way `hasBeastform` does,
- * and a third, the track a sheet is already holding. Something draws the row
- * now, so those arms are where this note said they belonged: `drawsFavor`,
- * directly below, which calls this rather than restating the expression.
+ * what a sheet is CREATED holding. The live question - does this sheet have
+ * Favor to draw, to spend and to gain - has a second arm, `multiclassRef`, the
+ * way `hasBeastform` does, and a third, the track a sheet is already holding.
+ * Both arms are on `drawsFavor`, directly below, which calls this rather than
+ * restating the expression. There is ONE of those and not one per screen; the
+ * note over it says why, and it is the reason this file has no `holdsFavor`.
  */
 export const grantsFavor = (klass: CharClass | undefined): boolean =>
   klass?.classFeatures.some((f) => /\bfavor\b/i.test(f.name)) === true;
@@ -238,6 +239,32 @@ export const drawsFocus = (c: Character): boolean =>
  * One port, taking the character, for the reason `ignoresBurden`'s docblock
  * spells out at length: the moment a class-shaped port exists beside it, that
  * becomes the cheap call and every multiclassed sheet silently answers false.
+ *
+ * THE MULTICLASS ARM IS THE APP'S OWN ANSWER AND NOT A READING OF THE SRD,
+ * which is worth saying because the sentence is genuinely ambiguous: folio 54's
+ * *"acquire its class feature"* is singular, against a Warlock that has two -
+ * Patron's Pact and Favor - so the book alone does not settle which one
+ * arrives. What settles it here is that `characterFeatures` in
+ * `src/engine/features.ts` already pushes the multiclass's WHOLE
+ * `classFeatures` list onto the sheet under the site `multiclass`: this app has
+ * been printing "Favor" among a multiclassed Warlock's features since before
+ * this predicate existed. A track that then refused the trade would be the app
+ * contradicting its own feature list, which is a worse failure than either
+ * reading of the singular.
+ *
+ * THREE SCREENS ASK THIS QUESTION AND THEY ASK IT HERE. The row under Vitals
+ * draws the track, `FavorRow` on the roll offers to add one, and `DicePools`
+ * spends one on a Patron Die. The first two were built in separate branches and
+ * each arrived carrying its own predicate over the same dataset question - the
+ * same two-class `some(grantsFavor)` under two names, differing only in the
+ * `favor.marked` arm above - and merging them into one file is the only place
+ * that was visible. The permissive one is the survivor deliberately: a screen
+ * that hides a resource the sheet is holding is how that resource becomes
+ * impossible to spend, and the strict one refused the offer to exactly the
+ * sheets the row was still drawing. The third screen asks a DIFFERENT key -
+ * `dicePools.ts` opens the Patron Die on `Patron's Pact`, the feature that
+ * grants the die, not `Favor`, the feature that grants the currency - and that
+ * one is not folded in here, because it is a different sentence in the book.
  */
 export function drawsFavor(c: Character, ix: DatasetIndex): boolean {
   if (c.favor.marked > 0) return true;
