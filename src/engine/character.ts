@@ -6,12 +6,12 @@
  * the player, with an override field where one is needed.
  */
 /*
- * `MAX_FOCUS` is imported rather than declared beside `BASE_HOPE` above:
- * `shared/migrations.ts` seeds a Focus track and cannot import from
- * `src/engine/`, so the constant lives where both can read it. Its docblock is
- * in `shared/types.ts`.
+ * `MAX_FOCUS` and `MAX_FAVOR` are imported rather than declared beside
+ * `BASE_HOPE` above: `shared/migrations.ts` seeds both tracks and cannot import
+ * from `src/engine/`, so the constants live where both can read them. Their
+ * docblocks are in `shared/types.ts`.
  */
-import { MAX_FOCUS, SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
+import { MAX_FAVOR, MAX_FOCUS, SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
 import type {
   Adversary,
   Ancestry,
@@ -72,6 +72,7 @@ export const COUNTER_CEILINGS = {
   stress: MAX_STRESS,
   hope: BASE_HOPE,
   focus: MAX_FOCUS,
+  favor: MAX_FAVOR,
   armorSlots: MAX_ARMOR_SCORE,
   companionStress: MAX_STRESS,
 } as const;
@@ -723,6 +724,22 @@ export function newCharacter(
     // `readCharacterRecord` spreads the file over a blank sheet.
     stanceRefs: [],
     focus: { marked: 0, max: MAX_FOCUS },
+    /*
+     * Three, and it is the one seeded value on this sheet that is not zero or
+     * a class's own number - `hope`'s 2 is the other, and for the same reason.
+     *
+     * The Warlock's feature reads *"You start with 3 Favor"*, and this function
+     * is what a character starts as. The 8 -> 9 converter seeds 0 instead, on
+     * purpose: it updates somebody already playing, and three Favor they never
+     * earned is a resource invented for them mid-session. `SCHEMA_VERSION` in
+     * `shared/types.ts` carries the argument in full.
+     *
+     * Also the fallback for a schema-9 file that arrives without the key, since
+     * `readCharacterRecord` spreads the file over a blank sheet - which is the
+     * right fallback for a terse file, because a file with no Favor track was
+     * written by something that never had one to lose.
+     */
+    favor: { marked: 3, max: MAX_FAVOR },
     multiclassRef: null,
     multiclassDomain: null,
     level: 1,

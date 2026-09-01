@@ -115,6 +115,7 @@
  */
 import {
   DOMAINS,
+  MAX_FAVOR,
   MAX_FOCUS,
   RANGES,
   SCHEMA_VERSION,
@@ -411,6 +412,21 @@ export const READABLE_CODEC_VERSIONS = [
  * It is proved and not argued: `tests/wideHeader.test.ts` runs the 8-era gate -
  * `[1, 2, 4, 8]`, nibble of byte 0, throw before checksum - over the bytes this
  * build writes, and asserts both halves.
+ *
+ * ## What format 9 adds, and which defect each half does not repeat
+ *
+ * `favor` is a counter, written and read through `readCounter`, so a seventh
+ * Favor box is refused by name rather than clamped - a track this build may not
+ * quietly correct, for the reason that function's own docblock gives.
+ *
+ * The `cardExchange` level-up record rides as an advancement kind, which means
+ * it rides as an INDEX into `ADVANCEMENT_KINDS` - the shape the Dread-domain
+ * defect is on record for. It does not repeat it, and the reason is the version
+ * gate rather than the encoding: a build that does not know the kind is a build
+ * that cannot read format 9 at all, so there is no receiver that reads the
+ * record and drops the field. The two refs inside it are registry ids and are
+ * parked as `?id` by a device that cannot name them, like every other ref on
+ * the sheet.
  */
 
 const VERSION_MASK = 0x0f;
@@ -929,6 +945,9 @@ function writeBody(c: Character, registry: Registry, options: EncodeOptions): Ui
   writeCounter(w, c.hope);
   // Format 8 and later. Beside Hope, which is the other track stored as held.
   writeCounter(w, c.focus);
+  // Format 9 and later. The third track stored as held, in the order the three
+  // of them were added, so a reader can follow this list against `readBody`.
+  writeCounter(w, c.favor);
   writeCounter(w, c.armorSlots);
   w.u8(c.evasionOverride === null ? 0 : 1);
   if (c.evasionOverride !== null) w.zigzag(c.evasionOverride);
@@ -1319,6 +1338,22 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
    */
   const focus =
     version >= 8 ? readCounter(r, 'focus', 'Focus') : { marked: 0, max: MAX_FOCUS };
+  /*
+   * Absent before format 9, and an empty six-box track is what its absence
+   * means - the same value the 8 -> 9 converter writes, and deliberately NOT
+   * the three `newCharacter` seeds. A payload written by a build that had no
+   * Favor field came from a table that was not holding any, so zero is the
+   * fact; three would be this decoder inventing a resource for an arriving
+   * sheet, which is the same mistake the converter refuses to make.
+   *
+   * `readCounter` and not a bare pair of varints, so a seventh Favor box on an
+   * inbound payload is refused by name rather than clamped into something
+   * plausible. That is one of the four guard lists a new field has to enter;
+   * the other three are `readCharacterRecord`, `checkShapes` and
+   * `boundCounters`.
+   */
+  const favor =
+    version >= 9 ? readCounter(r, 'favor', 'Favor') : { marked: 0, max: MAX_FAVOR };
   const armorSlots = readCounter(r, 'armorSlots', 'Armor Slot');
   const evasionOverride = r.u8() === 0 ? null : r.zigzag();
   const thresholdOverride: [number, number] | null =
@@ -1390,6 +1425,7 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
     transformationRef,
     stanceRefs,
     focus,
+    favor,
     multiclassRef,
     multiclassDomain,
     level,

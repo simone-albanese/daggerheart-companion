@@ -14,7 +14,7 @@ import {
   tierOf,
   weaponDamage,
 } from '@engine/character.ts';
-import { MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
+import { MAX_FAVOR, MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
 import { hasDataset, loadDataset } from '../../tools/sampleCharacters.ts';
 import {
   advancement,
@@ -344,14 +344,27 @@ describe('newCharacter', () => {
     // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
     // whatever the constant said, and this assertion exists to notice a bump.
     // It noticed this one: 5 -> 6, for the SRD 2.0 dataset contract, then
-    // 6 -> 7, for `transformationRef`, then 7 -> 8, for the martial stances.
-    expect(c.schemaVersion).toBe(8);
+    // 6 -> 7, for `transformationRef`, then 7 -> 8, for the martial stances,
+    // then 8 -> 9, for the Warlock's Favor.
+    expect(c.schemaVersion).toBe(9);
     // Seeded here as well as by the converter, because `readCharacterRecord`
     // spreads an imported file over a blank sheet: a build with no key here
     // would drop the field out of any file that did not carry it.
     expect(c.transformationRef).toBeNull();
     expect(c.stanceRefs).toEqual([]);
     expect(c.focus).toEqual({ marked: 0, max: MAX_FOCUS });
+    /*
+     * THREE, and it is the only seeded track on this sheet that is neither zero
+     * nor a class's own number apart from `hope`'s 2.
+     *
+     * The Warlock's feature reads *"You start with 3 Favor"*, and this function
+     * is what a character starts as. The 8 -> 9 converter seeds ZERO instead,
+     * deliberately, because it runs on somebody who is already playing - the
+     * argument is on `SCHEMA_VERSION`, and `tests/tools/schema.test.ts` pins
+     * the other half of it. The two numbers disagreeing is the design; a later
+     * hand making them agree breaks one of them.
+     */
+    expect(c.favor).toEqual({ marked: 3, max: MAX_FAVOR });
   });
 
   it('lets a caller override any field', () => {

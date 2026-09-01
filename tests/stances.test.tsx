@@ -641,7 +641,10 @@ describe('a character can know stances and hold Focus', () => {
   });
 
   it('ships the converter the policy requires, keyed on the version it leaves', () => {
-    expect(SCHEMA_VERSION).toBe(8);
+    // `toContain(7)` and not an equality: this file owns the 7 -> 8 step, and
+    // a later bump adding an 8 -> 9 step is not a change to it. The constant
+    // moved to 9 for the Warlock's Favor track.
+    expect(SCHEMA_VERSION).toBe(9);
     expect(MIGRATIONS.map((m) => m.from)).toContain(7);
   });
 
@@ -656,8 +659,12 @@ describe('a character can know stances and hold Focus', () => {
     const after = migrateCharacterRecord(before);
 
     expect(after.from).toBe(7);
+    // Two notes now: `migrateCharacterRecord` walks to the current schema, so
+    // the 8 -> 9 step runs behind this one. The step this file is about is
+    // still the first, which is what makes it identifiable after a later bump.
     expect(after.applied).toEqual([
       'a character can know martial stances and hold Focus, starting with none of either',
+      'a character can hold Favor, and an existing one starts holding none',
     ]);
     expect(after.record['stanceRefs']).toEqual([]);
     expect(after.record['focus']).toEqual({ marked: 0, max: MAX_FOCUS });
