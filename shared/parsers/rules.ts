@@ -356,10 +356,19 @@ const ISLANDS: readonly Island[] = [
      * silent. The contents says `RUNNING AN ADVENTURE` opens on folio 85 in SRD
      * 2.0 (63 in SRD 1.0), but GOLD is printed at the head of the third column
      * of folio 84 (62), under the tail of the consumables table. A range ending
-     * at 84 would hand that page to this island AND to the next one, and every
-     * unit of the Gold page would be read twice. Ending one folio before the
-     * banner the next island opens on is the only form in which the seam cannot
-     * drift: one measurement, both sides of the cut.
+     * at 84 hands that page to this island AND to the next one.
+     *
+     * SILENT is the operative word, and it was measured rather than feared:
+     * with the `- 1` deleted the build still succeeds, still validates, still
+     * reports 82 sections, and `gold` comes back at 1,791 characters instead of
+     * 890 - its own text twice over, with a `## GOLD` heading welded in where
+     * the second copy starts. Every assertion in the repository stayed green
+     * under that mutant until `tests/tools/equipmentProse.test.ts` grew the
+     * one that now catches it, over every section of both books.
+     *
+     * Ending one folio before the banner the next island opens on is the only
+     * form in which the seam cannot drift: one measurement, both sides of the
+     * cut.
      *
      * The near end is `folioOf` and not `sectionRange`, for the mirror reason -
      * `sectionRange` deliberately overlaps the next section by a page, which is
