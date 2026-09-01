@@ -386,6 +386,46 @@ describe('the two glyphs', () => {
   });
 });
 
+describe('the floor this file declares for itself', () => {
+  it('is the stylesheet\u2019s, on the strip and on the readout between the steppers', () => {
+    /*
+     * The sweep in `the two glyphs` reads the two STEPPERS, and those are
+     * `Counter`\u2019s own `Step`: they carry their 44 whatever this file says, so
+     * they cannot redden for anything this file gets wrong. The two boxes this
+     * file declares ITSELF had nothing on them - `const TAP = 44` cut to 24 and
+     * the readout\u2019s `minWidth` cut to 0 both survived the whole suite green -
+     * and they are the two the Chrome rig\u2019s width sweep rests on.
+     *
+     * The strip\u2019s `minHeight` is what makes it 46 tall - 44 of target and its
+     * own 1px border top and bottom - rather than as short as its text. The
+     * readout\u2019s `minWidth` is the declared 44 the docblock measures holding
+     * down to viewport 298, and it is why the strip OVERFLOWS below that floor
+     * instead of squeezing the number: measured in Chrome, dropping it lets the
+     * readout collapse to 35 at viewport 280 and 25 at 260, which is this row
+     * quietly disagreeing with the 2x2 grid above it, whose own `+` is pushed
+     * off the glass at exactly the same widths.
+     *
+     * `var(--tap)` and not the number, for the reason the stepper sweep gives.
+     */
+    render({
+      subclassRefs: [STANCE_SUBCLASS],
+      focus: { marked: 2, max: MAX_FOCUS },
+      favor: { marked: 3, max: MAX_FAVOR },
+    });
+    const floor = px('var(--tap)');
+    expect(strips()).toHaveLength(2);
+    for (const strip of strips()) {
+      const name = strip.getAttribute('aria-label') ?? '?';
+      expect(px(strip.style.minHeight), `${name} strip height`).toBe(floor);
+      const readout = strip.children[1] as HTMLElement;
+      expect(readout.textContent, `${name} middle child is the label over the value`).toMatch(
+        /^[A-Z]+\d\/\d$/,
+      );
+      expect(px(readout.style.minWidth), `${name} readout floor`).toBe(floor);
+    }
+  });
+});
+
 describe('where the row sits', () => {
   it('is a sibling of the 2x2 grid and never a fifth and sixth card in it', () => {
     /*
