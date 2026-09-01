@@ -1318,7 +1318,7 @@ function StepRecord({
 // Starting equipment
 // ---------------------------------------------------------------------------
 
-function StepEquipment({
+export function StepEquipment({
   draft,
   set,
   klass,
@@ -1364,15 +1364,14 @@ function StepEquipment({
           />
           <GearSlot
             label="Secondary weapon"
-            title={twoHanded ? null : (secondary?.name ?? null)}
+            title={secondary?.name ?? null}
             meta={secondary && weaponSummary(secondary, stats)}
             note={
               twoHanded && primary
                 ? `${primary.name} is two-handed — there is no hand left for an off-hand weapon`
                 : secondary && tierNote(secondary.tier, sheet.level)
             }
-            empty={twoHanded ? 'Both hands are on the primary' : 'Optional'}
-            disabled={twoHanded}
+            empty="Optional"
             onOpen={() => setOpen('secondary')}
             onClear={() => set({ secondary: null })}
           />
@@ -1407,15 +1406,33 @@ function StepEquipment({
             sheet={sheet}
             stats={stats}
             onPick={(ref) => {
-              // A two-handed primary leaves no hand for an off-hand weapon, so
-              // taking one puts the secondary down rather than leaving a sheet
-              // that says you are holding three things.
-              if (open === 'primary') {
-                const picked = ref === null ? undefined : index.weapons.get(ref);
-                set({ primary: ref, secondary: picked?.burden === 2 ? null : draft.secondary });
-              } else {
-                set({ secondary: ref });
-              }
+              /*
+               * ONE SLOT PER PICK. The other hand is not touched.
+               *
+               * This read `secondary: picked?.burden === 2 ? null :
+               * draft.secondary`, under a comment saying that a two-handed
+               * primary leaves no hand for an off-hand weapon so taking one
+               * puts the secondary down. The rule it named is real - folio 55,
+               * *"your character's maximum burden is 2 hands"* - and acting on
+               * it here was wrong twice over.
+               *
+               * The book names an exception this code never read: folio 28,
+               * Combat Training, *"You ignore burden when equipping weapons."*
+               * So a Warrior - the one class the sentence was written for - had
+               * a weapon taken off them by a limit they do not have.
+               *
+               * And for everybody else it deleted a choice already made,
+               * silently, as a side effect of filling a different slot. The
+               * sheet had already refused exactly this edit, in writing: *"Said,
+               * not enforced. A sheet that quietly unequipped the off-hand when
+               * a greatsword arrived would be the app making a call the table
+               * gets to make."* Two screens, one question, two answers - and the
+               * wizard's was the one nobody could undo, because it threw the ref
+               * away before the player saw the next screen.
+               *
+               * What stands in its place is a sentence on the slot itself.
+               */
+              set(open === 'primary' ? { primary: ref } : { secondary: ref });
               setOpen(null);
             }}
             onClose={() => setOpen(null)}
