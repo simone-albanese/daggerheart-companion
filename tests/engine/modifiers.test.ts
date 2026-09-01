@@ -105,8 +105,21 @@ function everySite(): Site[] {
 const STATIC_SHAPES: RegExp[] = [
   /[+−-]\s?\d+\s+to\s+(your\s+)?(Evasion|Armor Score|Agility|Strength|Finesse|Instinct|Presence|Knowledge|Severe damage threshold|damage thresholds|all character traits)/i,
   /Gain an additional (Hit Point|Stress) slot/i,
-  /Gain a permanent [+−-]\d+ bonus to your (Evasion|damage thresholds|Severe damage threshold)/i,
-  /Gain a bonus to your damage thresholds equal to your Proficiency/i,
+  /*
+   * `Armor Score` was missing from this alternation and Earthkin's Stoneskin -
+   * "Gain a permanent +1 bonus to your Armor Score and damage thresholds at
+   * character creation" - shipped unpriced through the gap, while Simiah's
+   * identically-worded Nimble was caught. A scan that misses by two words is
+   * worse than no scan: it is read as coverage.
+   */
+  /Gain a permanent [+−-]\d+ bonus to your (Evasion|Armor Score|damage thresholds|Severe damage threshold)/i,
+  /*
+   * Widened from the hardcoded word `Proficiency`. SRD 2.0 prints the same
+   * construct against other stats - "equal to your Spellcast trait", "equal to
+   * your Presence", "equal to your unmarked Armor Slots" - and every one of
+   * them slipped a regex written when Galapa's Shell was the only instance.
+   */
+  /Gain a bonus to your (damage thresholds|Armor Score|Evasion) equal to your \w+/i,
   /^You gain a [+−-]\d+ bonus to your (Agility|Strength|Finesse|Instinct|Presence|Knowledge)\./i,
   /-1 to all character traits and Evasion/i,
 ];
@@ -122,7 +135,54 @@ const looksStatic = (text: string): boolean => STATIC_SHAPES.some((r) => r.test(
  * its gate is satisfied, and the gate must be a fact the sheet STORES rather
  * than a fact about the moment.
  */
+/**
+ * REAL static bonuses this engine cannot yet express the AMOUNT of. Owed, not excused.
+ *
+ * A separate map from `SITUATIONAL` on purpose, and the separation is the whole
+ * point. `SITUATIONAL` says "this is not a fact the sheet stores" - a statement
+ * about the BOOK. Every entry below is the opposite: the book states a
+ * permanent number, the sheet should show it, and `Amount` is
+ * `number | 'proficiency'` so the row cannot be written. Filing these under
+ * `SITUATIONAL` would be the exact dishonesty this scan exists to prevent, and
+ * it would read as settled to whoever comes next.
+ *
+ * They ship unpriced. That is a decision, taken in the open: extending `Amount`
+ * reaches into `deriveStats`, and the failure mode of getting it wrong is a
+ * WRONG NUMBER on a played character's sheet - worse, in this project's own
+ * accounting, than a missing one. None of these has ever shipped, so nothing
+ * regresses; what is owed is new content not yet fully wired.
+ *
+ * To clear an entry: widen `Amount` to carry the stat it reads, resolve it in
+ * `collectModifiers` the way `'proficiency'` already is, and delete the line.
+ */
+const UNPRICED_AMOUNT: Record<string, string> = {
+  'armor|mage-robes':
+    'Enchanted, "damage thresholds equal to your Spellcast trait". TIER 1 STARTING ARMOR, so this is the one a new character meets first. The amount needs the wearer\'s subclass Spellcast trait, which `Amount` cannot name and a character may not have at all.',
+  'armor|improved-mage-robes': 'Enchanted, as mage-robes.',
+  'armor|advanced-mage-robes': 'Enchanted, as mage-robes.',
+  'armor|legendary-mage-robes': 'Enchanted, as mage-robes.',
+  'armor|granminsters-finery':
+    'Magnificent, "Armor Score equal to your Presence". The most tractable of the group - Presence is on the character - and it waits with the others rather than being the one hand-wired exception.',
+  'armor|rune-forged-exosuit':
+    'Attuned, "loadout reduced by one, but damage thresholds equal to your tier". Two effects in one sentence, and the loadout half has no register at all: `loadoutLimit` is a flat MAX_LOADOUT with nothing that moves it.',
+  'armor|coffinwood-armor-tier-1':
+    'Splintering, "damage thresholds equal to your unmarked Armor Slots". Not static in the same way as the others: the number changes as the armor is used, mid-scene. It belongs on the sheet, but as a live reading rather than a stored fact.',
+  'armor|coffinwood-armor-tier-2': 'Splintering, as coffinwood-armor-tier-1.',
+  'armor|coffinwood-armor-tier-3': 'Splintering, as coffinwood-armor-tier-1.',
+  'armor|coffinwood-armor-tier-4': 'Splintering, as coffinwood-armor-tier-1.',
+};
+
 const SITUATIONAL: Record<string, string> = {
+  'consumable|steelskin-salve':
+    'Steelskin Salve: "You can APPLY this salve to gain a bonus to your damage thresholds equal to your tier UNTIL THE END OF THE SCENE." A consumable with a duration - carrying it grants nothing, and using it grants it once. Surfaced by widening shape 4 off the hardcoded word Proficiency.',
+  'subclass|martial-artist':
+    'Keen Defenses: "When you\'re targeted by an attack, you can SPEND A FOCUS to gain a bonus to your Evasion equal to your tier AGAINST THE ATTACK." A cost, a trigger and a duration of one attack. (Focus is also a track SRD 2.0 prints and this app does not carry - see the handoff.)',
+  'subclass|pact-of-the-endless':
+    'Patron\'s Mantle: "SPEND A FAVOR to cloak yourself ... that LASTS UNTIL you take Severe damage or the scene ends." A cost and a duration.',
+  'weapon|eldritch-vambrace':
+    'Deflecting: "When you are attacked, you can MARK AN ARMOR SLOT to gain a bonus to your Evasion equal to your Armor Score AGAINST THE ATTACK." A cost and one attack.',
+  'weapon|buckler':
+    'Deflecting, as eldritch-vambrace, and PRE-EXISTING: this sentence is in SRD 1.0 and shipped unflagged only because the old shape 4 hardcoded the word Proficiency. Widening the shape surfaced it; it was always situational.',
   'subclass|warden-of-the-elements':
     'Elemental Dominion, "+1 bonus to your Proficiency for attacks and spells that deal damage" - and only "While Channeling", which begins by marking a Stress and ends at Severe damage or the next rest. A duration, not a fact the sheet stores.',
   /*
@@ -262,8 +322,25 @@ describe('the register against the book', () => {
              * Widening the middle does not loosen it: `-1` claimed for a `+2`
              * sentence still fails, which is the case the design round broke.
              */
+            /*
+             * ONE stat may stand between the number and `damage thresholds`,
+             * joined by `and`, and only from a named list.
+             *
+             * SRD 2.0 folio 33 prints Earthkin's Stoneskin as "+1 bonus to your
+             * Armor Score AND damage thresholds" - one number governing two
+             * registers, in one sentence. Requiring the number to touch the
+             * words would have rejected a row that is exactly right, which is
+             * how a check earns a hand-wired exception and then rots.
+             *
+             * It stays a POSITION check, which is the property a design round
+             * broke and rebuilt this around: the number must still be the one
+             * that opens the phrase. `"Barrier: +2 to Armor Score; -1 to
+             * Evasion"` cannot satisfy it for `-1`, because a semicolon is not
+             * `and` and `Evasion` is not `damage thresholds`. The alternation
+             * is a closed list rather than `\w+` for the same reason.
+             */
             const want = new RegExp(
-              `\\${row.amount as number > 0 ? '+' : '-'}${Math.abs(row.amount as number)}\\s+(bonus\\s+)?to\\s+(your\\s+)?damage thresholds`,
+              `\\${row.amount as number > 0 ? '+' : '-'}${Math.abs(row.amount as number)}\\s+(bonus\\s+)?to\\s+(your\\s+)?((Armor Score|Evasion)\\s+and\\s+)?damage thresholds`,
               'i',
             );
             if (!want.test(text)) {
@@ -318,7 +395,7 @@ describe('the book against the register', () => {
     for (const site of everySite()) {
       if (!looksStatic(site.text)) continue;
       const key = `${site.lane}|${site.ref}`;
-      if (priced.has(key) || key in SITUATIONAL) continue;
+      if (priced.has(key) || key in SITUATIONAL || key in UNPRICED_AMOUNT) continue;
       unexplained.push(`${key}  ${site.what}\n      "${site.text.replace(/\s+/g, ' ').slice(0, 160)}"`);
     }
     expect(
@@ -332,7 +409,9 @@ describe('the book against the register', () => {
 
   it('carries no SITUATIONAL entry that has outlived its sentence', () => {
     const live = new Set(everySite().map((s) => `${s.lane}|${s.ref}`));
-    const stale = Object.keys(SITUATIONAL).filter((k) => !live.has(k));
+    const stale = [...Object.keys(SITUATIONAL), ...Object.keys(UNPRICED_AMOUNT)].filter(
+      (k) => !live.has(k),
+    );
     expect(stale, `these exclusions name nothing in the dataset:\n  ${stale.join('\n  ')}`).toEqual(
       [],
     );
@@ -364,6 +443,8 @@ const sheet = (p: Partial<Character> = {}): Character =>
   newCharacter({ classRef: 'rogue', level: 1, ...p }, index);
 
 const evasionOf = (p: Partial<Character>): number => deriveStats(sheet(p), dataset, index).evasion;
+const statsOf = (p: Partial<Character>): ReturnType<typeof deriveStats> =>
+  deriveStats(sheet(p), dataset, index);
 
 describe('what a sheet actually reads', () => {
   /*
@@ -378,6 +459,31 @@ describe('what a sheet actually reads', () => {
     expect(evasionOf({ ancestryRefs: ['simiah'] })).toBe(13);
     expect(evasionOf({ activeArmor: 'gambeson-armor' })).toBe(13);
     expect(evasionOf({ ancestryRefs: ['simiah'], activeArmor: 'gambeson-armor' })).toBe(14);
+  });
+
+  /*
+   * SRD 2.0's Earthkin, which shipped doing nothing.
+   *
+   * Folio 33: "Gain a permanent +1 bonus to your Armor Score and damage
+   * thresholds at character creation." One printed sentence, two registers.
+   * Before this it read exactly like an ancestry with no feature at all -
+   * measured against Clank, which has none - while Simiah's word-for-word
+   * identical Nimble worked. The scan that exists to catch this listed Evasion
+   * and damage thresholds and not `Armor Score`, and missed by two words.
+   *
+   * Compared against a NEIGHBOUR rather than against a literal, so the day the
+   * class base moves this test still asks the question it means to ask.
+   */
+  it("gives an Earthkin the Armor Score and thresholds Stoneskin states", () => {
+    const plain = statsOf({ ancestryRefs: ['clank'] });
+    const stone = statsOf({ ancestryRefs: ['earthkin'] });
+    expect(stone.armorScore).toBe(plain.armorScore + 1);
+    expect(stone.thresholds[0]).toBe(plain.thresholds[0] + 1);
+    expect(stone.thresholds[1]).toBe(plain.thresholds[1] + 1);
+    // And it leaves alone what the sentence does not mention.
+    expect(stone.evasion).toBe(plain.evasion);
+    // The ledger names the feature, so the sheet can say where the number came from.
+    expect(JSON.stringify(stone)).toContain('Stoneskin');
   });
 
   it('honours the mixed-ancestry slot rule, so Nimble is the SECOND feature', () => {

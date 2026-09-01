@@ -484,8 +484,34 @@ function quoteIn(haystack: string, terms: readonly string[]): string | null {
  * The AND is over the whole record rather than over one line; the header says
  * why, and says why there is no fallback when it finds nothing.
  */
+/**
+ * Fold what a phone keyboard cannot type.
+ *
+ * SRD 2.0 sets ten card names with a NON-BREAKING hyphen, U+2011: the nine
+ * `*‑Touched` cards and `Battle‑Hardened`. SRD 1.0 had none. A player types
+ * `Arcana-Touched` with the ASCII hyphen their keyboard offers and the app
+ * answers *"Nothing in this dataset carries that"* — about a card it ships and
+ * draws. Measured on the real Search screen: 0 of 10 found by the hyphen, all
+ * 10 found by a space.
+ *
+ * Folded here rather than at extraction, because the NAME is right: the book
+ * prints U+2011 so a card would not break across a line, and rewriting it would
+ * be the app inventing a spelling. What is wrong is the comparison.
+ *
+ * The soft hyphen and zero-width space are folded too. They buy nothing on
+ * either book — measured, one U+00AD and four U+200B in 224 pages, none in a
+ * name — and they cost one character class here.
+ */
+export const foldQuery = (s: string): string =>
+  s
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
+    .replace(/[\u00AD\u200B]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
 export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] {
-  const needle = query.trim().replace(/\s+/g, ' ').toLowerCase();
+  const needle = foldQuery(query);
   if (needle === '') return [];
   const terms = ruleTerms(needle);
 
@@ -493,7 +519,9 @@ export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] 
   const bodies: SrdHit[] = [];
 
   for (const record of index) {
-    const name = record.name.toLowerCase();
+    // Folded on BOTH sides, or it buys nothing: a needle turned into an ASCII
+    // hyphen still misses a haystack that kept U+2011.
+    const name = foldQuery(record.name);
     const seen = { kind: record.kind, id: record.id, name: record.name, page: record.page };
 
     if (terms.every((t) => name.includes(t))) {
@@ -502,7 +530,7 @@ export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] 
     }
     // The cheap reject, once per term, against the record read whole. Most
     // records lose here on any real query and never pay for the line split.
-    const low = record.haystack.toLowerCase();
+    const low = foldQuery(record.haystack);
     if (!terms.every((t) => low.includes(t) || name.includes(t))) continue;
 
     const line = quoteIn(record.haystack, terms);

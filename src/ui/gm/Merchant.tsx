@@ -250,6 +250,7 @@
  *                            scrolls even with nothing on the counter
  */
 import { useCallback, useMemo, useState } from 'react';
+import { originStamp } from '../build/gear.ts';
 import type { Item } from '../../../shared/types.ts';
 import { cryptoRng, type Rng } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
@@ -383,6 +384,16 @@ export function Merchant({
                   <span className="t-meta" style={{ color: 'var(--dim)' }}>
                     {item.kind === 'loot' ? 'LOOT' : 'CONSUMABLE'}
                     {item.roll === undefined ? '' : ` · ${String(item.roll)}`}
+                    {/*
+                      * The product, because the roll stopped being unique.
+                      * SRD 2.0 prints the loot and consumable tables TWICE,
+                      * 1..60 per product, so `LOOT · 1` is Premium Bedroll in
+                      * the Core Set and Caltrops in the expansion. Without this
+                      * a GM's stall shows two rows reading the same thing for
+                      * different items. The player-side picker was fixed; this
+                      * is the same lie on the GM side.
+                      */}
+                    {originStamp(item) === '' ? '' : ` · ${originStamp(item)}`}
                   </span>
                   <span className="t-dense" style={{ color: 'var(--text-3)', maxWidth: '62ch' }}>
                     {item.text}

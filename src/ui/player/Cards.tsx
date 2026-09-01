@@ -23,6 +23,7 @@
  * answer without anyone opening the book.
  */
 import { useDeferredValue, useMemo, useState } from 'react';
+import { foldQuery } from '../shared/srdIndex.ts';
 import { DOMAINS_FOR_DISPLAY, type DomainCardType, type DomainId } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { canAddToLoadout, cardAvailability, vaultCard } from '../../engine/loadout.ts';
@@ -56,7 +57,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   const [levels, setLevels] = useState<ReadonlySet<number>>(new Set());
   const [recalls, setRecalls] = useState<ReadonlySet<number>>(new Set());
   const [query, setQuery] = useState('');
-  const search = useDeferredValue(query).trim().toLowerCase();
+  const search = foldQuery(useDeferredValue(query));
   /*
    * The card whose recall is waiting for a second tap, because it would be
    * paid in Hit Points rather than in Stress. One at a time: two primed
@@ -127,6 +128,14 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * valor - to `elementFromPoint` as unreachable, with no cut chip at the fold.
    * Two cards at one synthetic width is not worth any of that.
    */
+  /*
+   * `DOMAINS_FOR_DISPLAY` and never `DOMAINS`, and the difference lands the day
+   * SRD 2.0 ships. `DOMAINS`' array order is a WIRE FORMAT - `codec.ts` writes
+   * `DOMAINS.indexOf(d) + 1` as a u8 - so `dread` is APPENDED at index 9 rather
+   * than sorted into place, and reading the wire order onto the screen puts it
+   * last under an otherwise alphabetical grid. Swapping the two here leaves
+   * every test green, which is why this sentence is here.
+   */
   const domainsOnOffer = useMemo(
     () => DOMAINS_FOR_DISPLAY.filter((d) => dataset.domains.some((entry) => entry.id === d)),
     [dataset.domains],
@@ -182,7 +191,10 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
         if (owned === 'owned' && !row.owned) return false;
         if (owned === 'available' && (row.owned || !row.eligible)) return false;
         if (search !== '') {
-          const hay = `${row.card.name} ${row.card.text} ${row.card.domain}`.toLowerCase();
+          // `foldQuery` on both sides, for the same reason the SRD search does
+          // it: ten of this book's card names carry U+2011, and the hyphen a
+          // phone keyboard types is U+002D.
+          const hay = foldQuery(`${row.card.name} ${row.card.text} ${row.card.domain}`);
           if (!hay.includes(search)) return false;
         }
         return true;

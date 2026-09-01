@@ -344,6 +344,27 @@ const LOOT_MODS: Record<Ref, Row[]> = {
 /** On the sheet, in a feature slot the mixed-ancestry rule actually grants. */
 const ANCESTRY_MODS: Record<Ref, AncestryRow[]> = {
   simiah: [{ slot: 1, stat: 'evasion', amount: 1, feature: 'Nimble' }],
+  /*
+   * SRD 2.0 folio 33, and TWO rows for one sentence.
+   *
+   * "Gain a permanent +1 bonus to your Armor Score and damage thresholds at
+   * character creation." One printed feature that moves two registers, so it
+   * is two rows carrying the same `feature` name - the ledger totals per stat
+   * and the sheet shows each, which is exactly the shape `stalwart` already
+   * uses below.
+   *
+   * It shipped unpriced. Earthkin is one of six ancestries SRD 2.0 adds, and
+   * `deriveStats` gave it the same Armor Score and thresholds as an ancestry
+   * with no feature at all. The scan in `tests/engine/modifiers.test.ts` exists
+   * to catch precisely this and did not: its shape 3 listed Evasion and damage
+   * thresholds and not `Armor Score`, so Simiah's word-for-word identical
+   * `Nimble` was caught while this was not. That regex is widened in the same
+   * commit; without it, the next such sentence slips the same way.
+   */
+  earthkin: [
+    { slot: 0, stat: 'armorScore', amount: 1, feature: 'Stoneskin' },
+    { slot: 0, stat: 'thresholds', amount: 1, feature: 'Stoneskin' },
+  ],
   giant: [{ slot: 0, stat: 'maxHp', amount: 1, feature: 'Endurance' }],
   human: [{ slot: 0, stat: 'maxStress', amount: 1, feature: 'High Stamina' }],
   galapa: [{ slot: 0, stat: 'thresholds', amount: 'proficiency', feature: 'Shell' }],
