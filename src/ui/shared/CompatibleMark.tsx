@@ -70,6 +70,7 @@
  * is the official logo reads as an official app, which this is not.
  */
 import { useApp } from '../../store/state.ts';
+import { baseDataset } from '../../store/dataset.ts';
 import { useMedia } from './useMedia.ts';
 
 function useDark(): boolean {
@@ -149,12 +150,32 @@ export function CompatibleIcon({ size = 20 }: { size?: number }): React.JSX.Elem
  * §1.7's own verbs, which is why they are the ones used.
  *
  * The licence URL closes §4.1(d), which the first line satisfied only by naming
- * the licence. The full text ships at `src/legal/dpcgl-2025-07-30.txt` and
+ * the licence. The full text ships at `src/legal/dpcgl-2026-08-26.txt` and
  * Settings › About prints it, so the app is not relying on a network it
  * promises never to need.
  */
+/**
+ * The revision named in §4.1(a), taken from the dataset the app actually ships.
+ *
+ * It was the literal `1.0`, and the day the shipped book became SRD 2.0 that
+ * line began stating, on every screen and on the printed page, that this
+ * product includes materials from a document it does not include. It is the
+ * §4.1(a) identification of the Public Game Content used, so a stale literal
+ * there is not a typo.
+ *
+ * Derived rather than re-typed, because the same edit would be owed on every
+ * future revision and this is the one string nobody thinks to check: it sits
+ * behind Settings, and two tests pinned the wrong value without noticing.
+ *
+ * `baseDataset.layers[0].label` is the book's own label, minted in
+ * `tools/loadSrd.ts` beside the SHA that identifies the file — `SRD 1.0`,
+ * `SRD 2.0`. `revision` would give `srd-2.0-2026-08-25`, which is a build
+ * identifier and not what a licence sentence should say.
+ */
+const SHIPPED_SRD = baseDataset.layers[0]?.label ?? 'System Reference Document';
+
 export const ATTRIBUTION = [
-  'This product includes materials from the Daggerheart System Reference Document 1.0, © Critical Role, LLC, under the terms of the Darrington Press Community Gaming License. More information at www.daggerheart.com.',
+  `This product includes materials from the Daggerheart ${SHIPPED_SRD.replace(/^SRD /, 'System Reference Document ')}, © Critical Role, LLC, under the terms of the Darrington Press Community Gaming License. More information at www.daggerheart.com.`,
   'Daggerheart Compatible. Independent community content, not affiliated with or endorsed by Critical Role, LLC or Darrington Press.',
   'This app has modified that material: it is reorganised for the screen, and some numbers are computed from it. There are no previous modifications by others. The licence text ships in this app, and is at darringtonpress.com/license.',
 ] as const;

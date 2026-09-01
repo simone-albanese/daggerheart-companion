@@ -199,7 +199,7 @@ describe('which countdowns are offered the chart', () => {
   it('reads ADVANCE BY A ROLL on the glass, with the SRD stamp after it', () => {
     /*
      * The header's own words, held on their own. Nothing else in this suite
-     * held them: the `SRD 1.0` stamp could be deleted from the summary and all
+     * held them: the `SRD 2.0` stamp could be deleted from the summary and all
      * 136 files stayed green, because every other assertion on this header
      * reads either the `sr-only` row name beside it or the ADVANCE BY A ROLL
      * prefix `folds()` matches on. The mutant that removed the whole summary
@@ -214,7 +214,7 @@ describe('which countdowns are offered the chart', () => {
     // In order, because `Fold` draws the label first and the summary last with
     // a growing spacer between them: the stamp is the right-hand end of the
     // header row, not a second word beside the verb.
-    expect(words).toEqual(['ADVANCE BY A ROLL', 'SRD 1.0']);
+    expect(words).toEqual(['ADVANCE BY A ROLL', 'SRD 2.0']);
   });
 
   it('leaves the two verbs below the chart rather than above it', () => {
@@ -234,7 +234,7 @@ describe('what the chart draws once it is open', () => {
     seed([clock('c1', 'The ritual', 'dynamic', 4)]);
     click(folds()[0]!);
     expect(text()).toContain('DYNAMIC COUNTDOWN ADVANCEMENT');
-    expect(text()).toContain('SRD 1.0 · P.69');
+    expect(text()).toContain('SRD 2.0 · P.91');
     // The sentence that tells a progress countdown from a consequence one. The
     // persisted kind has only `dynamic` in it, so the GM reads the distinction
     // and presses the column they mean.

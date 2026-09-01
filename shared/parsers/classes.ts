@@ -20,14 +20,37 @@ import {
   ParseError,
   splitOn,
 } from './util.ts';
+import { parseContents, sectionRange } from './contents.ts';
 
-const FROM_FOLIO = 8;
-const TO_FOLIO = 26;
+/*
+ * The folio range comes from the book's own contents page. It used to be
+ * written here, `FROM_FOLIO = 8` / `TO_FOLIO = 26`, which is right for SRD 1.0 and wrong for
+ * every other printing - SRD 2.0 reflows 135 printed pages into 224.
+ */
+const SECTION = 'Classes';
 
 /** Sub-section banners are set at 11.3pt against 9.3pt body. */
 const HEADING_SIZE = 10.5;
 
-const BULLET = /^•\s*/;
+/*
+ * Both bullets the two books set, because SRD 2.0 uses a second one.
+ *
+ * SRD 1.0 sets every list in this chapter with U+2022. SRD 2.0 splits them:
+ * U+2022 still opens a background or connection question, and U+25E6 - a
+ * hollow ring - opens the option lists inside a feature ("◦ Fire: When an
+ * adversary within Melee range deals damage to you..."). Measured across the
+ * whole book: 804 lines open with U+2022 and 172 with U+25E6, and on the
+ * eleven folios that print both they are siblings rather than nested, so both
+ * mean the same thing here.
+ *
+ * Only recognising the filled one did not throw. It produced a feature whose
+ * options had been folded into one running line - "you gain the following
+ * benefits: ◦ Fire: ... ◦ Earth: ... ◦ Water: ..." - because an unrecognised
+ * bullet neither starts a paragraph nor becomes a `- ` item. Counted by
+ * reverting this one character: seventeen class and subclass feature texts read
+ * that way, and none in SRD 1.0, which sets no ring at all.
+ */
+const BULLET = /^[•◦]\s*/;
 
 /**
  * Leading, in multiples of the point size, above which a line starts a new
@@ -349,21 +372,70 @@ const parseClass = (
 };
 
 /**
+ * Widest gap between two left edges on a page that still counts as one strip.
+ *
+ * Measured on the folios this parser reads: the widest gap INSIDE a strip is an
+ * indent, 11.3pt in SRD 1.0 and 21.3pt in SRD 2.0, and the narrowest gap
+ * BETWEEN two strips is 222.7pt in SRD 1.0 and 72.3pt in SRD 2.0. The two
+ * populations do not come near each other and 60 sits between them in both
+ * books.
+ */
+const BAND_GAP = 60;
+
+/**
+ * Which vertical strip of the page a line was actually printed in.
+ *
+ * `Line.column` cannot answer this. It is scoped to the REGION the XY cut found
+ * the line in, not to the page, so a page that sets a multi-column box inside
+ * one of its own columns starts counting again from 0 for the box's
+ * sub-columns. SRD 2.0 folio 26 does exactly that: the SPHERE OF INFLUENCE
+ * EXAMPLES box sits in the right-hand column and sets three sub-columns at
+ * x = 313, 394 and 475, and the first of them is `column 0` - the same index
+ * the page's LEFT column carries at x = 57-82.
+ *
+ * Sorting that page by `column` then `y` therefore threaded eight one-word
+ * lines of the box through the left column, and nothing threw:
+ *
+ *   - six of them landed inside the Warlock's description, which read
+ *     "...in exchange for incredible Gamblers power are known as warlocks"
+ *   - the other two became a fourth Sorcerer connection question,
+ *     "Ambition Artists", beside three real ones
+ *
+ * A band is where the line IS, and no region can renumber that. Checked rather
+ * than assumed: over the twenty SRD 1.0 class folios this orders every page
+ * identically to the old rule, and over the twenty-five SRD 2.0 ones it changes
+ * exactly folio 26.
+ */
+const bandOf = (page: BookPage): ((l: Line) => number) => {
+  const xs = [...new Set(page.lines.map((l) => l.x))].sort((a, b) => a - b);
+  const edges: number[] = [];
+  for (let i = 1; i < xs.length; i++) {
+    if (xs[i]! - xs[i - 1]! > BAND_GAP) edges.push(xs[i]!);
+  }
+  return (l) => edges.filter((e) => l.x >= e).length;
+};
+
+/**
  * The class folios in reading order.
  *
  * On folio 21 both columns break at the same height, so the layout's XY cut
  * takes the horizontal cut first and emits the left column's lower half after
  * the whole right column - which lands the Winged Sentinel's mastery feature
- * before the subclass it belongs to. Sorting each page by column then depth is
+ * before the subclass it belongs to. Sorting each page by strip then depth is
  * the reader's order for a plain two-column page, and a no-op on the other
  * eighteen.
  */
-const readingOrder = (pages: BookPage[]): FLine[] =>
-  pagesInFolios(pages, FROM_FOLIO, TO_FOLIO).flatMap((p) =>
-    [...p.lines]
-      .sort((a, b) => a.column - b.column || a.y - b.y || a.x - b.x)
-      .map((l) => ({ ...l, folio: p.folio! })),
+const readingOrder = (pages: BookPage[]): FLine[] => {
+  const range = sectionRange(parseContents(pages), SECTION);
+  return (
+  pagesInFolios(pages, range.from, range.to).flatMap((p) => {
+    const band = bandOf(p);
+    return [...p.lines]
+      .sort((a, b) => band(a) - band(b) || a.y - b.y || a.x - b.x)
+      .map((l) => ({ ...l, folio: p.folio! }));
+    })
   );
+};
 
 export function parseClasses(pages: BookPage[]): { classes: CharClass[]; subclasses: Subclass[] } {
   const lines = readingOrder(pages);

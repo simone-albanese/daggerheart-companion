@@ -1,8 +1,15 @@
 /**
  * Build the committed SRD dataset.
  *
- *   npm run build:srd            build, validate, write data/srd-1.0.json
+ *   npm run build:srd            build, validate, write the shipped book's own
+ *                                dataset - `data/srd-2.0.json` today, and the
+ *                                file is named by `Book.datasetPath` rather
+ *                                than by a constant here, so `--pdf` cannot
+ *                                write one book's parse over another's file.
  *   npm run build:srd -- --check validate only, write nothing (this is CI)
+ *   npm run build:srd -- --check --pdf Manuali/Daggerheart-SRD-9-09-25.pdf
+ *                                the same, for SRD 1.0, which is still
+ *                                committed and no longer shipped.
  *
  * If this script is wrong, CI notices. If the equivalent ran in the browser and
  * were wrong, a player would notice at a table, mid-session, on a device you
@@ -20,17 +27,32 @@ import { parseEnvironments } from '../shared/parsers/environments.ts';
 import { parseArmors, parseWeapons } from '../shared/parsers/equipment.ts';
 import { parseConsumables, parseLoot } from '../shared/parsers/loot.ts';
 import { parseRules } from '../shared/parsers/rules.ts';
+import { parseStances } from '../shared/parsers/stances.ts';
+import { parseTransformations } from '../shared/parsers/transformations.ts';
 import { SCHEMA_VERSION, type Dataset } from '../shared/types.ts';
 import { loadSrd } from './loadSrd.ts';
 import { formatIssues, validate } from './validate.ts';
 
-const OUT = 'data/srd-1.0.json';
 
 const main = async (): Promise<void> => {
   const checkOnly = process.argv.includes('--check');
   const started = Date.now();
 
-  const srd = await loadSrd();
+  /*
+   * `--pdf <path>` points the pipeline at a specific book. It does NOT skip the
+   * hash gate: the file still has to be one of `BOOKS`, so this selects among
+   * known revisions rather than waving an unknown one through. Without it the
+   * only way to read a second book was `allowUnknownRevision`, which had no CLI
+   * plumbing at all and used to misname whatever it read.
+   */
+  const pdfFlag = process.argv.indexOf('--pdf');
+  const pdfPath = pdfFlag === -1 ? undefined : process.argv[pdfFlag + 1];
+  if (pdfFlag !== -1 && pdfPath === undefined) {
+    console.error('--pdf needs a path.');
+    process.exit(1);
+  }
+
+  const srd = await loadSrd(pdfPath === undefined ? {} : { pdfPath });
   console.log(`source   ${srd.pdfPath}`);
   console.log(`sha256   ${srd.sha256}`);
   console.log(`revision ${srd.revision}`);
@@ -56,7 +78,10 @@ const main = async (): Promise<void> => {
     // every time it is regenerated turns `git diff` into noise and makes CI's
     // "does this still match the PDF" check impossible to write honestly.
     generatedAt: srd.sourceDate,
-    layers: [{ id: srd.revision, label: 'SRD 1.0', priority: 0 }],
+    // Both halves from the book. The label used to be the literal 'SRD 1.0'
+    // beside a variable id, so a second revision would have shipped a dataset
+    // labelled as the first one on every screen that draws it.
+    layers: [{ id: srd.revision, label: srd.label, priority: 0 }],
     domains: parseDomains(pages),
     domainCards: parseDomainCards(pages),
     classes,
@@ -64,6 +89,24 @@ const main = async (): Promise<void> => {
     beastforms: parseBeastforms(pages),
     ancestries: parseAncestries(pages),
     communities: parseCommunities(pages),
+    /*
+     * SRD 1.0 has no Transformations chapter; SRD 2.0 prints six cards on
+     * folios 43-45 under a `Transformations` contents entry at folio 42. The
+     * parser returns `[]` for a book whose contents does not list the chapter
+     * and throws for one whose pages print it anyway, so `[]` here is the
+     * book's answer rather than a placeholder - see the docblock in
+     * `shared/parsers/transformations.ts`.
+     */
+    transformations: parseTransformations(pages),
+    /*
+     * SRD 1.0 prints no Martial Stances chapter; SRD 2.0 prints sixteen stances
+     * on folio 13, under a `MARTIAL STANCES` head that NEITHER book's contents
+     * page names. The parser therefore selects by that banner inside the
+     * `Classes` range and cross-examines an empty answer against the
+     * `STANCE FEATURES` banner, so `[]` here is the book's answer rather than a
+     * placeholder - see the docblock in `shared/parsers/stances.ts`.
+     */
+    stances: parseStances(pages),
     weapons: parseWeapons(pages),
     armors: parseArmors(pages),
     loot: parseLoot(pages),
@@ -82,6 +125,8 @@ const main = async (): Promise<void> => {
     ['beastforms', dataset.beastforms.length],
     ['ancestries', dataset.ancestries.length],
     ['communities', dataset.communities.length],
+    ['transformations', dataset.transformations.length],
+    ['stances', dataset.stances.length],
     ['weapons', dataset.weapons.length],
     ['armors', dataset.armors.length],
     ['loot', dataset.loot.length],
@@ -106,7 +151,32 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
+  /*
+   * Which file this build may write, taken from the BOOK and not from a
+   * constant. `const OUT = 'data/srd-1.0.json'` used to sit at the top of this
+   * file and `--pdf` did not touch it, so the moment the parsers could read
+   * SRD 2.0 end to end, `npm run build:srd -- --pdf <SRD 2>` would have written
+   * that book's dataset over SRD 1.0's - destroying the byte-identity that is
+   * the only evidence the second book was added rather than substituted.
+   */
+  const OUT = srd.datasetPath;
+
   if (checkOnly) {
+    /*
+     * A revision the app does not ship has nothing committed to compare
+     * against, and inventing a comparison would be theatre. Validation has
+     * already run above and an error there has already exited; reaching here
+     * means the book parsed and passed the gate, which is the whole of what
+     * `--check` can honestly assert about it.
+     */
+    if (OUT === null) {
+      console.log(
+        `\n${srd.revision} is not the committed revision, so there is nothing to compare against.` +
+          `\nThe dataset above passed validation. To make this revision the one the app ships,` +
+          `\nsee \`datasetPath\` in tools/loadSrd.ts - it is a decision with a diff, not a flag.`,
+      );
+      return;
+    }
     // CI path: compare against what is committed so a stale dataset is caught.
     try {
       const committed = JSON.parse(readFileSync(OUT, 'utf8')) as Dataset;
@@ -125,6 +195,28 @@ const main = async (): Promise<void> => {
       throw err;
     }
     return;
+  }
+
+  /*
+   * Refusing rather than choosing another name. The dataset is a static import
+   * in `src/store/dataset.ts` and in ~20 test files, so which revision the app
+   * ships is a change to those files. Inventing an output path here would
+   * produce an artifact nothing reads and a build that looks like it shipped
+   * something.
+   *
+   * Both books in `BOOKS` carry a path today, so this branch is unreachable
+   * from the CLI as it stands. It is kept because the state it refuses is one
+   * word away: a third revision added to `BOOKS` to be measured against,
+   * before anyone has decided whether the app should draw it.
+   */
+  if (OUT === null) {
+    console.error(
+      `\nRefusing to write: ${srd.revision} has no committed dataset.` +
+        `\n${srd.pdfPath} parsed and validated, and this build has nowhere to put it.` +
+        `\nGive the book a \`datasetPath\` in tools/loadSrd.ts, and repoint the static` +
+        `\nimport in src/store/dataset.ts and the test files that read the old one.`,
+    );
+    process.exit(1);
   }
 
   mkdirSync('data', { recursive: true });

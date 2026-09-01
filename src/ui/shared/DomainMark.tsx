@@ -1,5 +1,5 @@
 /**
- * The nine domain marks.
+ * The ten domain marks.
  *
  * Each domain gets a colour *and* a silhouette. The shape alone identifies the
  * domain, so colour is reinforcement and never the carrier - which is what
@@ -33,6 +33,27 @@ export const DOMAIN_MARKS: Record<DomainId, Mark> = {
     radius: '0',
   },
   valor: { label: 'Valor', clip: 'polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)', radius: '0' },
+  /*
+   * Dread, SRD 2.0's tenth. A saltire, and the shape was chosen by rendering
+   * the candidates at 16px WITH THE COLOUR REMOVED and looking at them beside
+   * the nine - which is the only test of the claim this file opens with, that
+   * the shape alone identifies the domain.
+   *
+   * What that ruled out, and would not have been obvious from reasoning: a
+   * pentagon collapses into `codex` at 16px, a trapezoid into `bone`, and a
+   * teardrop is `grace` with a nick taken out of it. A chevron sits too close
+   * to `blade`, and an hourglass is `blade` and `midnight` stacked - the one
+   * combination a set already holding both should not add.
+   *
+   * Nothing in the nine is cruciform, so a saltire is separable by construction
+   * rather than by degree. Preferred over an upright cross for the same size
+   * and separability because an X reads as negation and a `+` reads as medical.
+   */
+  dread: {
+    label: 'Dread',
+    clip: 'polygon(20% 0,50% 30%,80% 0,100% 20%,70% 50%,100% 80%,80% 100%,50% 70%,20% 100%,0 80%,30% 50%,0 20%)',
+    radius: '0',
+  },
 };
 
 export const domainColor = (domain: DomainId): string => `var(--${domain})`;

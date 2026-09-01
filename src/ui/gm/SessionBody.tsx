@@ -218,6 +218,7 @@ import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
 import { UrlArm } from './UrlArm.tsx';
 import { openCombatants, useGm } from './gmStore.ts';
 import { COUNTDOWN_KIND_COLOR, LINK_KIND_LABEL, sessionName } from './session.ts';
+import { SRD_LABEL, srdStamp } from '../../store/dataset.ts';
 
 /**
  * The name of each switch a GM flips, shortened - and no dice.
@@ -1333,7 +1334,7 @@ function LinkArm({
             {section.title}
           </span>
           <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-            SRD 1.0{section.page === null ? '' : ` · P.${String(section.page)}`}
+            {srdStamp(section.page)}
           </span>
         </div>
         {section.blocks.map((block, i) => (
@@ -1541,7 +1542,7 @@ function CountdownArm({
           label="ADVANCE BY A ROLL"
           summary={
             <>
-              SRD 1.0<span className="sr-only"> — {row}</span>
+              {SRD_LABEL}<span className="sr-only"> — {row}</span>
             </>
           }
         >

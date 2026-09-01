@@ -928,7 +928,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
 
   'shared/Fold.tsx::Fold': () => (
-    <Fold label="Examples" summary="SRD 1.0" defaultOpen>
+    <Fold label="Examples" summary="SRD 2.0" defaultOpen>
       <p>Inside the fold.</p>
     </Fold>
   ),

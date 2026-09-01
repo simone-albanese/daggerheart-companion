@@ -100,7 +100,7 @@ describe('the licence texts, on the device', () => {
     await renderAbout();
     await press('Read the DPCGL');
 
-    const bundled = read('src/legal/dpcgl-2025-07-30.txt');
+    const bundled = read('src/legal/dpcgl-2026-08-26.txt');
     expect(
       shown(),
       'the licence panel is not showing the licence, so an offline user still cannot read ' +
@@ -146,9 +146,9 @@ describe('the licence texts, on the device', () => {
     // A version, a retrieval date and a hash, because DRP may amend the licence
     // at any time and "see darringtonpress.com/license" names whatever is there
     // today rather than what this release was published under.
-    expect(body, 'no version').toContain('30 July 2025');
-    expect(body, 'no retrieval date').toContain('retrieved 16 August 2026');
-    expect(body, 'no hash of the document this text came from').toMatch(/SHA-256 9d435c4e/);
+    expect(body, 'no version').toContain('26 August 2026');
+    expect(body, 'no retrieval date').toContain('retrieved 1 September 2026');
+    expect(body, 'no hash of the document this text came from').toMatch(/SHA-256 f7f62d77/);
     expect(body, 'the app implies it is quoting the authority rather than a transcription')
       .toMatch(/extracted from the official PDF/);
     expect(body).toMatch(/that PDF is the authority/);
@@ -158,16 +158,26 @@ describe('the licence texts, on the device', () => {
 describe('what the repository says about the licence', () => {
   it('names a version and a retrieval date, not a bare URL', () => {
     const licence = read('LICENSE');
-    expect(licence, 'LICENSE still cites the DPCGL by bare URL').toContain('retrieved 2026-08-16');
-    expect(licence).toContain('DPCGL-July-30th-2025.pdf');
+    expect(licence, 'LICENSE still cites the DPCGL by bare URL').toContain('retrieved 2026-09-01');
+    expect(licence).toContain('DPCGL_2.0_AUG_26_2026.pdf');
     expect(licence).toMatch(
-      /9d435c4ee64ab1485fe7cc6a164daff7f4e2bad0a12bc9e1660e0e9393d4aa04/,
+      /f7f62d775a43eecc4ad8f438a233a6aaf92f50396cb412c5ea91c0a988be6eca/,
+    );
+    /*
+     * And WHY this edition, which is the part a date cannot carry. The
+     * previous text listed only SRD 1.0 as Public Game Content while this app
+     * ships 2.0 — a licence that does not cover the content beside it. If
+     * somebody ever reverts the edition, this is the sentence that should stop
+     * them.
+     */
+    expect(licence, 'LICENSE does not say why the edition changed').toMatch(
+      /System Reference Document 2\.0 \(including Domain\s+icons\)/,
     );
   });
 
   it('has the terms somewhere `rg darringtonpress src/` can find them', () => {
     // The item's own probe. It returned nothing before this.
-    expect(read('src/legal/dpcgl-2025-07-30.txt')).toContain('darringtonpress.com');
+    expect(read('src/legal/dpcgl-2026-08-26.txt')).toContain('darringtonpress.com');
   });
 
   it('pins the extracted text, so a silent edit to a licence cannot pass', () => {
@@ -176,10 +186,15 @@ describe('what the repository says about the licence', () => {
     // a quiet edit. Changing it deliberately - a newer DPCGL, a better
     // extraction - means changing this line, the citation in LICENSE and the
     // provenance sentence in About, together.
-    const bytes = readFileSync(join(ROOT, 'src/legal/dpcgl-2025-07-30.txt'));
+    const bytes = readFileSync(join(ROOT, 'src/legal/dpcgl-2026-08-26.txt'));
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(
-      'f0351ac8b4be5ea50d96413fe5509d393c02fdccaacba564a9c8df62f35643e8',
+      '0a1c53b56838bb257b2d860864592582686b9f7fbd0f23542e9942276a30e8fe',
     );
-    expect(bytes.toString('utf8')).toContain('Last Updated 7/29/2025');
+    expect(bytes.toString('utf8')).toContain('Last Updated 8/05/2026');
+    // The edition that names SRD 2.0 as Public Game Content. Asserted rather
+    // than assumed, because it is the whole reason this file was replaced.
+    expect(bytes.toString('utf8')).toContain(
+      'Daggerheart System Reference Document 2.0 (including Domain icons)',
+    );
   });
 });

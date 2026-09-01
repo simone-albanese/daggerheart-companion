@@ -13,11 +13,16 @@
  *      in the header either way
  *   3. a crc32 of the payload, inside the payload
  *
- *   format 2 (written)   byte 0     version in the low nibble, 0x80 when deflated
+ *   format 4 (written)   byte 0     version in the low nibble, 0x80 when deflated
  *                        bytes 1-4  crc32, big-endian, over this whole payload
  *                                   with these four bytes zeroed
  *                        bytes 5..  the body, field by field in `writeBody`
+ *   format 2 (read only) the same header and the same body, minus the one
+ *                        varint format 4 adds after `communityRef`
  *   format 1 (read only) byte 0     the same header, bytes 1.. the body
+ *
+ * There is no format 3. `CODEC_VERSION` says why, and the short version is that
+ * 3 is one bit from both 1 and 2 and 4 is one bit from neither.
  *
  * WHY THE CHECKSUM IS HERE AND NOT ONLY ONE LAYER UP. Measured: 8136 single-bit
  * flips across 15 real sheets, and 30.9 % of them decoded into a *different*
@@ -30,6 +35,14 @@
  * else - a pasted code, a Bluetooth hand-off - would have inherited nothing.
  * A format whose own bytes say whether they arrived intact cannot be adopted
  * wrongly.
+ *
+ * WHAT FORMAT 4 ADDS. One varint after `communityRef`: the registry id of
+ * `Character.transformationRef`, the SRD 2.0 card a character holds. It is on
+ * the wire rather than deliberately lost because the loss would have been the
+ * silent kind - see `READABLE_CODEC_VERSIONS` for the Dread-domain defect it
+ * would otherwise have repeated - and it is resolved through
+ * `Registry.idIn('transformations', ...)` at both ends rather than through the
+ * bare-slug lookup, because SRD 2.0 prints `vampire` twice.
  *
  * FOUR DELIBERATE LOSSES. The first two are of local handles rather than of
  * content; the last two are of a choice and a count, and are the ones a player
@@ -65,6 +78,16 @@
  *     updated yet, which is the direction this vector exists for. If a later
  *     item does want it on the wire, the format number to take is 4.
  *
+ *     **That last sentence has been spent, and the count still did not ride.**
+ *     A later item did want the wire - `transformationRef` - and it took 4, for
+ *     exactly the reason given here. From 4 the four flips give 5, 6, 0 and 12,
+ *     none readable, so the property survives the bump. `consecutiveShortRests`
+ *     is unchanged: it is still not carried and still decodes as 0, because
+ *     nothing about a new format number makes a count of rests worth a byte the
+ *     receiving table cannot trust. A future item wanting the wire takes 8 -
+ *     one bit from 0, 9, 10 and 12, none of them readable, and the last number
+ *     in the nibble with that property while 1, 2 and 4 are the readable set.
+ *
  * What that costs, said plainly rather than left to be discovered: a sheet
  * handed over by QR arrives having counted no rests, so the receiving device
  * may offer a short rest the sending table already spent, and a companion who
@@ -78,6 +101,7 @@
  */
 import {
   DOMAINS,
+  MAX_FOCUS,
   RANGES,
   SCHEMA_VERSION,
   TRAITS,
@@ -98,14 +122,86 @@ import { crc32 } from './crc32.ts';
 import {
   isReserved,
   isUnresolvedRef,
+  parseRegistryKey,
   unresolvedIdOf,
   unresolvedRef,
   type Registry,
 } from './registry.ts';
+
+/**
+ * The registry collection a `transformationRef` lives in, named once.
+ *
+ * A string literal repeated at the encoder, the decoder, the pre-flight and the
+ * placeholder repair is four chances to typo a lookup that fails by returning
+ * `null` - which is to say, by quietly reporting every transformation as one
+ * this device cannot name.
+ */
+const TRANSFORMATIONS = 'transformations';
+
+/**
+ * The registry collection a `stanceRefs` entry lives in, named once, for the
+ * same reason `TRANSFORMATIONS` is.
+ */
+const STANCES = 'stances';
 import { characterRefs } from '../engine/holdings.ts';
 
-/** What this build writes. */
-export const CODEC_VERSION = 2;
+/**
+ * What this build writes. **Four, and the three that was skipped was skipped on
+ * purpose.**
+ *
+ * The obvious next number is 3 and it is the wrong one, for a reason this file
+ * wrote down before there was anything to spend it on. The version is the low
+ * nibble of byte 0, so the question a format number has to answer is *which
+ * formats is it one bit away from*:
+ *
+ *   from 3 (0b0011)  ->  2, 1, 7, 11   -- 2 and 1 are both readable
+ *   from 4 (0b0100)  ->  5, 6, 0, 12   -- none readable
+ *
+ * A single flip from 3 demotes a payload into format 1, which carries **no
+ * checksum of its own**: the reader would take bytes 1.. as the body, start
+ * parsing the crc32 field as a character, and have nothing to tell it the bytes
+ * were not the ones that were sent. That is the exact property
+ * `tests/adversarial.test.ts` pins - *"refuses a payload whose version nibble
+ * was flipped"* - and 8136 measured single-bit flips are why it is pinned.
+ * Measured rather than reasoned: with `CODEC_VERSION = 3` that test goes red on
+ * two of its four bits.
+ *
+ * The note under the fourth deliberate loss below has said since format 2
+ * shipped that *"if a later item does want it on the wire, the format number to
+ * take is 4"*. This is that later item, and this is that number. Three is now
+ * permanently unused; a nibble holds sixteen and spending one to keep every
+ * written payload a Hamming distance of 2 from every readable format is the
+ * cheapest thing in this file.
+ *
+ * What 4 costs is what any bump costs: a build that shipped before it refuses
+ * these payloads outright, by the sentence in `decodeCharacter`. That refusal
+ * is the point - see `READABLE_CODEC_VERSIONS`.
+ *
+ * ## Eight, and it is the number the file above named before it was needed
+ *
+ * The paragraph under the fourth deliberate loss ends: *"A future item wanting
+ * the wire takes 8 - one bit from 0, 9, 10 and 12, none of them readable, and
+ * the last number in the nibble with that property while 1, 2 and 4 are the
+ * readable set."* This is that future item - `stanceRefs` and `focus` - and
+ * this is that number. It was checked again rather than taken on trust:
+ *
+ *   from 5 (0b0101)  ->  4, 7, 1, 13   -- 4 and 1 are both readable
+ *   from 6 (0b0110)  ->  7, 4, 2, 14   -- 4 and 2 are both readable
+ *   from 8 (0b1000)  ->  9, 10, 12, 0  -- none readable
+ *
+ * 5 and 6 are the two numbers a reader would reach for next and both demote a
+ * payload into a readable format on one flip - 5 into format 1, which carries
+ * no checksum of its own, which is the exact demotion 3 was rejected for. 8 is
+ * the only remaining nibble value at Hamming distance 2 from all of 1, 2 and 4,
+ * so `adversarial.test.ts`'s *"refuses a payload whose version nibble was
+ * flipped"* survives the bump on all four bits.
+ *
+ * 3, 5, 6, 7 and everything above 8 are now permanently unused for the same
+ * reason 3 was: a nibble holds sixteen and this property is the cheapest thing
+ * in the file. When 8 is spent there is no fifth value with it, and the next
+ * bump has to widen the header rather than pick a worse number quietly.
+ */
+export const CODEC_VERSION = 8;
 
 /**
  * Every format this build can read, oldest first.
@@ -120,13 +216,49 @@ export const CODEC_VERSION = 2;
  * crc32 covers it, and `adversarial.test.ts` says so out loud rather than
  * letting the reader assume otherwise.
  */
-export const READABLE_CODEC_VERSIONS = [1, 2] as const;
+export const READABLE_CODEC_VERSIONS = [1, 2, 4, 8] as const;
+
+/**
+ * What a build that has not updated does with a format-4 payload, said out loud
+ * because "it travels on the wire" is only half a promise.
+ *
+ * It throws, by name, from `decodeCharacter`'s version gate: *"This transfer
+ * says it is format 4, and this app reads 1 and 2."* Nothing is imported and
+ * nothing is half-imported. That is the whole difference between this field and
+ * the defect already on record for the Dread domain, where `multiclassDomain`
+ * rides as an index into `DOMAINS` and a receiver whose `DOMAINS` is shorter
+ * reads `DOMAINS[9] ?? null` and drops the domain **in silence**, because an
+ * index has no "unresolved" representation the way a registry id does.
+ *
+ * `transformationRef` cannot repeat that. It rides as a registry id, so a
+ * receiver that cannot name it parks it as `?14005` and forwards it on the next
+ * hop untouched - the same treatment every other ref on the sheet gets.
+ *
+ * ## Format 8 adds two things and repeats neither defect
+ *
+ * `stanceRefs` is a list of registry ids, written and read through
+ * `idIn('stances', ...)` / a `keyOf` check, so a receiver with an older dataset
+ * parks `?15003` and forwards it rather than dropping a stance. `focus` is a
+ * counter, and `readCounter` refuses a track above `COUNTER_CEILINGS.focus`
+ * loudly rather than clamping it - a seventh Focus box is not a sheet this
+ * build may quietly correct.
+ *
+ * A build that shipped before 8 throws by name from `decodeCharacter`'s version
+ * gate - *"This transfer says it is format 8, and this app reads 1 and 2 and
+ * 4"*, the message that gate composes verbatim - and imports nothing. That is the whole point: a schema-7 build reading these
+ * fields off a schema-8 sheet would drop both, and drop them silently.
+ */
 
 const VERSION_MASK = 0x0f;
 const DEFLATED_BIT = 0x80;
 /** Bytes 1-4 of a format-2 payload. */
 const CHECKSUM_BYTES = 4;
-const BODY_AT: Record<number, number> = { 1: 1, 2: 1 + CHECKSUM_BYTES };
+const BODY_AT: Record<number, number> = {
+  1: 1,
+  2: 1 + CHECKSUM_BYTES,
+  4: 1 + CHECKSUM_BYTES,
+  8: 1 + CHECKSUM_BYTES,
+};
 
 export class CodecError extends Error {
   override name = 'CodecError';
@@ -482,6 +614,32 @@ class RefWriter {
 
   /** 0 means "no reference". Unknown slugs are collected and thrown together. */
   write(ref: Ref | null | undefined): void {
+    this.put(ref, (slug) => this.registry.idOf(slug));
+  }
+
+  /**
+   * The exact write, for the one field whose collection is known and whose bare
+   * name is taken.
+   *
+   * `idOf` resolves a bare slug through `BANDED_COLLECTIONS` precedence, and
+   * `transformations` is last in that list on the explicit ground that a
+   * character could not point at one. That ground is gone, and the list has NOT
+   * moved - moving it would change what `vampire` means for the whole app,
+   * because SRD 2.0 prints an adversary VAMPIRE (folio 142) beside the VAMPIRE
+   * card (folio 45) and both slugify the same way.
+   *
+   * So this field asks `idIn`. What the bare lookup would have done, measured
+   * on the two parsed collections rather than imagined: `idOf('vampire')`
+   * returns the ADVERSARY's id, in the 10_000 band. It would then have been
+   * accepted by the pre-flight, written to the wire, and decoded on the far
+   * side as an id whose registry key says `adversaries/vampire` - a
+   * transformation slot carrying an adversary's number.
+   */
+  writeIn(collection: string, ref: Ref | null | undefined): void {
+    this.put(ref, (slug) => this.registry.idIn(collection, slug));
+  }
+
+  private put(ref: Ref | null | undefined, lookup: (slug: Ref) => number | null): void {
     if (ref === null || ref === undefined || ref === '') {
       this.w.varint(0);
       return;
@@ -492,7 +650,7 @@ class RefWriter {
       this.w.varint(parked);
       return;
     }
-    const id = this.registry.idOf(ref);
+    const id = lookup(ref);
     if (id === null) {
       this.missing.add(ref);
       this.w.varint(0);
@@ -504,6 +662,22 @@ class RefWriter {
   list(refs: readonly Ref[] | undefined): void {
     writeMaybeCount(this.w, refs);
     for (const ref of refs ?? []) this.write(ref);
+  }
+
+  /**
+   * A list whose collection is known. `list` is to `write` what this is to
+   * `writeIn`, and `stanceRefs` is the field that wants it.
+   *
+   * Measured on both committed datasets, no stance slug collides with anything,
+   * so `list` would write the same bytes today. It is not used anyway: a list
+   * of refs that reaches the wire through the bare name is a list whose
+   * meaning changes the day a printing gives one of those sixteen words to a
+   * second collection - which is exactly what SRD 2.0 did to `vampire` between
+   * one book and the next.
+   */
+  listIn(collection: string, refs: readonly Ref[] | undefined): void {
+    writeMaybeCount(this.w, refs);
+    for (const ref of refs ?? []) this.writeIn(collection, ref);
   }
 }
 
@@ -533,6 +707,10 @@ function writeBody(c: Character, registry: Registry, options: EncodeOptions): Ui
   refs.list(c.subclassRefs);
   refs.list(c.ancestryRefs);
   refs.write(c.communityRef);
+  // Format 4 and later. `writeIn` and not `write`: see that method.
+  refs.writeIn(TRANSFORMATIONS, c.transformationRef);
+  // Format 8 and later. `listIn` and not `list`, for the same reason.
+  refs.listIn(STANCES, c.stanceRefs);
   refs.write(c.multiclassRef);
   w.u8(c.multiclassDomain === null ? 0 : DOMAINS.indexOf(c.multiclassDomain) + 1);
 
@@ -548,6 +726,8 @@ function writeBody(c: Character, registry: Registry, options: EncodeOptions): Ui
   writeCounter(w, c.hp);
   writeCounter(w, c.stress);
   writeCounter(w, c.hope);
+  // Format 8 and later. Beside Hope, which is the other track stored as held.
+  writeCounter(w, c.focus);
   writeCounter(w, c.armorSlots);
   w.u8(c.evasionOverride === null ? 0 : 1);
   if (c.evasionOverride !== null) w.zigzag(c.evasionOverride);
@@ -813,9 +993,39 @@ class RefReader {
   ) {}
 
   read(): Ref | null {
+    return this.take((id) => this.registry.slugOf(id));
+  }
+
+  /**
+   * The exact read: an id is a reference to this collection or it is not a
+   * reference this field can hold.
+   *
+   * `slugOf` is id -> bare slug and an id names exactly one record, so on a
+   * payload this build wrote it would give the same answer. It is not the same
+   * answer on a payload this build did not write: a stray 10_142 in the
+   * transformation slot would come back as the string `vampire`, which
+   * `collections.transformations` then resolves to the CARD - a sheet that
+   * arrived naming an adversary and drew a transformation, with nothing
+   * anywhere saying so. `keyOf` is the lookup that can tell the two apart,
+   * because the registry has been keyed `collection/slug` since version 2.
+   *
+   * An id from the wrong collection is parked rather than dropped, exactly like
+   * an id this device has never heard of: Architecture 5.3 says never discard,
+   * and "I cannot name a transformation with that number" is true of both.
+   */
+  readIn(collection: string): Ref | null {
+    return this.take((id) => {
+      const key = this.registry.keyOf(id);
+      if (key === null) return null;
+      const parsed = parseRegistryKey(key);
+      return parsed !== null && parsed.collection === collection ? parsed.slug : null;
+    });
+  }
+
+  private take(lookup: (id: number) => Ref | null): Ref | null {
     const id = this.r.varint();
     if (id === 0) return null;
-    const slug = isReserved(id) ? null : this.registry.slugOf(id);
+    const slug = isReserved(id) ? null : lookup(id);
     if (slug !== null) return slug;
     // Nothing is ever dropped: park the id in the ref itself and report it.
     this.unresolved.add(id);
@@ -829,9 +1039,25 @@ class RefReader {
     for (let i = 0; i < n - 1; i++) out.push(this.read() ?? '');
     return out;
   }
+
+  /** The exact list read, the counterpart of `RefWriter.listIn`. */
+  listIn(collection: string): Ref[] | undefined {
+    const n = this.r.varint();
+    if (n === 0) return undefined;
+    const out: Ref[] = [];
+    for (let i = 0; i < n - 1; i++) out.push(this.readIn(collection) ?? '');
+    return out;
+  }
 }
 
-function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
+/**
+ * `version` is a parameter and not a constant, and that is the whole of what
+ * keeps a format-2 QR readable. Formats 1 and 2 write the same body; format 4
+ * adds one varint after `communityRef`, so a reader that did not know which
+ * format it was holding would take a format-2 `multiclassRef` for a
+ * transformation and desynchronise every field after it.
+ */
+function readBody(bytes: Uint8Array, registry: Registry, version: number): DecodeResult {
   const r = new Reader(bytes);
   const refs = new RefReader(r, registry);
   const now = new Date().toISOString();
@@ -854,6 +1080,19 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
   const subclassRefs = refs.list() ?? [];
   const ancestryRefs = refs.list() ?? [];
   const communityRef = refs.read();
+  /*
+   * Absent before format 4, and `null` is what its absence means: no build that
+   * wrote a format-1 or format-2 payload had the field, so no sheet it wrote
+   * held a transformation. This is not one of the deliberate losses at the top
+   * of the file - nothing is being dropped, there was nothing there.
+   */
+  const transformationRef = version >= 4 ? refs.readIn(TRANSFORMATIONS) : null;
+  /*
+   * Absent before format 8, and `[]` is what its absence means: no build that
+   * wrote a format-1, -2 or -4 payload had the field, so no sheet it wrote knew
+   * a stance. Nothing is being dropped; there was nothing there.
+   */
+  const stanceRefs = version >= 8 ? (refs.listIn(STANCES) ?? []) : [];
   const multiclassRef = refs.read();
   const domainIndex = r.u8();
   const multiclassDomain: DomainId | null = domainIndex === 0 ? null : (DOMAINS[domainIndex - 1] ?? null);
@@ -870,6 +1109,15 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
   const hp = readCounter(r, 'hp', 'HP');
   const stress = readCounter(r, 'stress', 'Stress');
   const hope = readCounter(r, 'hope', 'Hope');
+  /*
+   * Absent before format 8, and an empty six-box track is what its absence
+   * means - the same value `newCharacter` seeds and the same value the 7 -> 8
+   * converter writes. `readCounter` and not a bare pair of varints, so a
+   * seventh Focus box on an inbound payload is refused by name rather than
+   * clamped into something plausible.
+   */
+  const focus =
+    version >= 8 ? readCounter(r, 'focus', 'Focus') : { marked: 0, max: MAX_FOCUS };
   const armorSlots = readCounter(r, 'armorSlots', 'Armor Slot');
   const evasionOverride = r.u8() === 0 ? null : r.zigzag();
   const thresholdOverride: [number, number] | null =
@@ -938,6 +1186,9 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
     subclassRefs,
     ancestryRefs,
     communityRef,
+    transformationRef,
+    stanceRefs,
+    focus,
     multiclassRef,
     multiclassDomain,
     level,
@@ -1233,7 +1484,7 @@ export async function decodeCharacter(
 
   const raw = payload.subarray(bodyAt);
   const body = (header & DEFLATED_BIT) !== 0 ? await inflateRaw(raw) : raw;
-  return readBody(body, registry);
+  return readBody(body, registry, version);
 }
 
 /** True when the payload's body is deflated. For diagnostics and tests. */
@@ -1256,9 +1507,38 @@ export const isDeflated = (payload: Uint8Array): boolean =>
  */
 export { characterRefs };
 
-/** Slugs with no registry id. Empty means this character fits in a QR. */
-export const missingSlugs = (c: Character, registry: Registry): string[] =>
-  [...new Set(characterRefs(c).filter((r) => !isUnresolvedRef(r) && registry.idOf(r) === null))].sort();
+/**
+ * Slugs with no registry id. Empty means this character fits in a QR.
+ *
+ * Two lookups, because the character has two kinds of ref on it. Every field
+ * but one is a bare slug resolved through `Registry.idOf`, and the encoder
+ * resolves them the same way, so one walk answers for all of them.
+ * `transformationRef` is the exception at both ends: `writeBody` resolves it
+ * through `idIn`, so asking `idOf` here would let a pre-flight say "this fits
+ * in a QR" about a sheet `encodeCharacter` then throws `UnknownSlugError` on -
+ * `vampire` has an adversary's id in every registry that has the adversary,
+ * whether or not it has the card.
+ */
+export const missingSlugs = (c: Character, registry: Registry): string[] => {
+  const named = (ref: Ref | null): boolean => typeof ref === 'string' && ref !== '' && !isUnresolvedRef(ref);
+  const exact = new Set<Ref>([...(c.transformationRef === null ? [] : [c.transformationRef]), ...c.stanceRefs]);
+  const out = characterRefs(c).filter(
+    (r) => !exact.has(r) && !isUnresolvedRef(r) && registry.idOf(r) === null,
+  );
+  if (named(c.transformationRef) && registry.idIn(TRANSFORMATIONS, c.transformationRef!) === null) {
+    out.push(c.transformationRef!);
+  }
+  /*
+   * The stances, asked the way `writeBody` writes them. Same argument as the
+   * card one line up: a pre-flight that used `idOf` here would say "this fits
+   * in a QR" about a sheet `encodeCharacter` then throws `UnknownSlugError`
+   * on, the moment a stance slug is also some other collection's.
+   */
+  for (const ref of c.stanceRefs) {
+    if (named(ref) && registry.idIn(STANCES, ref) === null) out.push(ref);
+  }
+  return [...new Set(out)].sort();
+};
 
 export interface ResolveResult {
   character: Character;
@@ -1295,6 +1575,16 @@ export function resolvePlaceholders(c: Character, registry: Registry): ResolveRe
     return slug;
   };
   const fixOptional = (ref: Ref | null): Ref | null => (ref === null ? null : fix(ref));
+  const fixIn = (collection: string, ref: Ref | null): Ref | null => {
+    if (ref === null) return ref;
+    const id = unresolvedIdOf(ref);
+    if (id === null) return ref;
+    const key = registry.keyOf(id);
+    const parsed = key === null ? null : parseRegistryKey(key);
+    if (parsed === null || parsed.collection !== collection) return ref;
+    resolved.add(id);
+    return parsed.slug;
+  };
 
   const next: Character = {
     ...c,
@@ -1302,6 +1592,15 @@ export function resolvePlaceholders(c: Character, registry: Registry): ResolveRe
     subclassRefs: c.subclassRefs.map(fix),
     ancestryRefs: c.ancestryRefs.map(fix),
     communityRef: fixOptional(c.communityRef),
+    /*
+     * Repaired through the collection's own key, for the reason `readIn` gives:
+     * a parked `?10142` is not a transformation this device can now name just
+     * because 10142 resolves to something.
+     */
+    transformationRef: fixIn(TRANSFORMATIONS, c.transformationRef),
+    // Same exact repair, one collection over. A parked `?10142` is not a stance
+    // this device can now name just because 10142 resolves to something.
+    stanceRefs: c.stanceRefs.map((r) => fixIn(STANCES, r) ?? r),
     multiclassRef: fixOptional(c.multiclassRef),
     loadout: c.loadout.map(fix),
     vault: c.vault.map(fix),

@@ -3,8 +3,8 @@
  *
  * ## The measurement this file exists to answer
  *
- * `searchRules` searches `dataset.rules`: **69 sections** out of the **849**
- * records the app ships. The other 780 - every weapon, every domain card, every
+ * `searchRules` searches `dataset.rules`: **69 sections** out of the **1438**
+ * records the app ships. The other 1369 - every weapon, every domain card, every
  * adversary in the bestiary this same app draws - were not in any haystack.
  * Typing `Rally` got the honest silence the search draws for a word that is not
  * in the book, and `Rally` is the Bard's class feature, printed on the sheet of
@@ -45,7 +45,7 @@
  * it has to *be* the book's, down to the case the JSON was written in;
  * capitalising it would put a string this repository composed inside a haystack
  * and inside a preview. That is what makes the invariant checkable in one
- * assertion - `srdIndex.test.ts` walks every line of all 849 records and finds
+ * assertion - `srdIndex.test.ts` walks every line of all 1438 records and finds
  * each one verbatim among the dataset's own strings - and an invariant with an
  * exception list is an invariant that grows one more exception a year.
  *
@@ -84,7 +84,7 @@
  * The fallback earns its place over sections because a section is a large body
  * where one inflection - `sets` where the GM typed `setting` - can hide the
  * answer, and eighteen sections is a list a person can still read. An OR over
- * **780 short records** is neither: a common word reaches hundreds of them, and
+ * **1369 short records** is neither: a common word reaches hundreds of them, and
  * a list of hundreds is not an answer at any size of type. The owner's standing
  * constraint of 2026-08-26 - readability and glanceability in consultation,
  * nothing too small - forbids the only way such a list would fit. So when
@@ -105,7 +105,9 @@ import type {
   Item,
   Ref,
   RulesSection,
+  Stance,
   Subclass,
+  Transformation,
   Weapon,
   Armor,
 } from '../../../shared/types.ts';
@@ -117,7 +119,7 @@ import { ruleTerms, wholeWordIn, type RuleMatchKind } from './srdReference.ts';
  * One per array in `Dataset`, plus `loot` and `consumable` split out of the
  * single `Item` shape because the two are separate collections in the dataset
  * and separate things at a table. `rules` is a kind like any other: the index
- * is *everything the app ships*, and a caller that wants only the 780 the rules
+ * is *everything the app ships*, and a caller that wants only the 1369 the rules
  * search cannot reach says so at its own call site rather than being handed a
  * second, quietly different index.
  */
@@ -130,6 +132,8 @@ export type SrdKind =
   | 'beastform'
   | 'ancestry'
   | 'community'
+  | 'transformation'
+  | 'stance'
   | 'weapon'
   | 'armor'
   | 'loot'
@@ -147,6 +151,8 @@ export const SRD_KIND_LABELS: Record<SrdKind, string> = {
   beastform: 'BEASTFORMS',
   ancestry: 'ANCESTRIES',
   community: 'COMMUNITIES',
+  transformation: 'TRANSFORMATIONS',
+  stance: 'MARTIAL STANCES',
   weapon: 'WEAPONS',
   armor: 'ARMOR',
   loot: 'LOOT',
@@ -172,6 +178,8 @@ export const SRD_KINDS: readonly SrdKind[] = [
   'beastform',
   'ancestry',
   'community',
+  'transformation',
+  'stance',
   'weapon',
   'armor',
   'loot',
@@ -296,6 +304,38 @@ const communityFields = (c: Community): SrdField[] => [
   ...field('FEATURE', featureLines([c.feature])),
 ];
 
+/**
+ * A transformation card: its prose, its features, its questions.
+ *
+ * The three fields are the three the book prints, in the order it prints them
+ * (folios 43-45: name, prose, `TRANSFORMATION FEATURES`, `TRANSFORMATION
+ * QUESTIONS`), and each is the record's own strings. QUESTIONS is a field
+ * rather than being dropped for the reason `CharClass.backgroundQuestions` is
+ * indexed: a prompt is a line a player reads and therefore a line they can
+ * look for, and it is the book's wording, not this repository's.
+ */
+const transformationFields = (t: Transformation): SrdField[] => [
+  ...field('ABOUT', [t.description]),
+  ...field('FEATURES', featureLines(t.features)),
+  ...field('QUESTIONS', t.questions),
+];
+
+/**
+ * A martial stance: one field, holding its one sentence.
+ *
+ * The book prints a name and a rule and nothing else - no prose, no features,
+ * no prompts - so there is one field and it is the record's own words. The TIER
+ * is deliberately not a field, for the reason the header gives about numbers: a
+ * bare `1` is a substring of hundreds of records, and `TIER 1` would be a line
+ * this repository composed sitting inside a haystack and quotable as the
+ * book's. A person looking for tier-2 stances is filtering, not searching.
+ *
+ * `TEXT` and not `RULE` or `EFFECT`, because `TEXT` is the label this file
+ * already gives a domain card's rules text and a loot item's - the same kind of
+ * string under the same word.
+ */
+const stanceFields = (s: Stance): SrdField[] => field('TEXT', [s.text]);
+
 const weaponFields = (w: Weapon): SrdField[] => [
   ...field('CATEGORY', [w.category]),
   ...field('SLOT', [w.slot]),
@@ -355,8 +395,12 @@ const build = (
 });
 
 /**
- * Every record the app ships, flattened. **849** in the shipped dataset - the
- * 69 rules sections and the 780 the rules search cannot reach.
+ * Every record the app ships, flattened. **1438** in the shipped dataset - the
+ * 69 rules sections and the 1369 the rules search cannot reach.
+ *
+ * 849 and 780 on SRD 1.0. Both figures are pinned in `tests/ui/srdIndex.test.ts`
+ * and moved with the switch; the six transformations and the sixteen martial
+ * stances are in the 1369.
  *
  * ## What is deliberately not in a haystack
  *
@@ -379,7 +423,7 @@ const build = (
  * work exactly once, and a layer that rewrites a collection rebuilds it by
  * changing the identity of `dataset`. Searching it costs what `searchRules`
  * costs and less: the reject is one `includes` per term against a haystack that
- * is a few hundred characters where a section's is a few thousand, and 780
+ * is a few hundred characters where a section's is a few thousand, and 1369
  * short rejects are cheaper than 69 long ones.
  */
 export function srdIndex(dataset: Dataset): SrdRecord[] {
@@ -394,6 +438,26 @@ export function srdIndex(dataset: Dataset): SrdRecord[] {
   for (const b of dataset.beastforms) out.push(build('beastform', b.id, b.name, b.sourcePage, beastformFields(b)));
   for (const a of dataset.ancestries) out.push(build('ancestry', a.id, a.name, a.sourcePage, ancestryFields(a)));
   for (const c of dataset.communities) out.push(build('community', c.id, c.name, c.sourcePage, communityFields(c)));
+  /*
+   * Six on SRD 2.0, none on SRD 1.0, and the empty case is why this loop was
+   * missing rather than why it should be. `Dataset.transformations` is required
+   * and empty for a book without the chapter (its docblock: "empty is the
+   * honest value"), so on the dataset the app ships today this contributes
+   * nothing and `SRD_KIND_LABELS.transformation` labels a band with no rows in
+   * it. The alternative - a kind that appears only when the dataset has one -
+   * is a search whose vocabulary changes under the reader.
+   */
+  for (const t of dataset.transformations) {
+    out.push(build('transformation', t.id, t.name, t.sourcePage, transformationFields(t)));
+  }
+  /*
+   * Sixteen on SRD 2.0, none on SRD 1.0 - the same shape as the loop above and
+   * for the same reason. This is the loop whose absence the whole file's opening
+   * measurement is about: before it, typing `Otherworldly` into the search got
+   * the honest silence drawn for a word that is not in the book, about a stance
+   * the app now ships, draws on the sheet and mints a wire id for.
+   */
+  for (const s of dataset.stances) out.push(build('stance', s.id, s.name, s.sourcePage, stanceFields(s)));
   for (const w of dataset.weapons) out.push(build('weapon', w.id, w.name, w.sourcePage, weaponFields(w)));
   for (const a of dataset.armors) out.push(build('armor', a.id, a.name, a.sourcePage, armorFields(a)));
   for (const i of dataset.loot) out.push(build('loot', i.id, i.name, i.sourcePage, itemFields(i)));
@@ -449,8 +513,34 @@ function quoteIn(haystack: string, terms: readonly string[]): string | null {
  * The AND is over the whole record rather than over one line; the header says
  * why, and says why there is no fallback when it finds nothing.
  */
+/**
+ * Fold what a phone keyboard cannot type.
+ *
+ * SRD 2.0 sets ten card names with a NON-BREAKING hyphen, U+2011: the nine
+ * `*‑Touched` cards and `Battle‑Hardened`. SRD 1.0 had none. A player types
+ * `Arcana-Touched` with the ASCII hyphen their keyboard offers and the app
+ * answers *"Nothing in this dataset carries that"* — about a card it ships and
+ * draws. Measured on the real Search screen: 0 of 10 found by the hyphen, all
+ * 10 found by a space.
+ *
+ * Folded here rather than at extraction, because the NAME is right: the book
+ * prints U+2011 so a card would not break across a line, and rewriting it would
+ * be the app inventing a spelling. What is wrong is the comparison.
+ *
+ * The soft hyphen and zero-width space are folded too. They buy nothing on
+ * either book — measured, one U+00AD and four U+200B in 224 pages, none in a
+ * name — and they cost one character class here.
+ */
+export const foldQuery = (s: string): string =>
+  s
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
+    .replace(/[\u00AD\u200B]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
 export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] {
-  const needle = query.trim().replace(/\s+/g, ' ').toLowerCase();
+  const needle = foldQuery(query);
   if (needle === '') return [];
   const terms = ruleTerms(needle);
 
@@ -458,7 +548,9 @@ export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] 
   const bodies: SrdHit[] = [];
 
   for (const record of index) {
-    const name = record.name.toLowerCase();
+    // Folded on BOTH sides, or it buys nothing: a needle turned into an ASCII
+    // hyphen still misses a haystack that kept U+2011.
+    const name = foldQuery(record.name);
     const seen = { kind: record.kind, id: record.id, name: record.name, page: record.page };
 
     if (terms.every((t) => name.includes(t))) {
@@ -467,7 +559,7 @@ export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] 
     }
     // The cheap reject, once per term, against the record read whole. Most
     // records lose here on any real query and never pay for the line split.
-    const low = record.haystack.toLowerCase();
+    const low = foldQuery(record.haystack);
     if (!terms.every((t) => low.includes(t) || name.includes(t))) continue;
 
     const line = quoteIn(record.haystack, terms);

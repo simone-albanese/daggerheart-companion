@@ -85,6 +85,9 @@
   --sage: #6fcf8f;
   --splendor: #f5a623;
   --valor: #ff8a3d;
+  /* SRD 2.0's tenth domain. Dark, cold and low-chroma against the nine,
+     which are all warm or bright: Dread should not read as another of them. */
+  --dread: #6a4a7c;
 
   --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
@@ -521,6 +524,7 @@
   --sage: #1f7a41;
   --splendor: #a56a00;
   --valor: #b4520a;
+  --dread: #5a3a6c;
 
   color-scheme: light;
 }
@@ -557,6 +561,7 @@
     --sage: #1f7a41;
     --splendor: #a56a00;
     --valor: #b4520a;
+    --dread: #5a3a6c;
     color-scheme: light;
   }
 }

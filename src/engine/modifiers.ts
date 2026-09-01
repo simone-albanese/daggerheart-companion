@@ -79,21 +79,71 @@ export type RegisterStat =
 export type LedgerStat = Exclude<RegisterStat, 'thresholds'> | 'major';
 
 /**
- * How much, where the amount is not a constant.
+ * How much, where the amount is a WORD the book prints instead of a digit.
  *
- * One value and one case: Galapa's *Shell*, "Gain a bonus to your damage
- * thresholds equal to your Proficiency". It is the reason this is a union and
- * not a number, and it is why the collector takes Proficiency as an argument -
- * `deriveStats` works that out before it gets here.
+ * Four values and four sentences, and every one of them is the same construct:
+ * *"Gain a bonus to your <register> equal to your <quantity>"*. The quantity is
+ * named here and resolved in exactly ONE place - `resolve` inside
+ * `collectModifiers` - because two routes to a number is two numbers
+ * eventually.
+ *
+ *   `proficiency`  Galapa's *Shell*, "damage thresholds equal to your
+ *                  Proficiency". The original, and the reason this is a union.
+ *   `spellcast`    Mage Robes' *Enchanted*, "damage thresholds equal to your
+ *                  Spellcast trait". Mage Robes is TIER 1 STARTING ARMOR, so
+ *                  this is the dynamic amount a new character meets first.
+ *   `presence`     Granminster's Finery's *Magnificent*, "Armor Score equal to
+ *                  your Presence".
+ *   `tier`         The Rune-Forged Exosuit's *Attuned*, "damage thresholds
+ *                  equal to your tier".
+ *
+ * A QUANTITY THE SHEET DOES NOT HAVE PRODUCES NO ROW, and that rule is
+ * uniform. Six of the twenty-six subclasses in SRD 2.0 have no Spellcast trait
+ * at all and a sheet with no subclass has none either, so a Guardian in Mage
+ * Robes is a real, common sheet. `?? 0` would be the engine answering a
+ * question the character cannot be asked: it would print *Enchanted +0* beside
+ * the feature and claim it had read a Spellcast trait and found zero, which is
+ * a different sheet from one that has no Spellcast trait. So `resolve` returns
+ * `null` and the row is not emitted. See `collectModifiers`.
+ *
+ * A quantity the sheet DOES have and that comes out at zero is a different
+ * fact and IS emitted, at +0. A wizard with Knowledge +0 in Mage Robes is
+ * being told, correctly, that the armour gives them nothing today and will
+ * give them something the day that trait moves.
+ *
+ * NOTHING IS CLAMPED. A trait can be -1 - the SRD hands every character a -1
+ * to place, and *Difficult* takes one off all six - so *"a bonus equal to your
+ * Presence"* can be a subtraction. The register's whole discipline is to state
+ * what the sentence states; a `Math.max(0, ...)` here would be a floor the book
+ * does not print, invented by this file and invisible on the screen.
+ * `deriveStats` clamps Armor Score at zero afterwards, where the clamp is a
+ * property of the register and not of the sentence.
  */
-export type Amount = number | 'proficiency';
+type DynamicAmount = 'proficiency' | 'spellcast' | 'presence' | 'tier';
 
-interface Row {
-  stat: RegisterStat;
-  amount: Amount;
+export type Amount = number | DynamicAmount;
+
+/**
+ * One priced sentence, and a union rather than one shape.
+ *
+ * THE UNION IS WHAT MAKES THE COLLECTOR'S TWO PASSES ACYCLIC. `presence`
+ * resolves against the character's Presence *including everything else this
+ * register does to it* - a Charm Relic's +1, savior chainmail's -1 - so the
+ * trait totals have to be known before any dynamic amount can be resolved. That
+ * is only possible while no trait row is itself dynamic, and this type is what
+ * says so: a row whose `stat` is a `Trait` may carry a literal number and
+ * nothing else. A future *"gain a bonus to your Strength equal to your
+ * Presence"* does not compile, which is the right way to find out that the
+ * resolution order needs rethinking.
+ */
+interface RowOf<S extends RegisterStat, A extends Amount> {
+  stat: S;
+  amount: A;
   /** The feature's own name, as the book prints it: `Flexible`, `Nimble`. */
   feature: string;
 }
+
+type Row = RowOf<Trait, number> | RowOf<Exclude<RegisterStat, Trait>, Amount>;
 
 /**
  * An ancestry row, with which of the two feature slots grants it.
@@ -107,14 +157,10 @@ interface Row {
  * `features[0]`, so they are the half a first ancestry does grant. A register
  * that ignored the slot would hand out four bonuses nobody has.
  */
-interface AncestryRow extends Row {
-  slot: 0 | 1;
-}
+type AncestryRow = Row & { slot: 0 | 1 };
 
 /** A subclass row, with the card that grants it. */
-interface SubclassRow extends Row {
-  card: 'foundation' | 'specialization' | 'mastery';
-}
+type SubclassRow = Row & { card: 'foundation' | 'specialization' | 'mastery' };
 
 // ---------------------------------------------------------------------------
 // The register
@@ -186,10 +232,77 @@ const WEAPON_MODS: Record<Ref, Row[]> = {
   // Double Duty: +1 to Armor Score; +1 to primary weapon damage within Melee
   // range. Only the first half is a sheet number; the damage half is a roll.
   'spiked-shield': [{ stat: 'armorScore', amount: 1, feature: 'Double Duty' }],
+
+  /*
+   * SRD 2.0. Twenty rows for twelve printed features, added when the app
+   * switched books - `tests/engine/modifiers.test.ts`'s reverse scan named
+   * every one of them and refused to let the switch through until they were
+   * priced. Not one of them is a new SHAPE: every string here is a feature the
+   * book already prints on an SRD 1.0 weapon, on a record SRD 2.0 adds.
+   *
+   * The four-tier families are written out four times, the way the ones above
+   * are - see the note at the head of this map.
+   */
+  // Cumbersome: -1 to Finesse (primary)
+  lance: [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'firework-launcher': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  // Heavy: -1 to Evasion (primary)
+  'butchers-axe': [{ stat: 'evasion', amount: -1, feature: 'Heavy' }],
+  // Massive: -1 to Evasion; ... (primary)
+  sledgehammer: [{ stat: 'evasion', amount: -1, feature: 'Massive' }],
+  // Destructive: -1 to Agility; ... (primary)
+  'severed-dragon-claw': [{ stat: 'agility', amount: -1, feature: 'Destructive' }],
+  // Incendiary: -1 to Agility; ... (primary)
+  'black-powder-serpentine': [{ stat: 'agility', amount: -1, feature: 'Incendiary' }],
+  // Protective: +N to Armor Score (secondary). The four Rune Shields step 1-4
+  // the way the Round Shields above do; the other two are single-tier rows.
+  'enchanted-shillelagh': [{ stat: 'armorScore', amount: 1, feature: 'Protective' }],
+  'barrel-lid-shield': [{ stat: 'armorScore', amount: 1, feature: 'Protective' }],
+  'rune-shield': [{ stat: 'armorScore', amount: 1, feature: 'Protective' }],
+  'improved-rune-shield': [{ stat: 'armorScore', amount: 2, feature: 'Protective' }],
+  'advanced-rune-shield': [{ stat: 'armorScore', amount: 3, feature: 'Protective' }],
+  'legendary-rune-shield': [{ stat: 'armorScore', amount: 4, feature: 'Protective' }],
+  // Padded: +N to damage thresholds (secondary), stepping 2-5.
+  'fighting-cloak': [{ stat: 'thresholds', amount: 2, feature: 'Padded' }],
+  'improved-fighting-cloak': [{ stat: 'thresholds', amount: 3, feature: 'Padded' }],
+  'advanced-fighting-cloak': [{ stat: 'thresholds', amount: 4, feature: 'Padded' }],
+  'legendary-fighting-cloak': [{ stat: 'thresholds', amount: 5, feature: 'Padded' }],
+  /*
+   * Barrier: +2 to Armor Score; -1 to Evasion (secondary). Both halves, because
+   * a row that took only the bonus would hand the player two points of armour
+   * and quietly forget what they cost.
+   */
+  'table-shield': [
+    { stat: 'armorScore', amount: 2, feature: 'Barrier' },
+    { stat: 'evasion', amount: -1, feature: 'Barrier' },
+  ],
+  /*
+   * Double Duty: +1 to Armor Score; +1 to primary weapon damage within Melee
+   * range (secondary). The armour half is a number the sheet stores; the damage
+   * half is a per-attack modifier with a range condition on it, which this
+   * register has no stat for and `DualityRoll` does not read - the same reason
+   * `sledge-axe`'s "roll an additional damage die" is not here.
+   */
+  'segmented-staff': [{ stat: 'armorScore', amount: 1, feature: 'Double Duty' }],
 };
 
 /** Worn as `activeArmor`. */
 const ARMOR_MODS: Record<Ref, Row[]> = {
+  /*
+   * Wall-Crawling: "+1 Evasion" - the ONE row in either book written without
+   * the word `to`, and the reason the reverse scan in `modifiers.test.ts` now
+   * makes `to` optional.
+   *
+   * It shipped unpriced: a player in a Spidersilk Tunic read an Evasion one
+   * lower than the book gives them, and no check anywhere said so, because the
+   * scan whose entire job is to notice that required a `to` the SRD did not
+   * print here. Measured over all 933 feature-bearing sites - this spelling
+   * occurs exactly once.
+   *
+   * The walking half is not a row: this register has no stat for it, the same
+   * reason `sledge-axe`'s extra damage die is absent.
+   */
+  'spidersilk-tunic': [{ stat: 'evasion', amount: 1, feature: 'Wall-Crawling' }],
   // Flexible: +1 to Evasion
   'gambeson-armor': [{ stat: 'evasion', amount: 1, feature: 'Flexible' }],
   'improved-gambeson-armor': [{ stat: 'evasion', amount: 1, feature: 'Flexible' }],
@@ -231,6 +344,81 @@ const ARMOR_MODS: Record<Ref, Row[]> = {
     { stat: 'presence', amount: -1, feature: 'Difficult' },
     { stat: 'knowledge', amount: -1, feature: 'Difficult' },
   ],
+  /*
+   * SRD 2.0. Twelve rows for six printed features, on armour the switch
+   * brought in. Every shape here is already above: Cumbersome, Bulky, Heavy,
+   * Very Heavy, Flexible and Vigilant.
+   */
+  // Cumbersome: -1 to Finesse
+  'scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'improved-scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'advanced-scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  'legendary-scale-mail-armor': [{ stat: 'finesse', amount: -1, feature: 'Cumbersome' }],
+  /*
+   * Bulky: -1 to Evasion; when you take Severe damage, you must mark a Stress.
+   * The Evasion is the half the sheet stores. The Stress is a consequence of
+   * an event, not a number - `maxStress` is a maximum and this does not move
+   * it - so it is not a row, the way `bravesword`'s attack rider is not.
+   */
+  'banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  'improved-banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  'advanced-banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  'legendary-banded-armor': [{ stat: 'evasion', amount: -1, feature: 'Bulky' }],
+  // Heavy: -1 to Evasion
+  'tree-bark-armor': [{ stat: 'evasion', amount: -1, feature: 'Heavy' }],
+  // Flexible: +1 to Evasion
+  'quilted-clothing': [{ stat: 'evasion', amount: 1, feature: 'Flexible' }],
+  // Vigilant: +2 to Evasion - the first armour in either book that raises it
+  // by two.
+  'skywardens-lamellar': [{ stat: 'evasion', amount: 2, feature: 'Vigilant' }],
+  // Very Heavy: -2 to Evasion; -1 to Agility
+  'baking-tray-breastplate': [
+    { stat: 'evasion', amount: -2, feature: 'Very Heavy' },
+    { stat: 'agility', amount: -1, feature: 'Very Heavy' },
+  ],
+
+  /*
+   * THE SIX AMOUNTS THAT ARE WORDS. Every one of these shipped unpriced while
+   * `Amount` was `number | 'proficiency'`, declared in
+   * `tests/engine/modifiers.test.ts`'s `UNPRICED_AMOUNT` with the reason it
+   * could not be written. The type is wider now and they are rows.
+   *
+   * Enchanted: "Gain a bonus to your damage thresholds equal to your Spellcast
+   * trait." Four tiers, one sentence, four rows - the same shape every other
+   * four-tier family here uses. MAGE ROBES IS TIER 1 STARTING ARMOR, which is
+   * the reason this one mattered most: it is the first armour a new spellcaster
+   * puts on, and until now its whole feature did nothing.
+   *
+   * A wearer with no Spellcast trait gets NO ROW - not a zero. See `Amount`.
+   */
+  'mage-robes': [{ stat: 'thresholds', amount: 'spellcast', feature: 'Enchanted' }],
+  'improved-mage-robes': [{ stat: 'thresholds', amount: 'spellcast', feature: 'Enchanted' }],
+  'advanced-mage-robes': [{ stat: 'thresholds', amount: 'spellcast', feature: 'Enchanted' }],
+  'legendary-mage-robes': [{ stat: 'thresholds', amount: 'spellcast', feature: 'Enchanted' }],
+  /*
+   * Magnificent: "Gain a bonus to your Armor Score equal to your Presence."
+   * The one row in this file whose amount is another number this same register
+   * moves - a Charm Relic's +1 Presence and savior chainmail's -1 both reach
+   * it - which is why the collector resolves trait totals before dynamic
+   * amounts. It reads the sheet's Presence, not the character's raw one.
+   */
+  'granminsters-finery': [{ stat: 'armorScore', amount: 'presence', feature: 'Magnificent' }],
+  /*
+   * Attuned: "The maximum number of domain cards in your loadout is reduced by
+   * one, but you gain a bonus to your damage thresholds equal to your tier."
+   *
+   * ONE HALF OF THIS SENTENCE IS PRICED AND THE OTHER HALF IS STILL OWED, and
+   * saying so out loud is the point. The thresholds half is a number this
+   * register holds. The loadout half is not, and the reason is measured rather
+   * than assumed: `deriveStats` reports `loadoutLimit`, but `src/engine/
+   * loadout.ts` enforces the flat `MAX_LOADOUT` when a card is actually added,
+   * and `tools/simulate.ts` asserts `stats.loadoutLimit === MAX_LOADOUT` as an
+   * invariant. Moving the reported limit alone would put "5 of 4 active" on the
+   * printed sheet of a character the app had just let add a sixth card - a
+   * disagreement between the app and its own sheet, which is worse than the
+   * silence. `UNPRICED_LANE` in the test carries the debt and the exact edit.
+   */
+  'rune-forged-exosuit': [{ stat: 'thresholds', amount: 'tier', feature: 'Attuned' }],
 };
 
 /**
@@ -260,6 +448,27 @@ const LOOT_MODS: Record<Ref, Row[]> = {
 /** On the sheet, in a feature slot the mixed-ancestry rule actually grants. */
 const ANCESTRY_MODS: Record<Ref, AncestryRow[]> = {
   simiah: [{ slot: 1, stat: 'evasion', amount: 1, feature: 'Nimble' }],
+  /*
+   * SRD 2.0 folio 33, and TWO rows for one sentence.
+   *
+   * "Gain a permanent +1 bonus to your Armor Score and damage thresholds at
+   * character creation." One printed feature that moves two registers, so it
+   * is two rows carrying the same `feature` name - the ledger totals per stat
+   * and the sheet shows each, which is exactly the shape `stalwart` already
+   * uses below.
+   *
+   * It shipped unpriced. Earthkin is one of six ancestries SRD 2.0 adds, and
+   * `deriveStats` gave it the same Armor Score and thresholds as an ancestry
+   * with no feature at all. The scan in `tests/engine/modifiers.test.ts` exists
+   * to catch precisely this and did not: its shape 3 listed Evasion and damage
+   * thresholds and not `Armor Score`, so Simiah's word-for-word identical
+   * `Nimble` was caught while this was not. That regex is widened in the same
+   * commit; without it, the next such sentence slips the same way.
+   */
+  earthkin: [
+    { slot: 0, stat: 'armorScore', amount: 1, feature: 'Stoneskin' },
+    { slot: 0, stat: 'thresholds', amount: 1, feature: 'Stoneskin' },
+  ],
   giant: [{ slot: 0, stat: 'maxHp', amount: 1, feature: 'Endurance' }],
   human: [{ slot: 0, stat: 'maxStress', amount: 1, feature: 'High Stamina' }],
   galapa: [{ slot: 0, stat: 'thresholds', amount: 'proficiency', feature: 'Shell' }],
@@ -283,6 +492,12 @@ const SUBCLASS_MODS: Record<Ref, SubclassRow[]> = {
     { card: 'specialization', stat: 'thresholds', amount: 2, feature: 'Unrelenting' },
     { card: 'mastery', stat: 'thresholds', amount: 3, feature: 'Undaunted' },
   ],
+  /*
+   * SRD 2.0's Brawler. "Rugged - Gain a permanent +3 bonus to your Severe
+   * damage threshold", on the Foundation card, which is the same sentence
+   * shape `winged-sentinel`'s Ascendant carries above.
+   */
+  juggernaut: [{ card: 'foundation', stat: 'severe', amount: 3, feature: 'Rugged' }],
 };
 
 /**
@@ -330,7 +545,12 @@ export interface Contribution {
   source: string;
   /** The feature's name: `Nimble`, `Flexible`, `Barrier`. */
   feature: string;
-  /** Resolved: `proficiency` has already become a number by the time it is here. */
+  /**
+   * Resolved: every `DynamicAmount` has already become a number by the time it
+   * is here, and a row whose quantity the sheet does not have was never
+   * emitted. So a ledger holds no words and no nulls, and `sumOf` needs no
+   * defence.
+   */
   amount: number;
 }
 
@@ -363,11 +583,43 @@ export function traitDeltas(ledger: Ledger): Record<Trait, number> {
 }
 
 /**
+ * The quantities a `DynamicAmount` names, worked out by the caller.
+ *
+ * `deriveStats` already knows all three before it calls the collector, and this
+ * is how they get here rather than being derived a second time. A field left
+ * out - or a `spellcastTrait` of `null` - means the sheet HAS no such quantity,
+ * and the rows that read it produce nothing at all. That is the safe default in
+ * both directions: a caller that forgets one loses a bonus rather than
+ * inventing one, and this project's accounting is that a missing number beats a
+ * wrong one.
+ */
+export interface AmountsInPlay {
+  /** `tierOf(c.level)`: 1-4. */
+  tier?: number;
+  /** The trait a Spellcast Roll uses, off the subclass. Null when there is none. */
+  spellcastTrait?: Trait | null;
+}
+
+/**
  * Every static bonus this sheet's own contents grant, with its provenance.
  *
- * `proficiency` is passed in rather than derived here because `deriveStats`
- * already knows it and one of the rows is *equal to your Proficiency*; a second
- * copy of that arithmetic is a second answer waiting to happen.
+ * `proficiency` and `at` are passed in rather than derived here because
+ * `deriveStats` already knows them and some rows are *equal to your <that>*; a
+ * second copy of that arithmetic is a second answer waiting to happen.
+ *
+ * IT WALKS ONCE AND EMITS ONCE, and the two passes are not an optimisation.
+ * Granminster's Finery is *"Armor Score equal to your Presence"*, and the
+ * Presence it means is the one on the sheet - the character's own plus a Charm
+ * Relic's +1, minus savior chainmail's -1. So every literal row has to be known
+ * before any dynamic amount can be resolved. The walk buffers into `pending` in
+ * the sheet's own reading order, the trait totals are read off that, and the
+ * emit puts every contribution into the ledger in the order it was found. The
+ * ledger's row order is therefore exactly what it was before this file learned
+ * a second dynamic amount.
+ *
+ * THE PASSES CANNOT CYCLE, and it is the type that says so rather than a
+ * comment: `Row` admits a dynamic amount only on a stat that is not a `Trait`,
+ * so nothing a dynamic amount reads can itself be dynamic.
  *
  * A ref this build cannot resolve contributes nothing and is not an error here:
  * `deriveStats` already carries `unresolvedArmor` out with the stats for
@@ -378,21 +630,20 @@ export function collectModifiers(
   c: Character,
   ix: DatasetIndex,
   proficiency: number,
+  at: AmountsInPlay = {},
 ): Ledger {
   const ledger = emptyLedger();
 
+  interface Pending {
+    lane: Lane;
+    ref: Ref;
+    source: string;
+    row: Row;
+  }
+  const pending: Pending[] = [];
+
   const add = (lane: Lane, ref: Ref, source: string, row: Row): void => {
-    const amount = row.amount === 'proficiency' ? proficiency : row.amount;
-    const entry = { lane, ref, source, feature: row.feature, amount };
-    if (row.stat === 'thresholds') {
-      // One sentence, two numbers. Both halves carry the same feature name, so
-      // MAJOR and SEVERE each read "Stalwart · Unwavering +1" and neither says
-      // it twice.
-      ledger.major.push(entry);
-      ledger.severe.push({ ...entry });
-      return;
-    }
-    ledger[row.stat].push(entry);
+    pending.push({ lane, ref, source, row });
   };
 
   /*
@@ -418,7 +669,9 @@ export function collectModifiers(
           ]
         : [];
   for (const [ref, slot] of grantedSlots) {
-    const named = ix.byRef.get(ref) as { name?: string } | undefined;
+    // The ancestries map rather than `byRef`: an `ancestryRef` names an
+    // ancestry, and the bare-slug map cannot promise that is what comes back.
+    const named = ix.collections.ancestries.get(ref);
     if (named === undefined) continue;
     for (const row of ANCESTRY_MODS[ref] ?? []) {
       if (row.slot === slot) add('ancestry', ref, named.name ?? ref, row);
@@ -426,7 +679,7 @@ export function collectModifiers(
   }
 
   if (c.communityRef !== null) {
-    const community = ix.byRef.get(c.communityRef) as { name?: string } | undefined;
+    const community = ix.collections.communities.get(c.communityRef);
     if (community !== undefined) {
       for (const row of COMMUNITY_MODS[c.communityRef] ?? []) {
         add('community', c.communityRef, community.name ?? c.communityRef, row);
@@ -493,6 +746,51 @@ export function collectModifiers(
     for (const row of LOOT_MODS[entry.ref] ?? []) {
       add('carried', entry.ref, item.name ?? entry.ref, row);
     }
+  }
+
+  /*
+   * PASS TWO. The trait totals first, then the amounts that read them.
+   *
+   * `traitOnSheet` is the number the sheet prints for a trait: the character's
+   * own plus everything this register does to it. It reads `pending` rather
+   * than the ledger because the ledger is still empty, and it can only be
+   * summed this early because `Row` forbids a dynamic amount on a trait - see
+   * the type. The BEASTFORM is deliberately not in it: a form is a state
+   * layered above this register by `deriveStats`, and it is not written back,
+   * so "your Presence" here is the sheet's Presence out of the form.
+   */
+  const traitOnSheet = (trait: Trait): number =>
+    pending.reduce(
+      (total, p) => (p.row.stat === trait ? total + (p.row.amount as number) : total),
+      c.traits[trait],
+    );
+
+  /**
+   * The one place a word becomes a number. `null` means the sheet has no such
+   * quantity, and a row that resolves to `null` is not emitted at all.
+   */
+  const resolve = (amount: Amount): number | null => {
+    if (typeof amount === 'number') return amount;
+    if (amount === 'proficiency') return proficiency;
+    if (amount === 'tier') return at.tier ?? null;
+    if (amount === 'presence') return traitOnSheet('presence');
+    const spellcast = at.spellcastTrait ?? null;
+    return spellcast === null ? null : traitOnSheet(spellcast);
+  };
+
+  for (const { lane, ref, source, row } of pending) {
+    const amount = resolve(row.amount);
+    if (amount === null) continue;
+    const entry = { lane, ref, source, feature: row.feature, amount };
+    if (row.stat === 'thresholds') {
+      // One sentence, two numbers. Both halves carry the same feature name, so
+      // MAJOR and SEVERE each read "Stalwart · Unwavering +1" and neither says
+      // it twice.
+      ledger.major.push(entry);
+      ledger.severe.push({ ...entry });
+      continue;
+    }
+    ledger[row.stat].push(entry);
   }
 
   return ledger;

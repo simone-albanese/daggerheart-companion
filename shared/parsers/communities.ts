@@ -19,9 +19,14 @@ import {
   splitOn,
   titleCase,
 } from './util.ts';
+import { parseContents, sectionRange, sliceSection } from './contents.ts';
 
-const FROM = 32;
-const TO = 34;
+/*
+ * The folio range comes from the book's own contents page. It used to be
+ * written here, `FROM = 32` / `TO = 34`, which is right for SRD 1.0 and wrong for
+ * every other printing - SRD 2.0 reflows 135 printed pages into 224.
+ */
+const SECTION = 'Communities';
 
 /** The book states each community card lists six adjectives. */
 const TRAIT_COUNT = 6;
@@ -29,15 +34,19 @@ const TRAIT_COUNT = 6;
 type Sourced = Line & { folio: number };
 
 export function parseCommunities(pages: BookPage[]): Community[] {
-  const lines: Sourced[] = [];
-  for (const page of pagesInFolios(pages, FROM, TO)) {
-    for (const line of readingOrder(page)) lines.push({ ...line, folio: page.folio! });
+  const range = sectionRange(parseContents(pages), SECTION);
+  const all: Sourced[] = [];
+  for (const page of pagesInFolios(pages, range.from, range.to)) {
+    for (const line of readingOrder(page)) all.push({ ...line, folio: page.folio! });
   }
+  // Cut at both ends: the range overlaps a page into the next section, and in
+  // SRD 2.0 the page it starts on carries the last ancestry above this banner.
+  const lines = sliceSection(all, SECTION, range.next);
 
   // The section title "COMMUNITIES" is set at 17pt; the banners at 12pt.
   const blocks = splitOn(lines, (l) => isDisplay(l) && l.size < 15);
   if (blocks.length === 0) {
-    throw new ParseError('no community banners found', `folios ${FROM}-${TO}`);
+    throw new ParseError('no community banners found', `folios ${range.from}-${range.to}`);
   }
 
   const out = blocks.map(parseCommunity);

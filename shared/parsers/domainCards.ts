@@ -26,10 +26,23 @@ import {
   splitOn,
   titleCase,
 } from './util.ts';
+import { folioOf, parseContents, rangeToEnd } from './contents.ts';
 
-const DOMAINS_FOLIO = 7;
-const APPENDIX_FROM = 119;
-const APPENDIX_TO = 135;
+/*
+ * The two ranges this file reads come from the book's own contents page rather
+ * than from constants here. They used to be `DOMAINS_FOLIO = 7`,
+ * `APPENDIX_FROM = 119`, `APPENDIX_TO = 135` - correct for SRD 1.0 and wrong
+ * for every other printing. SRD 2.0 puts the appendix on 206-224, and the
+ * symptom was this file throwing `no domain cards found in the appendix` over
+ * an adversary stat block.
+ *
+ * `Domains` and `Domain Card Reference` are the titles both books print. Where
+ * a title has changed the lookup throws and names every entry the contents does
+ * have - a better failure than a range landing on real material that happens to
+ * be the wrong chapter.
+ */
+const DOMAINS_SECTION = 'Domains';
+const APPENDIX_SECTION = 'Domain Card Reference';
 
 /** Line leading is 9.8-11pt; a paragraph adds a further 1.5pt or more. */
 const PARAGRAPH_GAP = 11.5;
@@ -44,6 +57,29 @@ const LEVEL_RE = /^Level (\d{1,2}) ([A-Za-z]+) ([A-Za-z]+)$/;
 const RECALL_RE = /^Recall Cost: (\d+)$/;
 const BANNER_RE = /^([A-Z]+) DOMAIN$/;
 const BULLET_RE = /^[••▪●]/;
+
+/**
+ * SRD 2.0's second bullet, folded onto the one the shared helpers know.
+ *
+ * SRD 1.0 opens every option list on a card with U+2022. SRD 2.0 keeps U+2022
+ * for the question lists in the class chapter and opens a card's options with
+ * U+25E6, a hollow ring - 172 lines of it across the book, 65 of them in this
+ * appendix, none at all in SRD 1.0. Rendered PDF page 220 shows the ring on the
+ * page, so it is the book's own typography and not extraction damage.
+ *
+ * Neither `BULLET_RE` above nor `joinWithBullets` recognised it, and nothing
+ * threw. `cardText` read each ring line as a fresh PARAGRAPH rather than a list
+ * item, so all twenty-four SRD 2.0 cards with options shipped their rules text as
+ * "...gain the following benefits:\n\n◦ +1 bonus to your Spellcast Rolls\n\n◦
+ * Once per rest..." where SRD 1.0 ships "...benefits:\n- +1 bonus...". The two
+ * books disagreed about the shape of the same card.
+ *
+ * Folding the character here rather than widening the class in `joinWithBullets`
+ * is a scope decision, not a design one: `shared/parsers/util.ts` is shared with
+ * every other parser and is not this lane's to change. The one-line widening it
+ * wants is recorded in the handoff.
+ */
+const RING_BULLET = /^◦[ \t]*/;
 
 interface Row {
   text: string;
@@ -83,7 +119,7 @@ function readPages(pages: BookPage[], from: number, to: number): Row[] {
       }
       previous = { folio, column: line.column, bottom };
       out.push({
-        text: normalizeText(line.text),
+        text: normalizeText(line.text).replace(RING_BULLET, '• '),
         size: line.size,
         family: line.family,
         bold: line.bold,
@@ -114,7 +150,8 @@ function cardName(caps: string): string {
 }
 
 export function parseDomains(pages: BookPage[]): Domain[] {
-  const lines = readPages(pages, DOMAINS_FOLIO, DOMAINS_FOLIO);
+  const folio = folioOf(parseContents(pages), DOMAINS_SECTION);
+  const lines = readPages(pages, folio, folio);
   const isHeading = (f: Row): boolean =>
     f.family.startsWith('Eveleth') && DOMAIN_WORDS.has(f.text.toUpperCase());
 
@@ -136,15 +173,35 @@ export function parseDomains(pages: BookPage[]): Domain[] {
     domains.push({ id, name: titleCase(head.text), description, sourcePage: head.folio });
   }
 
-  const missing = DOMAINS.filter((d) => !domains.some((x) => x.id === d));
-  if (missing.length > 0) {
-    throw new ParseError(`missing domains on folio ${DOMAINS_FOLIO}`, missing.join(', '));
-  }
-  if (domains.length !== DOMAINS.length) {
+  /*
+   * Every domain the PAGE announces must have been read, and none twice. What
+   * this does NOT require is that the page announce every domain in `DOMAINS`.
+   *
+   * Those are two different lists and were being treated as one. `DOMAINS` is
+   * what this build can represent; the folio is what this printing ships. They
+   * are equal for a book the constant was written against and stop being equal
+   * the moment the code learns a domain a printing does not have - which is the
+   * state every revision lands in, and which made this throw `expected 10
+   * domains, found 9` on SRD 1.0, a book it parses perfectly.
+   *
+   * The guarantee that mattered here - a heading silently skipped - is kept by
+   * counting headings on the page rather than members of the constant. How many
+   * domains a DATASET ought to contain is `tools/validate.ts`'s question, and
+   * it already asks it.
+   */
+  const headings = lines.filter(isHeading).length;
+  if (domains.length !== headings) {
     throw new ParseError(
-      `expected ${DOMAINS.length} domains on folio ${DOMAINS_FOLIO}, found ${domains.length}`,
+      `folio ${folio} shows ${headings} domain headings but ${domains.length} were read`,
       domains.map((d) => d.id).join(', '),
     );
+  }
+  if (domains.length === 0) {
+    throw new ParseError(`no domains found on folio ${folio}`, lines.slice(0, 6).map((l) => l.text).join(' | '));
+  }
+  const dupes = domains.map((d) => d.id).filter((d, i, a) => a.indexOf(d) !== i);
+  if (dupes.length > 0) {
+    throw new ParseError(`domain read twice on folio ${folio}`, dupes.join(', '));
   }
   return domains;
 }
@@ -168,18 +225,44 @@ function cardText(body: readonly Row[]): string {
     .join('\n\n');
 }
 
+/** `[from, to)` as indices, for the ownership check below. */
+const range = (from: number, to: number): number[] =>
+  Array.from({ length: to - from }, (_u, k) => from + k);
+
 const isCardTitle = (f: Row): boolean =>
   f.bold && f.size >= TITLE_SIZE && f.family.startsWith('QuestaSans');
 
 export function parseDomainCards(pages: BookPage[]): DomainCard[] {
-  const lines = readPages(pages, APPENDIX_FROM, APPENDIX_TO);
+  const appendix = rangeToEnd(parseContents(pages), pages, APPENDIX_SECTION);
+  const lines = readPages(pages, appendix.from, appendix.to);
 
-  // A card is announced by its `Level N <Domain> <Type>` / `Recall Cost: N`
-  // pair; the line above the pair is the title. Nothing else in the appendix
-  // matches, so this needs no font heuristics to find the boundaries.
-  const starts: number[] = [];
+  /*
+   * A card is announced by its `Level N <Domain> <Type>` / `Recall Cost: N`
+   * pair; the title is what stands above it. Nothing else in the appendix
+   * matches, so the boundaries need no font heuristics.
+   *
+   * The title is a RANGE and not a line, which SRD 2 is what taught: its
+   * columns are narrower, and `SUMMON HORROR` sets over two. Reading only the
+   * line directly above the pair would have named that card `HORROR` - not a
+   * crash, a wrong name, on a card the search and every saved loadout key by
+   * slug. So the title walks upward while the face still says title.
+   *
+   * For SRD 1 every title fits one line, the walk stops immediately, and the
+   * output is byte-identical - which is the check that says this is a widening
+   * and not a change.
+   */
+  interface Start {
+    /** First line of the title. */
+    title: number;
+    /** The `Level N ...` line; the title is everything from `title` to here. */
+    level: number;
+  }
+  const starts: Start[] = [];
   for (let i = 1; i + 1 < lines.length; i++) {
-    if (LEVEL_RE.test(lines[i]!.text) && RECALL_RE.test(lines[i + 1]!.text)) starts.push(i - 1);
+    if (!LEVEL_RE.test(lines[i]!.text) || !RECALL_RE.test(lines[i + 1]!.text)) continue;
+    let title = i - 1;
+    while (title > 0 && isCardTitle(lines[title - 1]!)) title -= 1;
+    starts.push({ title, level: i });
   }
   if (starts.length === 0) {
     throw new ParseError(
@@ -187,26 +270,57 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
       lines.slice(0, 6).map((l) => l.text).join(' | '),
     );
   }
-  // Losing a card silently is the failure that matters here: a title that never
-  // paired with a level line would just be swallowed by the card above it. The
-  // title face is used nowhere else in the appendix, so counting it catches that.
-  const titles = lines.filter(isCardTitle).length;
-  if (titles !== starts.length) {
+  /*
+   * Losing a card silently is the failure that matters: a title that never
+   * paired with a level line would be swallowed by the card above it. The title
+   * face is used nowhere else in the appendix, so every title-face line must be
+   * accounted for by exactly one card - which is the same guarantee as before,
+   * now counted over multi-line titles rather than assuming one line each.
+   */
+  const titleLines = lines.filter(isCardTitle).length;
+  const claimed = starts.reduce((n, st) => n + (st.level - st.title), 0);
+  if (titleLines !== claimed) {
+    const owned = new Set(starts.flatMap((st) => range(st.title, st.level)));
     throw new ParseError(
-      `found ${titles} card titles but ${starts.length} cards`,
-      lines.filter((l, i) => isCardTitle(l) && !starts.includes(i)).map((l) => l.text).join(', '),
+      `found ${titleLines} title lines but ${claimed} belong to the ${starts.length} cards`,
+      lines.filter((l, i) => isCardTitle(l) && !owned.has(i)).map((l) => l.text).join(', '),
     );
   }
 
   // The domain a card belongs to is the banner it is printed under; the card's
   // own `Level N <Domain>` line is then a cross-check on the reading order.
-  const banners: Array<DomainId | undefined> = [];
-  let current: DomainId | undefined;
-  for (const f of lines) {
+  /*
+   * A banner claims everything BELOW IT ON THE PAGE, in both columns - it is a
+   * rule across the full measure, not a heading inside one column. So a card's
+   * domain is the last banner at or above it on its own folio, and reading
+   * order is the wrong question to ask.
+   *
+   * This used to walk the de-columnised lines and remember the last banner
+   * seen, which is the same thing only when no banner falls mid-page with cards
+   * beside it. Measured on both books: in SRD 1.0 the two rules agree on every
+   * appendix page - 5 and 5 on folio 122, 4 and 4 on 126, 1 and 1 on 132 - so
+   * this is a widening and `data/srd-1.0.json` does not move. In SRD 2.0 they
+   * disagree on five of ten: folio 209 has 2 cards before the BONE banner in
+   * reading order and 5 above it on the page, and the three in between are
+   * Blade cards sitting in the right-hand column, which the old rule handed to
+   * Bone. It threw - `card sits under the bone banner but reads blade` - and
+   * that throw is the only reason this was not a silent mis-filing.
+   */
+  const flags = lines.map((f) => {
     const m = f.family.startsWith('Eveleth') ? BANNER_RE.exec(f.text) : null;
-    if (m) {
-      current = DOMAIN_WORDS.get(m[1]!);
-      if (!current) throw new ParseError('unknown domain banner', f.text);
+    if (m === null) return null;
+    const domain = DOMAIN_WORDS.get(m[1]!);
+    if (!domain) throw new ParseError('unknown domain banner', f.text);
+    return { domain, folio: f.folio, bottom: f.bottom };
+  });
+  const flagged = flags.filter((b): b is NonNullable<typeof b> => b !== null);
+
+  const banners: Array<DomainId | undefined> = [];
+  for (const f of lines) {
+    let current: DomainId | undefined;
+    for (const b of flagged) {
+      if (b.folio < f.folio || (b.folio === f.folio && b.bottom <= f.bottom)) current = b.domain;
+      else break;
     }
     banners.push(current);
   }
@@ -214,18 +328,25 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
   const cards: DomainCard[] = [];
   const seen = new Map<string, string>();
   starts.forEach((start, n) => {
-    const title = lines[start]!;
-    const level = lines[start + 1]!;
-    const recall = lines[start + 2]!;
+    const titleLine = lines[start.title]!;
+    const titleText = lines
+      .slice(start.title, start.level)
+      .map((l) => l.text.trim())
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const level = lines[start.level]!;
+    const recall = lines[start.level + 1]!;
+    const title = { ...titleLine, text: titleText };
 
-    if (!isCardTitle(title)) {
-      throw new ParseError('card title is not bold sans', `${title.text} / ${title.family}`);
+    if (!isCardTitle(titleLine)) {
+      throw new ParseError('card title is not bold sans', `${titleText} / ${titleLine.family}`);
     }
-    if (title.text !== title.text.toUpperCase()) {
-      throw new ParseError('card title is not set in caps', title.text);
+    if (titleText !== titleText.toUpperCase()) {
+      throw new ParseError('card title is not set in caps', titleText);
     }
 
-    const banner = banners[start];
+    const banner = banners[start.title];
     if (!banner) throw new ParseError('card appears before any domain banner', title.text);
 
     const lm = LEVEL_RE.exec(level.text)!;
@@ -245,8 +366,8 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
       throw new ParseError('card level out of range', `${title.text}: ${level.text}`);
     }
 
-    const end = starts[n + 1] ?? lines.length;
-    const body = lines.slice(start + 3, end).filter((f) => !f.family.startsWith('Eveleth'));
+    const end = starts[n + 1]?.title ?? lines.length;
+    const body = lines.slice(start.level + 2, end).filter((f) => !f.family.startsWith('Eveleth'));
     const text = cardText(body);
     if (text.length === 0) throw new ParseError('card has no rules text', title.text);
 

@@ -67,13 +67,35 @@ const sections = baseDataset.rules;
  * Five integers and no words of the book's, so it is an address in `at.part`'s
  * sense: an address may be written down when it is checked against the dataset
  * every run, and this one is - by the very test it feeds.
+ *
+ * ## SRD 2.0's numbers, read off the book's own contents page
+ *
+ * They were 3 / 4 / 7 / 35 / 63 for SRD 1.0. Folio 2 of
+ * `Manuali/DH_SRD_2_2026_08_25.pdf` prints its own list and these five are
+ * transcribed from it, not derived from the dataset - deriving them from
+ * `SECTION_CHAPTER`'s own members would have made this recomputation agree
+ * with the table by construction and stop being a second opinion:
+ *
+ *     INTRODUCTION.......3     CORE MECHANICS........46
+ *     CHARACTER CREATION.4     RUNNING AN ADVENTURE..85
+ *     CORE MATERIALS.....7
+ *
+ * Exactly one section disagreed under the old numbers: `gold`, folio 84 in
+ * SRD 2.0, which 63 put in `running-an-adventure` and the table calls
+ * `core-mechanics`. 85 agrees with the table, and with the book.
+ *
+ * That contents page has two entries these five do not: `Supplemental Campaign
+ * Mechanics` at 190 and `APPENDIX` at 206. Neither gets a chapter, and that is
+ * measured rather than assumed - the last `rules` section this book prints is
+ * on folio 184, so no shipped section falls in either, and a sixth chapter
+ * would be a row that can only answer with nothing (the check two below).
  */
 const CHAPTER_OPENS: Record<SrdChapter, number> = {
   introduction: 3,
   'character-creation': 4,
   'core-materials': 7,
-  'core-mechanics': 35,
-  'running-an-adventure': 63,
+  'core-mechanics': 46,
+  'running-an-adventure': 85,
 };
 
 /** The book's rule, applied rather than transcribed. */
@@ -89,7 +111,8 @@ const computed = (page: number | undefined): SrdChapter => {
 const SHAPE: Record<SrdChapter, number> = {
   introduction: 4,
   'character-creation': 1,
-  'core-materials': 5,
+  // 5 + the five Martial Stances sections SRD 2.0 prints on folio 13.
+  'core-materials': 10,
   'core-mechanics': 24,
   'running-an-adventure': 35,
 };

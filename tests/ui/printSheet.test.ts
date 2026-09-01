@@ -32,6 +32,9 @@ import {
   makeWeapon,
 } from '../fixtures/factories.ts';
 
+/** The revision the app ships, from the dataset itself. `SRD 2.0` -> `2.0`. */
+const shippedSrd = (baseDataset.layers[0]?.label ?? '').replace(/^SRD /, '');
+
 const CSS_PATH = 'src/ui/print/sheet.css';
 
 const ancestry = (id: string): Ancestry => ({
@@ -91,6 +94,47 @@ function scene() {
   });
   return { dataset, index: indexDataset(dataset), character };
 }
+
+/*
+ * The page a player carries to the table, and cannot tap to investigate.
+ *
+ * `SheetModel.missing` says of itself: "Refs this dataset could not resolve.
+ * Shown, never silently dropped." It listed only cards. An equipped weapon
+ * whose ref no longer resolved was dropped by a `.filter`, an unresolvable
+ * armor became `null`, and a held transformation was never read — so the sheet
+ * printed one weapon where the player has two and said nothing.
+ *
+ * Hypothetical until SRD 2.0 dropped nine weapons. 186 of 3333 modelled sheets
+ * hold one.
+ */
+describe('what the printed sheet cannot resolve', () => {
+  it('names a vanished weapon instead of quietly printing one fewer', () => {
+    const { character, dataset, index } = scene();
+    const sheet = buildSheet(
+      { ...character, activePrimaryWeapon: 'weapon-that-left-the-book' },
+      dataset,
+      index,
+    );
+    expect(sheet.missing).toContain('weapon-that-left-the-book');
+    expect(sheet.weapons).toHaveLength(0);
+  });
+
+  it('names an unresolvable armor and a held transformation too', () => {
+    const { character, dataset, index } = scene();
+    const sheet = buildSheet(
+      { ...character, activeArmor: 'armor-gone', transformationRef: 'werewolf-gone' },
+      dataset,
+      index,
+    );
+    expect(sheet.armor).toBeNull();
+    expect(sheet.missing).toEqual(expect.arrayContaining(['armor-gone', 'werewolf-gone']));
+  });
+
+  it('stays quiet when everything resolves, so the banner means something', () => {
+    const { character, dataset, index } = scene();
+    expect(buildSheet(character, dataset, index).missing).toEqual([]);
+  });
+});
 
 describe('the print model', () => {
   it('prints weapon damage with Proficiency already multiplied in', () => {
@@ -392,7 +436,15 @@ describe('the printed page', () => {
   });
 
   it('carries the attribution the licence requires', () => {
-    expect(html).toContain('Daggerheart System Reference Document 1.0');
+    /*
+     * The SHIPPED revision, not a literal. §4.1(a) identifies the Public Game
+     * Content this product includes, so the sentence has to name the book the
+     * app actually draws — and when the shipped dataset became SRD 2.0 this
+     * assertion went on protecting `1.0`, which is a false legal statement
+     * held green by a test. Derived from `baseDataset` the same way the notice
+     * is, so it cannot disagree with it and cannot go stale again.
+     */
+    expect(html).toContain(`Daggerheart System Reference Document ${shippedSrd}`);
   });
 });
 

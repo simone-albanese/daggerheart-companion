@@ -69,7 +69,7 @@ import { seededRng, type Rng } from '../src/engine/dice.ts';
  * one of the two resolves a JSON import without ceremony.
  */
 export function loadDataset(): Dataset {
-  const path = new URL('../data/srd-1.0.json', import.meta.url);
+  const path = new URL('../data/srd-2.0.json', import.meta.url);
   return JSON.parse(readFileSync(path, 'utf8')) as Dataset;
 }
 

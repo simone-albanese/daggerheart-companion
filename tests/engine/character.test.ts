@@ -14,7 +14,7 @@ import {
   tierOf,
   weaponDamage,
 } from '@engine/character.ts';
-import type { Character, Dataset } from '@shared/types.ts';
+import { MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
 import { hasDataset, loadDataset } from '../../tools/sampleCharacters.ts';
 import {
   advancement,
@@ -343,7 +343,15 @@ describe('newCharacter', () => {
     expect(c.consecutiveShortRests).toBe(0);
     // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
     // whatever the constant said, and this assertion exists to notice a bump.
-    expect(c.schemaVersion).toBe(5);
+    // It noticed this one: 5 -> 6, for the SRD 2.0 dataset contract, then
+    // 6 -> 7, for `transformationRef`, then 7 -> 8, for the martial stances.
+    expect(c.schemaVersion).toBe(8);
+    // Seeded here as well as by the converter, because `readCharacterRecord`
+    // spreads an imported file over a blank sheet: a build with no key here
+    // would drop the field out of any file that did not carry it.
+    expect(c.transformationRef).toBeNull();
+    expect(c.stanceRefs).toEqual([]);
+    expect(c.focus).toEqual({ marked: 0, max: MAX_FOCUS });
   });
 
   it('lets a caller override any field', () => {
@@ -408,18 +416,32 @@ describe.skipIf(!hasDataset())('the SRD’s own Hit Point numbers', () => {
     const seeded = Object.fromEntries(
       dataset.classes.map((k) => [k.id, newCharacter({ classRef: k.id }, ix).hp.max]),
     );
+    /*
+     * Thirteen, and the nine that were here before did not move.
+     *
+     * The switch to SRD 2.0 added Assassin, Brawler, Warlock and Witch. Every
+     * one of the original nine seeds the same Hit Points it seeded off
+     * `data/srd-1.0.json` - bard 5, druid 6, guardian 7, ranger 6, rogue 6,
+     * seraph 7, sorcerer 6, warrior 6, wizard 5 - so a saved character's
+     * starting HP is not something the switch moved. That is worth asserting
+     * as a SET rather than leaving to be read off a diff.
+     */
     expect(seeded).toEqual({
+      assassin: 5,
       bard: 5,
+      brawler: 6,
       druid: 6,
       guardian: 7,
       ranger: 6,
       rogue: 6,
       seraph: 7,
       sorcerer: 6,
+      warlock: 5,
       warrior: 6,
+      witch: 6,
       wizard: 5,
     });
-    expect(Object.values(seeded).filter((hp) => hp !== 6)).toHaveLength(4);
+    expect(Object.values(seeded).filter((hp) => hp !== 6)).toHaveLength(6);
 
     // Every one of them stored in agreement with the engine, HP and Stress
     // both, and named in the failure so a wrong one says which class it was.

@@ -464,8 +464,8 @@ describe('the tiers the chips offer', () => {
 describe('the chip filters, unchanged', () => {
   it('still narrows the list and still says by how much', () => {
     const tier3 = primaries.filter((w) => w.tier === 3).length;
-    expect(primaries.length, 'primary weapons in the shipped dataset').toBe(167);
-    expect(tier3, 'primary weapons at tier 3').toBe(47);
+    expect(primaries.length, 'primary weapons in the shipped dataset').toBe(291);
+    expect(tier3, 'primary weapons at tier 3').toBe(68);
 
     mount('weapons');
     expect(countBand().textContent, 'the count the slot alone leaves').toContain(

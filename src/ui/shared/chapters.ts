@@ -205,6 +205,16 @@ export const SECTION_CHAPTER: Readonly<Record<Ref, SrdChapter>> = {
   'character-creation': 'character-creation',
 
   // CORE MATERIALS — folio 7
+  /*
+   * Folio 13, SRD 2.0 only, and the chapter is DERIVED and not chosen: the last
+   * 28pt opener at or before 13 is CORE MATERIALS on 7. `chapters.test.ts`
+   * recomputes exactly that every run from the contents page's own five folios.
+   */
+  'martial-stances': 'core-materials',
+  stances: 'core-materials',
+  focus: 'core-materials',
+  'shifting-into-stances': 'core-materials',
+  'dropping-out-of-stances': 'core-materials',
   'beastform-options': 'core-materials',
   'ranger-companion': 'core-materials',
   'working-with-your-companion': 'core-materials',

@@ -82,7 +82,6 @@ const DELIBERATE: Record<string, string> = {
     'Awaited by the store tests. Inside the app `flush` is reached by the debounce, by pagehide and by remove(); runBackup reads the store rather than the disk, so it needs no flush of its own.',
   'engine/dice.ts::seededRng': 'Injected by tests and tools/simulate.ts; the app must use the real RNG.',
   'transfer/registry.ts::bandFor': 'tools/buildRegistry.ts builds registry.json; the app only reads it.',
-  'transfer/registry.ts::REGISTRY_VERSION': 'Written by tools/buildRegistry.ts, checked by createRegistry on load.',
   'transfer/codec.ts::isDeflated': 'Diagnostics: it tells a test which branch the encoder took.',
   'transfer/qr.ts::qrModulesForVersion': 'Arithmetic the QR tests assert against directly.',
   'transfer/frames.ts::MAX_PAYLOAD_BYTES': 'The derived ceiling; the offer-a-file threshold is FILE_PREFERRED_ABOVE.',
@@ -93,6 +92,16 @@ const DELIBERATE: Record<string, string> = {
   'transfer/frames.ts::toFrameBytes': 'Same: the send path packs frames itself.',
   'transfer/fileIo.ts::parseCharacterFile': 'Every UI path calls parseTransferFile, which handles both shapes.',
   'transfer/fileIo.ts::parseBackupFile': 'Same.',
+
+  // --- Wire-format truth that only the build tool reads. It lives beside
+  //     `BANDS` because that is what it is: the half of the id scheme that says
+  //     which hundred a domain's cards occupy. `bandOf` and the decoder are the
+  //     other half and are in the same file, so splitting the two would put the
+  //     answer and the question in different trees. `tools/buildRegistry.ts` is
+  //     the only caller because minting is a build-time act; the runtime only
+  //     ever reads ids back, and it does that through `registry`.
+  'transfer/registry.ts::DOMAIN_CARD_BASES':
+    'Build-time seam: tools/buildRegistry.ts mints card ids from it. Kept in src/ because it is wire-format truth and belongs beside BANDS, which the decoder uses.',
 
   // --- P4 dead weight. Delete or adopt; either is a decision, silence is not.
   'engine/dice.ts::outcomeLabel':

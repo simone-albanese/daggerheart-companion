@@ -1,5 +1,5 @@
 /**
- * Druid Beastform options, folios 12-15.
+ * Druid Beastform options.
  *
  * A plain two-column list of stat cards under `TIER n` banners. Two of the
  * cards are not creatures but upgrade templates ("Evolved: pick a Tier 1
@@ -7,6 +7,36 @@
  * attack or advantage line and cannot be expressed as a `Beastform`. They are
  * recognised by their `(Upgraded ...)` subtitle and skipped - any *other* card
  * missing its stat line is a parse failure, not a silent drop.
+ *
+ * ## Where the section is, and why it is not a contents entry
+ *
+ * This used to carry `FOLIO_FROM = 12` / `FOLIO_TO = 15`, which is right for
+ * SRD 1.0 and wrong for SRD 2.0, where the same material is printed on folios
+ * 15-18. Every other parser in this directory now takes its range from the
+ * book's own contents page - but BEASTFORM OPTIONS has no contents entry in
+ * either book. It is printed inside the Druid, which is printed inside
+ * `Classes`, and the index stops at the chapter.
+ *
+ * So the range comes from an anchor measured on the page instead: the display
+ * banner the book prints above the first card, `BEASTFORM OPTIONS`, set in
+ * EvelethCleanRegular at 12pt in both books. The contents page still says where
+ * to look for it - the `Classes` chapter, folios 8-27 in SRD 1.0 and 8-32 in
+ * SRD 2.0 - so a banner of the same words somewhere else in the book cannot be
+ * mistaken for this one.
+ *
+ * ## Both ends, and why the far one is typographic
+ *
+ * The section ends where the next class begins, and which class that is is not
+ * a fact about beastforms: SRD 1.0 follows the Druid with GUARDIAN because it
+ * has nine classes, SRD 2.0 follows it with GUARDIAN because ASSASSIN and
+ * BRAWLER were inserted before it and JUGGERNAUT after. Naming the successor
+ * would be reading the class list, in a file that parses none of it. What both
+ * books do state, in type, is that a display banner which is not a `TIER n`
+ * heading is somebody else's - so that is the cut, and its absence is an error
+ * rather than a licence to read the rest of the chapter as beastforms.
+ *
+ * Resolved on the books this was measured against: folios 12-15 on SRD 1.0
+ * (the range the two constants used to hardcode) and 15-18 on SRD 2.0.
  */
 import type { BookPage, Line, TextRun } from '../textLayout.ts';
 import { slugify } from '../slugify.ts';
@@ -28,9 +58,13 @@ import {
   titleCase,
   ParseError,
 } from './util.ts';
+import { parseContents, sectionRange } from './contents.ts';
 
-const FOLIO_FROM = 12;
-const FOLIO_TO = 15;
+/** The chapter the section is printed inside; the contents page knows this one. */
+const CHAPTER = 'Classes';
+
+/** The banner the book prints above the first card. Identical in both books. */
+const SECTION_BANNER = 'BEASTFORM OPTIONS';
 
 const TIER_BANNER = /^TIER ([1-4])$/;
 const ENTRY_TITLE = /^[A-Z][A-Z’'\- ]+$/;
@@ -169,24 +203,72 @@ function parseEntry(block: SrcLine[], tier: number): Beastform | null {
   };
 }
 
-export function parseBeastforms(pages: BookPage[]): Beastform[] {
-  const stream = linesWithFolio(pages, FOLIO_FROM, FOLIO_TO);
+/**
+ * The cards, cut at both ends by the banners the book prints around them.
+ *
+ * `from`/`to` are the folios the section resolves to on this book, which is
+ * what the two constants used to state; they are returned so a caller can
+ * report the range it actually read rather than the one it assumed.
+ */
+export function beastformSection(
+  pages: BookPage[],
+): { lines: SrcLine[]; from: number; to: number } {
+  const chapter = sectionRange(parseContents(pages), CHAPTER);
+  const stream = linesWithFolio(pages, chapter.from, chapter.to);
 
-  const start = stream.findIndex((l) => isDisplay(l) && TIER_BANNER.test(l.text));
+  const banner = stream.findIndex(
+    (l) => isDisplay(l) && normalizeText(l.text) === SECTION_BANNER,
+  );
+  if (banner < 0) {
+    throw new ParseError(
+      `no "${SECTION_BANNER}" banner in the ${CHAPTER} chapter`,
+      `folios ${chapter.from}-${chapter.to}`,
+    );
+  }
+
+  const start = stream.findIndex(
+    (l, i) => i > banner && isDisplay(l) && TIER_BANNER.test(l.text),
+  );
   if (start < 0) {
     throw new ParseError(
       'no TIER banner in the Beastform section',
-      stream.slice(0, 4).map((l) => l.text).join(' / '),
+      stream.slice(banner, banner + 4).map((l) => l.text).join(' / '),
     );
   }
+  /*
+   * Only the section's own prose stands between the two banners. A display
+   * banner in that gap is a sub-section this does not know about, and skipping
+   * silently to the first TIER is how its cards would go missing.
+   */
+  const intruder = stream.slice(banner + 1, start).find((l) => isDisplay(l));
+  if (intruder !== undefined) {
+    throw new ParseError(
+      `unexpected banner between "${SECTION_BANNER}" and its first tier`,
+      intruder.text,
+    );
+  }
+
   // The section runs until the next display banner that is not a tier heading.
-  let end = stream.length;
+  let end = -1;
   for (let i = start + 1; i < stream.length; i++) {
     if (isDisplay(stream[i]!) && !TIER_BANNER.test(stream[i]!.text)) {
       end = i;
       break;
     }
   }
+  if (end < 0) {
+    throw new ParseError(
+      'the Beastform section has no closing banner',
+      `it would run to the end of ${CHAPTER} (folio ${chapter.to})`,
+    );
+  }
+
+  const lines = stream.slice(start, end);
+  return { lines, from: stream[banner]!.folio, to: lines[lines.length - 1]!.folio };
+}
+
+export function parseBeastforms(pages: BookPage[]): Beastform[] {
+  const { lines: section } = beastformSection(pages);
 
   const out: Beastform[] = [];
   let tier = 0;
@@ -197,7 +279,7 @@ export function parseBeastforms(pages: BookPage[]): Beastform[] {
     if (parsed) out.push(parsed);
     block = null;
   };
-  for (const l of stream.slice(start, end)) {
+  for (const l of section) {
     const banner = TIER_BANNER.exec(l.text);
     if (isDisplay(l) && banner) {
       finish();

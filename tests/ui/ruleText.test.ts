@@ -6,7 +6,7 @@
  * loudly instead.
  */
 import { describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Dataset } from '@shared/types.ts';
 import { TRAITS } from '@shared/types.ts';
 import {

@@ -22,9 +22,21 @@ import {
   splitOn,
   titleCase,
 } from './util.ts';
+import { parseContents, sectionRange, sliceSection } from './contents.ts';
 
-const FROM = 27;
-const TO = 31;
+/*
+ * The folio range comes from the book's own contents page. It used to be
+ * written here, `FROM = 27` / `TO = 31`, which is right for SRD 1.0 and wrong for
+ * every other printing - SRD 2.0 reflows 135 printed pages into 224.
+ */
+const SECTION = 'Ancestries';
+/*
+ * The offer sentence is not in this chapter. Both books print it in character
+ * creation, on folio 4, beside the Heritage field it tells you to fill in - so
+ * the roster and the manifest come from two different parts of the book, and
+ * this parser reads both.
+ */
+const CREATION = 'CHARACTER CREATION';
 
 /** The book states every ancestry grants two ancestry features. */
 const FEATURE_COUNT = 2;
@@ -44,18 +56,77 @@ const COLUMN_X_TOL = 30;
 type Sourced = Line & { folio: number };
 
 export function parseAncestries(pages: BookPage[]): Ancestry[] {
+  const range = sectionRange(parseContents(pages), SECTION);
   const lines = sourcedLines(pages);
-  const roster = parseRoster(lines);
+  const roster = parseRoster(lines, sourcedIn(pages, sectionRange(parseContents(pages), CREATION)));
 
   const blocks = splitOn(lines, isBanner);
   const out: Ancestry[] = [];
+  /*
+   * A banner the roster does not name is either a mistake or a FAMILY heading,
+   * and the book tells the two apart on its own: SRD 2.0's ELEMENTAL KIN has
+   * prose and no ANCESTRY FEATURES block, while every ancestry has one. So the
+   * absence of features is the signal, rather than a list of family names
+   * written here that the next printing would silently outgrow.
+   *
+   * ## Where a family ENDS, which the typography does not say
+   *
+   * Measured: ELEMENTAL KIN, EARTHKIN and ELF are all EvelethCleanThin at 12pt
+   * at the same column origin. There is no size, face or indent that separates
+   * a family heading from its members or its members from what follows. A first
+   * version applied the family to every ancestry after the heading and gave
+   * `Elemental Kin` to Simiah.
+   *
+   * The signal is in the ORDER. The chapter is alphabetical, and the family is
+   * the one place it is not: Dwarf, [Earthkin, Emberkin, Skykin, Tidekin], Elf.
+   * The members run alphabetically among themselves, and the break comes when
+   * the chapter's own sequence resumes - `Elf` sorts before `Tidekin`. So the
+   * family claims the ascending run that follows it and stops at the first name
+   * that sorts below the one before it.
+   *
+   * That is inference, so it is CHECKED rather than trusted: a family that
+   * claims nothing is an error, and the assertion below makes a change in the
+   * book's ordering a loud failure instead of a quiet mis-grouping.
+   */
+  let family: string | undefined;
+  let previousInFamily: string | undefined;
+  let claimed = 0;
   for (const block of blocks) {
     const name = titleCase(normalizeText(block[0]!.text));
     if (NOT_ANCESTRIES.has(name)) continue;
-    if (!roster.has(name)) {
-      throw new ParseError('display banner is neither a listed ancestry nor a known rule', name);
+    if (!roster.all.has(name)) {
+      const hasFeatures = block.some((l) => /^ANCESTRY FEATURES$/i.test(normalizeText(l.text)));
+      if (hasFeatures) {
+        throw new ParseError('display banner is neither a listed ancestry nor a known rule', name);
+      }
+      if (family !== undefined && claimed === 0) {
+        throw new ParseError('family heading claims no ancestries', family);
+      }
+      family = name;
+      previousInFamily = undefined;
+      claimed = 0;
+      continue;
     }
-    out.push(parseAncestry(block, name));
+    if (family !== undefined && previousInFamily !== undefined && name < previousInFamily) {
+      // The chapter's alphabetical sequence has resumed: the family is over.
+      if (claimed === 0) throw new ParseError('family heading claims no ancestries', family);
+      family = undefined;
+      previousInFamily = undefined;
+    }
+
+    const ancestry = parseAncestry(block, name);
+    if (family !== undefined) {
+      ancestry.family = family;
+      previousInFamily = name;
+      claimed += 1;
+    }
+    // Only where the book fences the two. A book that does not say leaves this
+    // absent, which is a different fact from saying `core`.
+    if (roster.fenced) ancestry.set = roster.core.has(name) ? 'core' : 'expansion';
+    out.push(ancestry);
+  }
+  if (family !== undefined && claimed === 0) {
+    throw new ParseError('family heading claims no ancestries', family);
   }
 
   const seen = new Set<string>();
@@ -63,7 +134,7 @@ export function parseAncestries(pages: BookPage[]): Ancestry[] {
     if (seen.has(a.id)) throw new ParseError('duplicate ancestry id', a.id);
     seen.add(a.id);
   }
-  const missing = [...roster].filter((n) => !seen.has(slugify(n)));
+  const missing = [...roster.all].filter((n) => !seen.has(slugify(n)));
   if (missing.length > 0) {
     throw new ParseError('listed ancestry has no banner', missing.join(', '));
   }
@@ -75,12 +146,30 @@ function isBanner(l: Line): boolean {
   return isDisplay(l) && l.size < 15;
 }
 
-function sourcedLines(pages: BookPage[]): Sourced[] {
+/** Every line in a folio range, banners unmerged, carrying its folio. */
+function sourcedIn(pages: BookPage[], range: { from: number; to: number }): Sourced[] {
   const out: Sourced[] = [];
-  for (const page of pagesInFolios(pages, FROM, TO)) {
+  for (const page of pagesInFolios(pages, range.from, range.to)) {
     for (const l of unmergeBanners(page)) out.push({ ...l, folio: page.folio! });
   }
   return out;
+}
+
+/**
+ * The chapter's lines, cut at the next chapter's banner.
+ *
+ * The folio range overlaps the next section by a page because a chapter can end
+ * on the page the next one starts - SRD 2.0 prints SIMIAH above the COMMUNITIES
+ * banner on folio 38. So the last page arrives carrying both, and the banner is
+ * where this chapter stops.
+ */
+function sourcedLines(pages: BookPage[]): Sourced[] {
+  const range = sectionRange(parseContents(pages), SECTION);
+  const out: Sourced[] = [];
+  for (const page of pagesInFolios(pages, range.from, range.to)) {
+    for (const l of unmergeBanners(page)) out.push({ ...l, folio: page.folio! });
+  }
+  return sliceSection(out, SECTION, range.next);
 }
 
 /**
@@ -160,27 +249,96 @@ function joinRuns(runs: readonly TextRun[]): string {
   return normalizeText(out);
 }
 
-/**
- * "The core ruleset includes the following ancestries: Clank, ... and Mixed
- * Ancestry." - the chapter's own manifest, used to tell banners apart from
- * sub-section headings set in the same face and size.
- */
-function parseRoster(lines: Sourced[]): Set<string> {
-  const at = lines.findIndex((l) => /following ancestries:/i.test(l.text));
-  if (at < 0) throw new ParseError('ancestry roster sentence not found', `folios ${FROM}-${TO}`);
-  const sentence = normalizeText(joinLines(lines.slice(at, at + 8).map((l) => l.text)));
-  const m = /following ancestries:\s*([^.]+)\./i.exec(sentence);
-  if (!m) throw new ParseError('ancestry roster sentence does not end in a period', sentence);
+interface Roster {
+  /** Every ancestry the chapter offers. */
+  all: Set<string>;
+  /** The subset the Core Set carries, when the book fences the two. */
+  core: Set<string>;
+  /**
+   * Whether the book draws the distinction at all. Decided by comparing the two
+   * lists rather than by reading the wording: SRD 2.0 says "the Daggerheart
+   * Core Set includes ONLY the following" where SRD 1.0 says "the core ruleset
+   * includes the following", and hanging a schema field on the word "only"
+   * would be a rule one reprint could break in silence. Two lists that agree
+   * are a book that does not fence; two that differ are one that does.
+   */
+  fenced: boolean;
+}
 
-  const names = m[1]!
-    .split(/\s*,\s*/)
-    .map((n) => n.replace(/^and\s+/i, '').trim())
-    .filter((n) => n.length > 0);
-  const roster = new Set(names.filter((n) => !NOT_ANCESTRIES.has(n)));
-  if (roster.size !== names.length - 1) {
-    throw new ParseError('ancestry roster does not list Mixed Ancestry exactly once', sentence);
+/**
+ * The chapter's two manifests, which SRD 2.0 made two.
+ *
+ * The roster tells banners apart from sub-section headings set in the same face
+ * and size, so it has to be the FULL list or a new ancestry reads as a stray
+ * heading. SRD 1.0 had one sentence and it meant both things at once:
+ *
+ *   "Take the card for one of the following ancestries, then write its name in
+ *    the Heritage field ...: Clank, ..."           - everything on offer
+ *   "The Daggerheart Core Set includes only the following ancestries: ..."
+ *                                                  - what is in the box
+ *
+ * Measured: 18 and 18 in SRD 1.0, 24 and 18 in SRD 2.0. The six that the
+ * second list drops - Aetheris, Earthkin, Emberkin, Gnome, Skykin, Tidekin -
+ * are the Hope & Fear Expansion Set's.
+ *
+ * They also live in different parts of the book: the offer is in character
+ * creation on folio 4, beside the Heritage field it tells you to write in, and
+ * only the manifest is in this chapter.
+ *
+ * Both are matched over WHOLE sections joined into one string rather than per
+ * line, because SRD 2.0 breaks a line between "following" and "ancestries:"
+ * and a per-line search finds neither.
+ */
+function parseRoster(chapter: Sourced[], creation: Sourced[]): Roster {
+  const prose = normalizeText(joinLines(chapter.map((l) => l.text)));
+  const offerProse = normalizeText(joinLines(creation.map((l) => l.text)));
+  const folios = chapter.map((l) => l.folio);
+  const where = `folios ${Math.min(...folios)}-${Math.max(...folios)}`;
+
+  const listOf = (m: RegExpExecArray | null): string[] =>
+    m === null
+      ? []
+      : m[1]!
+          .split(/\s*,\s*/)
+          .map((n) => n.replace(/^and\s+/i, '').trim())
+          .filter((n) => n.length > 0);
+
+  const offered = listOf(
+    /take the card for one of the following\s+ancestries[^:]*:\s*([^.]+)\./i.exec(offerProse),
+  );
+  if (offered.length === 0) {
+    const cf = creation.map((l) => l.folio);
+    throw new ParseError(
+      'ancestry offer sentence not found in character creation',
+      `folios ${Math.min(...cf)}-${Math.max(...cf)}`,
+    );
   }
-  return roster;
+
+  const boxedRaw = listOf(
+    /(?:core ruleset|Core Set) includes (?:only )?the following\s+ancestries:\s*([^.]+)\./i.exec(
+      prose,
+    ),
+  );
+  if (boxedRaw.length === 0) {
+    throw new ParseError('ancestry manifest sentence not found', where);
+  }
+  // The manifest names Mixed Ancestry and the offer does not; it is a rule for
+  // combining two ancestries, not an ancestry, and it has no banner of its own.
+  const boxed = boxedRaw.filter((n) => !NOT_ANCESTRIES.has(n));
+  if (boxed.length !== boxedRaw.length - 1) {
+    throw new ParseError(
+      'ancestry manifest does not list Mixed Ancestry exactly once',
+      boxedRaw.join(', '),
+    );
+  }
+
+  const all = new Set(offered.filter((n) => !NOT_ANCESTRIES.has(n)));
+  const core = new Set(boxed);
+  const stray = [...core].filter((n) => !all.has(n));
+  if (stray.length > 0) {
+    throw new ParseError('manifest names an ancestry the chapter does not offer', stray.join(', '));
+  }
+  return { all, core, fenced: core.size !== all.size };
 }
 
 function parseAncestry(block: Sourced[], name: string): Ancestry {

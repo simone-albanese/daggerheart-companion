@@ -1,21 +1,38 @@
 /**
- * Environments - SRD folios 103-111.
+ * Environments - the tail of the "Adversaries and Environments" chapter.
  *
  * Each stat block is a display banner, a slab "Tier N Type" line, an italic
  * one-line summary, the Impulses / Difficulty / Potential Adversaries labels,
  * a FEATURES banner, then named features that carry their kind in the heading
  * ("Name - Action:") and usually trail a slab-set question prompt.
  *
- * Folio 102 is the "Using Environments" rules and is deliberately outside the
- * range; the tier banners ("TIER 2 ENVIRONMENTS (LEVELS 2-4)") are skipped
- * because each block states its own tier on the slab line.
+ * ## Where the section starts and stops, in a book that does not index it
  *
- * Folio 103 opens with the book's own index of the section, which the parse is
- * checked against at the end - see `checkAgainstIndex`.
+ * The contents page names the chapter but not this section inside it, so the
+ * near end has to come from the page. The anchor is the section's own index
+ * heading, `ENVIRONMENT STAT BLOCKS BY TIER`, set in the Thin display face and
+ * printed verbatim in both books. The far end is the chapter's: the folio
+ * before `Additional GM Guidance`.
+ *
+ *   SRD 1.0  folios 103-111   SRD 2.0  folios 159-182
+ *
+ * The `USING ENVIRONMENTS` rules that precede the index are deliberately
+ * outside the range, and they are also where the boundary with `adversaries.ts`
+ * lies. In SRD 1.0 they own folio 102 outright, so the two sections never share
+ * a page. In SRD 2.0 they start HALFWAY DOWN folio 158, under the PERFECTED
+ * ZOMBIE and ZOMBIE LEGION stat blocks - so folio 158 belongs to the
+ * adversaries, and this range still begins cleanly on the next folio. Stated as
+ * a rule the other side can be reconciled against: **environments own every
+ * folio from the one carrying the index heading to the end of the chapter, and
+ * nothing before it.**
+ *
+ * The tier banners ("TIER 2 ENVIRONMENTS (LEVELS 2-4)") are skipped because
+ * each block states its own tier on the slab line.
  */
 import type { BookPage, Line } from '../textLayout.ts';
 import type { Environment, Feature, Tier } from '../types.ts';
 import { slugify } from '../slugify.ts';
+import { parseContents, rangeBetween } from './contents.ts';
 import {
   ParseError,
   isBody,
@@ -28,17 +45,37 @@ import {
   titleCase,
 } from './util.ts';
 
-const FROM = 103;
-const TO = 111;
+/**
+ * The Thin display heading that opens the section's own index of stat blocks.
+ * Its folio is the section's first folio in both books.
+ */
+const INDEX_HEADING = 'ENVIRONMENT STAT BLOCKS BY TIER';
 
-/** Point tolerance for "this line starts at the column's left edge". */
+/**
+ * Point tolerance for "this line starts at the column's left edge".
+ *
+ * The single-page SRD 2.0 layout still satisfies it, with the same margin SRD
+ * 1.0 had. Measured exhaustively rather than sampled: across all 78 feature
+ * headings in SRD 1.0 and all 197 in SRD 2.0, EVERY heading sits at offset
+ * 0.000 +/- 0.001pt from its own block's banner. The nearest thing to a false
+ * positive is the wrapped line under it, indented 5.6pt in SRD 1.0 (folio 103:
+ * banner and headings at 687.9, continuations at 693.5) and 5.7pt in SRD 2.0
+ * (folio 160: 62.5 vs 68.2; folio 161 col 2: 325.2 vs 330.8).
+ *
+ * The test is against the block's own banner rather than a page constant
+ * because SRD 2.0 alternates its margins folio by folio - column edges at
+ * 62.5/311.0 on an even folio, 77.3/325.2 on an odd one.
+ */
 const FLUSH = 3;
 
 /**
  * Ambushed and Ambushers print `Difficulty: Special`: their Difficulty is
  * whatever the adversaries present bring. `Environment.difficulty` is a
  * number, so 0 stands for "no fixed Difficulty" - the Relative Strength
- * feature in the same block carries the rule.
+ * feature in the same block carries the rule. SRD 2.0 adds a THIRD - Duel, on
+ * folio 168, whose Relative Strength reads "the adversary who issued the
+ * challenge" rather than "the adversary with the highest Difficulty". All 47
+ * Difficulty lines in that book were read: 44 integers and those three.
  */
 const SPECIAL_DIFFICULTY = 0;
 
@@ -60,13 +97,26 @@ const LABEL = /^(Impulses|Difficulty|Potential Adversaries):/;
 const BULLET = /^[••▪●]\s*/;
 const INDEX_ENTRY = /^(.+?)\s+\((Exploration|Social|Traversal|Event)\)$/;
 
+/**
+ * The index shortens one name. Folio 179 of SRD 2.0 heads the block
+ * `CONVERGENCE, THE / CITY OF PORTALS`; the index on folio 159 lists
+ * "Convergence, City of Portals". The block's own heading wins - it is the
+ * name printed on the thing being described, and the same call was already
+ * made the other way round for `Outer Realms Corrupter` in `adversaries.ts`.
+ * Keyed by the index's spelling, valued by the block's.
+ */
+const INDEX_TYPOS: Readonly<Record<string, string>> = {
+  'Convergence, City of Portals': 'Convergence, the City of Portals',
+};
+
 type Sourced = Line & { folio: number };
 
 export function parseEnvironments(pages: BookPage[]): Environment[] {
-  const { body, front } = splitSection(pages);
-  const blocks = splitOn(body, isBanner);
+  const range = sectionFolios(pages);
+  const { body, front } = splitSection(pages, range);
+  const blocks = splitOn(joinBanners(body), isBanner);
   if (blocks.length === 0) {
-    throw new ParseError('no environment banners found', `folios ${FROM}-${TO}`);
+    throw new ParseError('no environment banners found', `folios ${range.from}-${range.to}`);
   }
 
   const out: Environment[] = [];
@@ -88,28 +138,101 @@ export function parseEnvironments(pages: BookPage[]): Environment[] {
     if (seen.has(e.id)) throw new ParseError('duplicate environment id', e.id);
     seen.add(e.id);
   }
-  checkAgainstIndex(front, out);
+  checkAgainstIndex(front, out, range);
   return out;
 }
 
 /**
- * Folio 103 prints the book's own index of every stat block in the section.
+ * The folios this section occupies, read off the book rather than written down.
+ *
+ * The far end is the chapter's own, from the contents page. The near end is not
+ * on the contents page at all - environments have no entry of their own - so it
+ * comes from the page that carries the section's index heading. Searching only
+ * inside the chapter keeps the anchor from matching anything the book might
+ * print about environments elsewhere.
+ */
+function sectionFolios(pages: BookPage[]): { from: number; to: number } {
+  const entries = parseContents(pages);
+  const chapter = rangeBetween(
+    entries,
+    ['Adversaries and Environments'],
+    ['Additional GM Guidance'],
+  );
+  const opener = pagesInFolios(pages, chapter.from, chapter.to).find((p) =>
+    p.lines.some((l) => isDisplay(l) && clean(l.text) === INDEX_HEADING),
+  );
+  if (opener === undefined) {
+    throw new ParseError(
+      `no "${INDEX_HEADING}" heading in "Adversaries and Environments"`,
+      `folios ${chapter.from}-${chapter.to}`,
+    );
+  }
+  return { from: opener.folio!, to: chapter.to };
+}
+
+/**
+ * A name set on two display lines is one name.
+ *
+ * SRD 1.0 fits every environment name on a single line; SRD 2.0 breaks two of
+ * them - `ALCHEMIST'S ABANDONED / WORKSHOP` on folio 161 and `CONVERGENCE, THE
+ * / CITY OF PORTALS` on folio 179. Left alone, the second line starts a block
+ * of its own and the first becomes a block with no stat line.
+ *
+ * The join is geometric, not lexical: same page, same column edge, and the next
+ * line down (the second line sits 12pt below the first, one display line
+ * height). That deliberately does not merge the two-line tier banners, which
+ * are excluded by name before the geometry is even looked at, and cannot merge
+ * across a column or a page because both would fail the x or folio test.
+ */
+function joinBanners(lines: readonly Sourced[]): Sourced[] {
+  const out: Sourced[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const above = lines[i - 1];
+    const continues =
+      above !== undefined &&
+      out.length > 0 &&
+      isBanner(line) &&
+      isBanner(above) &&
+      !TIER_BANNER.test(clean(line.text)) &&
+      !TIER_BANNER.test(clean(above.text)) &&
+      line.folio === above.folio &&
+      Math.abs(line.x - above.x) <= FLUSH &&
+      line.y > above.y &&
+      line.y - above.y <= above.size * 1.5;
+    if (continues) {
+      const head = out[out.length - 1]!;
+      out[out.length - 1] = { ...head, text: `${head.text} ${line.text}` };
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+/**
+ * The section opens with the book's own index of every stat block in it.
  * Checking the parse against it is the only thing that can catch a block
  * disappearing at a column or page break, which a banner-driven split has no
  * way to notice by itself. It also pins the title-casing to the book's own
  * spelling, since the index sets the names in mixed case and the blocks don't.
  */
-function checkAgainstIndex(front: Sourced[], out: Environment[]): void {
+function checkAgainstIndex(
+  front: Sourced[],
+  out: Environment[],
+  range: { from: number; to: number },
+): void {
   const entries = splitOn(front.filter(isBody), (l) => BULLET.test(l.text)).map((b) =>
     clean(joinLines(b.map((l) => l.text))).replace(BULLET, ''),
   );
   if (entries.length === 0) {
-    throw new ParseError('no stat-block index on the section opener', `folio ${FROM}`);
+    throw new ParseError('no stat-block index on the section opener', `folio ${range.from}`);
   }
   const expected = entries.map((e) => {
     const m = INDEX_ENTRY.exec(e);
     if (!m) throw new ParseError('unreadable stat-block index entry', e);
-    return `${m[1]} (${m[2]})`;
+    const name = m[1]!;
+    return `${INDEX_TYPOS[name] ?? name} (${m[2]})`;
   });
 
   const got = out.map((e) => `${e.name} (${e.type})`);
@@ -206,8 +329,27 @@ function splitTopLevel(s: string): string[] {
 
 /**
  * Feature headings sit flush with the column edge; every wrapped line and the
- * bullets under them are indented, which is what keeps the nested
- * "Relentless (2) - Passive." inside Cult Ritual from starting a feature.
+ * bullets under them are indented.
+ *
+ * The indent test rejects nothing in either book, and the comment it replaces
+ * said otherwise: it credited the indent with keeping the nested "Relentless
+ * (2) - Passive." inside Cult Ritual from starting a feature. That line is the
+ * only kind-shaped line in either book that is not a heading (SRD 1.0 folio
+ * 106, SRD 2.0 folio 167), and `FEATURE` already excludes it, because it ends
+ * in a full stop where a heading ends in a colon. The indent is a second lock
+ * on the same door - kept, because a book that sets a nested feature with a
+ * colon would walk straight through the regex, but not the reason this works
+ * today.
+ *
+ * The face is not usable as the signal here even though it looks like one: SRD
+ * 1.0 sets every feature heading in QuestaSans, while SRD 2.0 sets some of them
+ * in QuestaSans-Light and TWO - "It's Alive!" on folio 161 and "The Dragon
+ * Wakes" on folio 175, in the Dragon's Lair - in QuestaSans-LightItalic, the
+ * same face as a block's flavour line. (This said "one" and named only the
+ * first; a probe listing every feature line whose family contains `Italic`
+ * across folios 159-182 returns both. The argument is unchanged and slightly
+ * stronger: a face that two headings share with the flavour text is even less
+ * usable as a signal than one.)
  */
 function parseFeatures(lines: Sourced[], columnX: number, name: string): Feature[] {
   const isStart = (l: Line): boolean =>
@@ -275,27 +417,45 @@ function joinBody(head: string, lines: readonly Line[]): string {
 }
 
 /**
- * Folio 103 opens with the "stat blocks by tier" index. Its four narrow
- * columns are a separate grid from the two-column body, so they land in the
- * line stream out of order; everything above the page's first banner is that
- * index, and separating it by height is order-independent.
+ * The section's index is separated from its stat blocks by height, not by page.
+ *
+ * SRD 1.0 sets the index in four narrow columns across the top third of folio
+ * 103 and puts the first two stat blocks underneath it. Those columns are a
+ * separate grid from the two-column body, so they land in the line stream out
+ * of order - the TIER 4 column arrives AFTER the first banner - and only a
+ * height test is order-independent enough to separate them.
+ *
+ * SRD 2.0 gives the index a page of its own (folio 159, sharing it with the
+ * "Adapting Environments" rules and the benchmark table) and starts the stat
+ * blocks on the next one. That page carries no banner at all, which used to be
+ * an error; it is front matter, and it is only an error AFTER the first stat
+ * block, where a page without a banner means a block lost its heading.
  *
  * Splitting rather than discarding keeps the index available as the parse's
  * own check, and lets a line that got separated by mistake be caught by shape
  * instead of vanishing.
  */
-function splitSection(pages: BookPage[]): { body: Sourced[]; front: Sourced[] } {
+function splitSection(
+  pages: BookPage[],
+  range: { from: number; to: number },
+): { body: Sourced[]; front: Sourced[] } {
   const body: Sourced[] = [];
   const front: Sourced[] = [];
-  for (const page of pagesInFolios(pages, FROM, TO)) {
+  let started = false;
+  for (const page of pagesInFolios(pages, range.from, range.to)) {
     const banners = page.lines.filter(isBanner);
-    if (banners.length === 0) throw new ParseError('page has no banner', `folio ${page.folio}`);
+    if (banners.length === 0) {
+      if (started) throw new ParseError('page has no banner', `folio ${page.folio}`);
+      for (const l of page.lines) front.push({ ...l, folio: page.folio! });
+      continue;
+    }
     const top = Math.min(...banners.map((l) => l.y));
     for (const l of page.lines) {
       const line = { ...l, folio: page.folio! };
       if (l.y >= top - 1) body.push(line);
       else front.push(line);
     }
+    started = true;
   }
   for (const l of front) {
     const t = clean(l.text);

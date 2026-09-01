@@ -237,7 +237,25 @@ describe('refusing a file it does not understand', () => {
     expect(damaged({ activeArmor: 7 })).toThrow(/damaged "activeArmor" field/);
     expect(damaged({ notes: { text: 'hi' } })).toThrow(/damaged "notes" field/);
     expect(damaged({ traitMarks: null })).toThrow(/damaged "traitMarks" field/);
+    /*
+     * Schema 8's two fields. They arrived UNGUARDED and this line is what
+     * measured it: `{ focus: 'not a counter' }` was accepted and the string was
+     * stored in a field typed `Counter`, while the identical abuse of `hp` was
+     * refused. A new field is exactly where this guard goes missing, because
+     * the guard is a list and a list is easy to add to and easy to forget.
+     */
+    expect(damaged({ focus: 'not a counter' })).toThrow(/no readable Focus track/);
+    expect(damaged({ focus: { marked: 3 } })).toThrow(/no readable Focus track/);
+    expect(damaged({ focus: null })).toThrow(/no readable Focus track/);
+    expect(damaged({ stanceRefs: 'favored' })).toThrow(/damaged "stanceRefs" list/);
+    expect(damaged({ stanceRefs: [7] })).toThrow(/damaged "stanceRefs" list/);
+    // Left unchecked by the wave before this one, and found by the same probe.
+    expect(damaged({ transformationRef: 42 })).toThrow(/damaged "transformationRef" field/);
+    expect(damaged({ transformationRef: {} })).toThrow(/damaged "transformationRef" field/);
     expect(damaged({})).not.toThrow();
+    // Absent is terse, not damaged: a v8 file edited to drop the track opens on
+    // the blank sheet's, not on `undefined`.
+    expect(damaged({ focus: undefined, stanceRefs: undefined })).not.toThrow();
 
     // Nullable on the character, so null is a value and not damage.
     expect(damaged({ companion: null, beastform: null, activeArmor: null })).not.toThrow();

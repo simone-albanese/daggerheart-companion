@@ -136,7 +136,7 @@ describe('the eighteen ancestry cards', () => {
     for (const r of readers()) expect(r.getAttribute('aria-expanded')).toBe('false');
     for (const a of dataset.ancestries) {
       expect(text()).toContain(`About ${a.name}`);
-      expect(text()).toContain(`SRD 1.0 · P.${String(a.sourcePage)}`);
+      expect(text()).toContain(`SRD 2.0 · P.${String(a.sourcePage)}`);
     }
   });
 
@@ -218,7 +218,7 @@ describe('the nine community cards', () => {
     for (const r of readers()) expect(r.getAttribute('aria-expanded')).toBe('false');
     for (const c of dataset.communities) {
       expect(text()).toContain(`About ${c.name}`);
-      expect(text()).toContain(`SRD 1.0 · P.${String(c.sourcePage)}`);
+      expect(text()).toContain(`SRD 2.0 · P.${String(c.sourcePage)}`);
     }
   });
 

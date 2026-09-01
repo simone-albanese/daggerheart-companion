@@ -176,6 +176,7 @@ import { CountdownChart } from './ReferenceTables.tsx';
 // green.
 import { COUNTDOWN_KIND_COLOR, sessionName } from './session.ts';
 import { countdownsIn } from '../../../shared/campaigns.ts';
+import { SRD_LABEL } from '../../store/dataset.ts';
 
 const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
   { id: 'standard', label: 'Standard', hint: 'Advances when the fiction says it does.' },
@@ -621,7 +622,7 @@ function CountdownRow({ countdown }: { countdown: Countdown }): React.JSX.Elemen
         anywhere else would be the row claiming a rule that is not about it.
       */}
       {c.kind === 'dynamic' && (
-        <Fold label="ADVANCE BY A ROLL" summary="SRD 1.0">
+        <Fold label="ADVANCE BY A ROLL" summary={SRD_LABEL}>
           <CountdownChart countdown={c} />
         </Fold>
       )}

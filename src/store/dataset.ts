@@ -29,11 +29,51 @@
  * it is part of `SCHEMA_VERSION`. Taking it out is a dataset rebuild and a
  * schema bump, which is a different change from removing an importer.
  */
-import srd from '../../data/srd-1.0.json';
+import srd from '../../data/srd-2.0.json';
 import type { Dataset } from '../../shared/types.ts';
 import { indexDataset, type DatasetIndex } from '../engine/character.ts';
 
 export const baseDataset = srd as unknown as Dataset;
+
+/**
+ * The book's own name for itself, for the provenance stamp beside every folio
+ * this app quotes.
+ *
+ * ## This existed as the literal string `'SRD 1.0'`, nineteen times
+ *
+ * `ReferenceTables.tsx` alone carried eight of them, and `RuleSearch.tsx`,
+ * `SessionBody.tsx` (2), `Wizard.tsx` (2), `Merchant.tsx` (2), `Countdowns.tsx`,
+ * `FearPool.tsx`, `DeathMove.tsx` and `Conditions.tsx` the rest - each one
+ * beside a `sourcePage` READ FROM THE DATASET. So the moment the shipped
+ * dataset became SRD 2.0, every one of them drew `SRD 1.0 · P.95` over folio 95
+ * OF A DIFFERENT BOOK. Nine of `tests/gm/reference.test.tsx`'s checks and five
+ * of `tests/gm/ruleSearch.test.tsx`'s went red on it, which is the only reason
+ * it was found: a grep for `srd-1.0` does not find `SRD 1.0`.
+ *
+ * That is precisely the defect the docblock above this file records having
+ * removed once already - "the stamp claiming a provenance it did not have,
+ * which is the one thing `srdReference.ts` says it must never do" - and it is
+ * an attribution claim, not a cosmetic one. `srdReference.ts`'s header stakes
+ * the licence position on the stamp being checkable against the named book.
+ *
+ * Read off `layers[0]`, which `tools/build-srd.ts` writes from the BOOK's own
+ * `label`, so it moves with the dataset and cannot be edited apart from it.
+ * `?? 'SRD'` is the honest degenerate answer for a dataset with no layer: a
+ * book with no name still has pages, and stamping a name nobody wrote would be
+ * the same lie in a new place.
+ */
+export const SRD_LABEL: string = baseDataset.layers[0]?.label ?? 'SRD';
+
+/**
+ * `SRD 2.0 · P.95`, or just `SRD 2.0` when the record carries no folio.
+ *
+ * `null` and `undefined` are both the no-folio answer because the dataset uses
+ * both: `RulesSection.sourcePage` is `number | null` and the `Sourced` records
+ * declare `sourcePage?: number`. A caller that had to remember which would
+ * eventually print `P.undefined`.
+ */
+export const srdStamp = (page: number | null | undefined): string =>
+  page === null || page === undefined ? SRD_LABEL : `${SRD_LABEL} · P.${String(page)}`;
 
 export interface ResolvedDataset {
   dataset: Dataset;

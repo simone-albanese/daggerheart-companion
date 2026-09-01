@@ -250,12 +250,14 @@
  *                            scrolls even with nothing on the counter
  */
 import { useCallback, useMemo, useState } from 'react';
+import { originStamp } from '../build/gear.ts';
 import type { Item } from '../../../shared/types.ts';
 import { cryptoRng, type Rng } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
 import { Fold } from '../shared/Fold.tsx';
 import { RuleTableView } from '../shared/RuleTableView.tsx';
 import { ruleSection, type BlockPart } from '../shared/srdReference.ts';
+import { srdStamp } from '../../store/dataset.ts';
 
 /**
  * How much is on the counter, and where the two numbers come from.
@@ -382,6 +384,16 @@ export function Merchant({
                   <span className="t-meta" style={{ color: 'var(--dim)' }}>
                     {item.kind === 'loot' ? 'LOOT' : 'CONSUMABLE'}
                     {item.roll === undefined ? '' : ` · ${String(item.roll)}`}
+                    {/*
+                      * The product, because the roll stopped being unique.
+                      * SRD 2.0 prints the loot and consumable tables TWICE,
+                      * 1..60 per product, so `LOOT · 1` is Premium Bedroll in
+                      * the Core Set and Caltrops in the expansion. Without this
+                      * a GM's stall shows two rows reading the same thing for
+                      * different items. The player-side picker was fixed; this
+                      * is the same lie on the GM side.
+                      */}
+                    {originStamp(item) === '' ? '' : ` · ${originStamp(item)}`}
                   </span>
                   <span className="t-dense" style={{ color: 'var(--text-3)', maxWidth: '62ch' }}>
                     {item.text}
@@ -407,7 +419,7 @@ export function Merchant({
                 WHAT THINGS COST
               </span>
               <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-                SRD 1.0{costs.page === null ? '' : ` · P.${String(costs.page)}`}
+                {srdStamp(costs.page)}
               </span>
             </div>
             {costTables.map((table, i) => (
@@ -440,7 +452,7 @@ export function Merchant({
                 {gold.title.toUpperCase()}
               </span>
               <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-                SRD 1.0{gold.page === null ? '' : ` · P.${String(gold.page)}`}
+                {srdStamp(gold.page)}
               </span>
             </div>
             <p className="t-read" style={{ margin: 0, maxWidth: '62ch' }}>

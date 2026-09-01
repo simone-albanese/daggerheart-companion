@@ -58,7 +58,7 @@ function formatBytes(bytes: number): string {
  * bytes by construction.
  */
 import MIT_LICENCE from '../../../LICENSE?raw';
-import DPCGL from '../../legal/dpcgl-2025-07-30.txt?raw';
+import DPCGL from '../../legal/dpcgl-2026-08-26.txt?raw';
 
 const DOES = [
   'Damage thresholds, and how many HP an incoming hit marks',
@@ -554,9 +554,9 @@ export function About({
 const LICENCE_PROVENANCE =
   'The MIT licence covers this app’s code. The Darrington Press Community Gaming License ' +
   'covers the SRD content it ships. The DPCGL text below is extracted from the official PDF ' +
-  '(dated 30 July 2025, retrieved 16 August 2026 from ' +
-  'darringtonpress.com/wp-content/uploads/2025/07/DPCGL-July-30th-2025.pdf, SHA-256 ' +
-  '9d435c4e…3d4aa04); that PDF is the authority, and DRP may amend it. Both texts are on ' +
+  '(DPCGL 2.0, published 26 August 2026, retrieved 1 September 2026 from ' +
+  'darringtonpress.com/wp-content/uploads/2026/08/DPCGL_2.0_AUG_26_2026.pdf, SHA-256 ' +
+  'f7f62d77…88be6eca); that PDF is the authority, and DRP may amend it. Both texts are on ' +
   'this device — no network needed to read them.';
 
 function LicenceTexts(): React.JSX.Element {

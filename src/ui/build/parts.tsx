@@ -100,6 +100,17 @@ interface ChoiceProps {
   /** Colour of the selected rail. Reinforcement only - the box carries it. */
   accent?: string;
   disabled?: boolean;
+  /**
+   * Out of reach but still choosable: dimmed and explained, never blocked.
+   *
+   * Separate from `disabled` because it is the OPPOSITE promise. `disabled`
+   * says the app refuses; this says the book has not opened it yet and the app
+   * is not going to argue with a GM who hands it over anyway. It is the shape
+   * `GearPicker`'s `PickerRow` already draws for out-of-level gear - 0.5 on the
+   * content, the button live - and the honesty rule `gear.ts` states: hiding
+   * out-of-reach content tells a player it does not exist.
+   */
+  dim?: boolean;
   reason?: string;
   clamp?: number;
   lead?: ReactNode;
@@ -114,6 +125,7 @@ export function Choice({
   body,
   accent = 'var(--hope)',
   disabled = false,
+  dim = false,
   reason,
   clamp,
   lead,
@@ -137,7 +149,7 @@ export function Choice({
         background: selected ? 'var(--raised)' : 'var(--panel)',
         border: `1px solid ${selected ? 'var(--line)' : 'var(--line-soft)'}`,
         borderLeft: `3px solid ${selected ? accent : 'transparent'}`,
-        opacity: disabled ? 0.42 : 1,
+        opacity: disabled ? 0.42 : dim ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
@@ -432,7 +444,7 @@ export function FeatureBlock({
   );
 }
 
-/** Shown when data/srd-1.0.json has not been built. Honest, not a crash. */
+/** Shown when data/srd-2.0.json has not been built. Honest, not a crash. */
 export function DatasetEmpty({ what }: { what: string }): React.JSX.Element {
   return (
     <div
@@ -445,7 +457,7 @@ export function DatasetEmpty({ what }: { what: string }): React.JSX.Element {
       <p className="t-body" style={{ margin: 0 }}>
         The SRD dataset has not been generated on this device, so there is nothing to choose from.
         Run <code style={{ font: '500 13px/1 var(--mono)', color: 'var(--text)' }}>npm run
-        build:srd</code> to produce <code style={{ font: '500 13px/1 var(--mono)' }}>data/srd-1.0.json</code>,
+        build:srd</code> to produce <code style={{ font: '500 13px/1 var(--mono)' }}>data/srd-2.0.json</code>,
         then reload. Everything you have already typed is kept.
       </p>
     </div>

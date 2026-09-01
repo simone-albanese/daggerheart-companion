@@ -1136,8 +1136,8 @@ describe.skipIf(!hasDataset())('gear a level has not reached', () => {
 
     const farWeapons = weapons.filter((r) => r.item.tier === 4);
     const farArmors = armors.filter((r) => r.item.tier === 4);
-    expect(farWeapons.length).toBe(56);
-    expect(farArmors.length).toBe(10);
+    expect(farWeapons.length).toBe(101);
+    expect(farArmors.length).toBe(23);
     for (const r of [...farWeapons, ...farArmors]) {
       expect(r.eligible, r.item.name).toBe(false);
       expect(r.reason, r.item.name).toBe('Tier 4 — usable from level 8');
@@ -1158,17 +1158,17 @@ describe.skipIf(!hasDataset())('gear a level has not reached', () => {
     // `tests/ui/gear.test.ts`; printing it here too would read as two
     // independent measurements of the catalogue when it is one.
     expect(counts).toEqual([
-      [1, 35],
-      [2, 91],
-      [5, 148],
-      [8, 204],
+      [1, 96],
+      [2, 197],
+      [5, 290],
+      [8, 391],
     ]);
-    expect(filterArmors(dataset.armors, { ...armorQuery(), reach: 'usable' }, 1).length).toBe(4);
+    expect(filterArmors(dataset.armors, { ...armorQuery(), reach: 'usable' }, 1).length).toBe(15);
     // Nothing was lost, only hidden: what 'usable' drops at level 1 is exactly
     // what 'all' marks as out of reach there.
     const all = filterWeapons(dataset.weapons, weaponQuery(), 1);
-    expect(all.filter((r) => r.eligible).length).toBe(35);
-    expect(all.length - 35).toBe(dataset.weapons.length - usable(1));
+    expect(all.filter((r) => r.eligible).length).toBe(96);
+    expect(all.length - 96).toBe(dataset.weapons.length - usable(1));
   });
 
   it('still equips the tier 4 armor, and gives a level 1 sheet every number printed on it', () => {

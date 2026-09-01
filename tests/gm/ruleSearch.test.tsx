@@ -830,7 +830,7 @@ describe('which line a hit quotes', () => {
       // No duplicates, and every hit is a section of the dataset.
       expect(new Set(hits.map((h) => h.id)).size).toBe(hits.length);
     }
-    expect(searchRules(rules, 'fear')).toHaveLength(19);
+    expect(searchRules(rules, 'fear')).toHaveLength(20);
   });
 });
 
@@ -1471,8 +1471,9 @@ describe('the results', () => {
      * quietly in a docblock, which is how this file lost figures before.
      */
     const single = rules.filter((r) => ruleSection(rules, r.id)!.blocks.length === 1);
-    expect(rules).toHaveLength(69);
-    expect(single).toHaveLength(34);
+    expect(rules).toHaveLength(74);
+    // 34 of 69 before folio 13's rules arrived; all five of those are single-block.
+    expect(single).toHaveLength(39);
     // Not vacuous the other way either: most sections do have subheads to land
     // on, which is what makes the landing worth having at all.
     expect(rules.length - single.length).toBe(35);
@@ -1777,9 +1778,11 @@ describe('the results', () => {
         }
       }
     }
-    expect(headings).toBe(156);
-    expect(body).toBe(613);
-    expect(headings + body).toBe(769);
+    // Folio 13's five sections add seven body lines and NO heading: each is a
+    // single block, so none of them carries a subheading of its own.
+    expect(headings).toBe(158);
+    expect(body).toBe(627);
+    expect(headings + body).toBe(785);
     expect(fallback).toBe(0);
   });
 
@@ -1968,7 +1971,7 @@ describe('the results', () => {
   it('stamps the page in the same ink every other Fold header in the app uses', () => {
     /*
      * A hit's header is `Fold`'s header with the private open state taken out
-     * of it, and it prints the same `SRD 1.0 · P.n` stamp the five GM-chapter
+     * of it, and it prints the same `SRD 2.0 · P.n` stamp the five GM-chapter
      * folds print through `Fold` itself. So the value is read off `Fold` here
      * rather than named twice: the claim in the docblock is *sameness*, and a
      * test that only asserted a token would still pass while the two drifted.
@@ -1976,18 +1979,18 @@ describe('the results', () => {
     openShow();
     type('pitfalls');
     const stamp = hits()[0]?.querySelector<HTMLElement>('span.row > span.t-meta');
-    expect(stamp?.textContent).toContain('SRD 1.0');
+    expect(stamp?.textContent).toContain('SRD 2.0');
 
     const aside = document.createElement('div');
     document.body.append(aside);
     const asideRoot = createRoot(aside);
     act(() =>
       asideRoot.render(
-        createElement(Fold, { label: 'A section', summary: 'SRD 1.0 · P.1', children: null }),
+        createElement(Fold, { label: 'A section', summary: 'SRD 2.0 · P.1', children: null }),
       ),
     );
     const summary = aside.querySelector<HTMLElement>('span.t-meta');
-    expect(summary?.textContent).toBe('SRD 1.0 · P.1');
+    expect(summary?.textContent).toBe('SRD 2.0 · P.1');
     expect(stamp?.style.color).toBe(summary?.style.color);
     expect(stamp?.style.color).toBe('var(--muted)');
     act(() => asideRoot.unmount());
@@ -2149,17 +2152,28 @@ describe('the questions above the sections', () => {
     type('surrender');
     expect(searchRules(rules, 'surrender')).toEqual([]);
     expect(hits()).toEqual([]);
-    expect(groupHeaders()).toEqual(['QUESTIONS · 1']);
+    /*
+     * Two bands now, and the second is the rest of the book doing its job:
+     * SRD 2.0's Raiding Party environment prints the word in its own text, so
+     * the record search answers where the SECTION search still cannot. The
+     * claim being made is unchanged - the sixty-nine sections carry none of
+     * these words, so the catalogue is what saves the query - and the extra
+     * band is evidence for it rather than against.
+     */
+    expect(groupHeaders()).toEqual(['QUESTIONS · 1', 'ENVIRONMENTS · 1']);
     expect(dialog().textContent).toContain('wants to surrender');
     // And the silence is gone, because its second clause would now be false of
     // the surface it is printed on. The wording is read off the same constant
     // the two tests above assert positively: a `not.toContain` left pointing at
     // a string the screen no longer prints is a test that passes whatever the
     // screen says, which is how this one survived the sentence being rewritten.
-    expect(searchSrd(beyondRules, 'surrender')).toEqual([]);
+    expect(searchSrd(beyondRules, 'surrender').map((h) => h.name)).toEqual(['Raiding Party']);
     expect(dialog().textContent).not.toContain('Nothing in this dataset carries that');
+    // The record half is announced too, which it has to be: a screen reader
+    // that heard "no section matches" and nothing else would be told the
+    // opposite of what is on the glass.
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
-      '1 question and no section matches',
+      '1 question and no section matches; 1 elsewhere in the book',
     );
   });
 
@@ -2186,7 +2200,7 @@ describe('the questions above the sections', () => {
       // all three out of the dataset, none of them typed into the catalogue.
       const row = askRows()[0]!;
       expect(row.textContent).toContain('Countdowns · DYNAMIC COUNTDOWN ADVANCEMENT');
-      expect(row.textContent).toContain('SRD 1.0 · P.69');
+      expect(row.textContent).toContain('SRD 2.0 · P.91');
 
       click(row);
       expect(asked).toHaveLength(1);
@@ -2400,11 +2414,17 @@ describe('the rest of the book, under the sections', () => {
     openShow();
     type(burrower.name);
     expect(hits()).toEqual([]);
-    expect(groupHeaders()).toEqual([`${SRD_KIND_LABELS.adversary} · 1`]);
-    expect(recordNames()).toEqual([burrower.name]);
+    // Two bands: SRD 2.0's Vast Desert names the Acid Burrower in its own
+    // text, so the place that uses the adversary answers beside it. The
+    // adversary is first because it is asked for by name.
+    expect(groupHeaders()).toEqual([
+      `${SRD_KIND_LABELS.adversary} · 1`,
+      `${SRD_KIND_LABELS.environment} · 1`,
+    ]);
+    expect(recordNames()).toEqual([burrower.name, 'Vast Desert']);
     // Stamped with the book's own folio, in the same ink a section hit uses.
     expect(recordRows()[0]!.querySelector('span.t-meta')?.textContent).toBe(
-      `SRD 1.0 · P.${String(burrower.sourcePage)}`,
+      `SRD 2.0 · P.${String(burrower.sourcePage)}`,
     );
   });
 

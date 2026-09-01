@@ -413,7 +413,7 @@ Code: MIT.
 Written down because a licensing position nobody has stated is
 indistinguishable from one nobody has examined. This is the examination, not
 legal advice, and nobody here is a lawyer. The licence text quoted here is the
-copy this app ships, `src/legal/dpcgl-2025-07-30.txt`, which Settings › About
+copy this app ships, `src/legal/dpcgl-2026-08-26.txt`, which Settings › About
 prints in full beside the URL it came from and its SHA-256.
 
 **The reading this project runs on.** §2.1(a) grants the right to *"reproduce

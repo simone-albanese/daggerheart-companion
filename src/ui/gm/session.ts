@@ -24,6 +24,7 @@
  * store - so the count here is never the count of arms `describeItem` answers.
  */
 import type {
+  Adversary,
   Dataset,
   EncounterAdjustments,
   Ref,
@@ -118,16 +119,41 @@ const namedRecord = (value: unknown): value is { name: string } =>
   typeof (value as { name?: unknown }).name === 'string';
 
 /**
+ * The collection each link kind lives in, so a link is resolved in the one map
+ * it can legitimately come out of.
+ *
+ * `rule` is absent because `indexDataset` indexes no rules, and `unknown` is
+ * absent because it names no collection; both are handled before this is read,
+ * and being a `Record` over the remaining three means a fourth resolvable kind
+ * does not compile until it is given a home.
+ */
+const LINK_KIND_COLLECTION = {
+  adversary: 'adversaries',
+  environment: 'environments',
+  domainCard: 'domainCards',
+} as const satisfies Record<
+  Exclude<LinkTarget['kind'], 'rule' | 'unknown'>,
+  keyof DatasetIndex['collections']
+>;
+
+/**
  * What this link points at, named, or null when this build cannot resolve it.
  *
- * Three of the four kinds are in `index.byRef`, which `indexDataset` fills from
- * adversaries, environments and domain cards among others - so they cost one
- * map lookup rather than a scan of 129 adversaries and 189 cards per row per
- * render. Rules are the exception: `indexDataset` never calls `put` on
- * `ds.rules`, so a rule has to be found in `dataset.rules` itself. That is a
- * property of the index rather than of this function, and it is checked by
- * `tests/gm/session.test.ts` so that a future index which does carry rules does
- * not leave this branch silently scanning a list it no longer needs to.
+ * Three of the four kinds are indexed, so they cost one map lookup rather than
+ * a scan of 264 adversaries and 210 cards per row per render. Rules are the
+ * exception: `indexDataset` never indexes `ds.rules`, so a rule has to be
+ * found in `dataset.rules` itself. That is a property of the index rather than
+ * of this function, and it is checked by `tests/gm/session.test.ts` so that a
+ * future index which does carry rules does not leave this branch silently
+ * scanning a list it no longer needs to.
+ *
+ * THE LOOKUP IS THE KIND'S OWN MAP, NOT `index.byRef`. A `LinkTarget` carries
+ * its kind, and `byRef` answers for the whole bare-slug key space - so a link
+ * of kind `environment` to `hold-the-line` used to be resolved by a map that,
+ * on SRD 2.0, could hand back the Valor domain card of that name instead. Both
+ * records are called "Hold the Line", which is exactly why that would never
+ * have shown up on screen: the row would read `ENVIRONMENT · HOLD THE LINE`
+ * off a domain card and look right.
  */
 export function linkName(
   target: LinkTarget,
@@ -138,22 +164,26 @@ export function linkName(
   if (target.kind === 'rule') {
     return dataset.rules.find((r) => r.id === target.ref)?.title ?? null;
   }
-  const found: unknown = index.byRef.get(target.ref);
+  const found: unknown = index.collections[LINK_KIND_COLLECTION[target.kind]].get(target.ref);
   return namedRecord(found) && found.name !== '' ? found.name : null;
 }
 
 /**
- * Whether the record this ref resolves to is a Minion, without asserting a type.
+ * Whether the adversary this ref resolves to is a Minion.
  *
- * `index.byRef` hands back `unknown` - it carries adversaries, environments and
- * domain cards in one map - so the role is read the same defensive way
- * `namedRecord` above reads a name. A ref this dataset cannot resolve answers
- * `false`, which is the arm below counting it as one adversary: there is no
- * role to read, and guessing that a missing ref was a Minion would multiply a
- * number nothing on this device can check.
+ * A ref this dataset cannot resolve answers `false`, which is the arm below
+ * counting it as one adversary: there is no role to read, and guessing that a
+ * missing ref was a Minion would multiply a number nothing on this device can
+ * check.
+ *
+ * It used to take `unknown` and sniff `.role` off it, because it was fed
+ * `index.byRef.get(ref)` - one map over twelve collections, so nothing but a
+ * duck-type was available. A roster entry names an adversary, so it is now fed
+ * `index.collections.adversaries`, and the property is read off an `Adversary`.
+ * The defensive read is not missed: a record of another kind can no longer
+ * arrive here to be defended against.
  */
-const minionRecord = (value: unknown): boolean =>
-  typeof value === 'object' && value !== null && (value as { role?: unknown }).role === 'Minion';
+const isMinion = (adversary: Adversary | undefined): boolean => adversary?.role === 'Minion';
 
 /**
  * How many adversaries one roster entry puts on the table.
@@ -177,8 +207,8 @@ const minionRecord = (value: unknown): boolean =>
  * The caller passes the role rather than the record, because the two callers
  * hold different things: `Encounter.tsx` has the `Adversary` resolved on the
  * entry, and `plannedAdversaries` has only a ref and an index to look it up
- * in. `minionRecord` above is that lookup, and it answers `false` for a ref
- * this dataset cannot resolve.
+ * in. `isMinion` above is that lookup, and it answers `false` for a ref this
+ * dataset cannot resolve.
  *
  * The party size is a parameter rather than a read, because this module has
  * neither React nor a store in it on purpose.
@@ -200,7 +230,8 @@ export const plannedAdversaries = (
 ): number =>
   roster.reduce(
     (sum, entry) =>
-      sum + adversaryBodies(minionRecord(index.byRef.get(entry.ref)), entry.count, partySize),
+      sum +
+      adversaryBodies(isMinion(index.collections.adversaries.get(entry.ref)), entry.count, partySize),
     0,
   );
 
@@ -348,8 +379,10 @@ export function describeItem(
       if (item.environmentRef === null) {
         place = second === '' ? 'NO ENVIRONMENT' : '';
       } else {
-        const found: unknown = index.byRef.get(item.environmentRef);
-        place = namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
+        // The environments map, not `byRef`: a scene's `environmentRef` names
+        // an environment, and on SRD 2.0 `hold-the-line` is also a domain card.
+        const found = index.collections.environments.get(item.environmentRef);
+        place = found === undefined ? NOT_HERE : found.name.toUpperCase();
       }
       return [place, second].filter((s) => s !== '').join(' · ');
     }

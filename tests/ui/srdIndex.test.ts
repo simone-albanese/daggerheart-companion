@@ -69,6 +69,11 @@ describe('the index of everything shipped', () => {
       beastform: dataset.beastforms.length,
       ancestry: dataset.ancestries.length,
       community: dataset.communities.length,
+      // Zero on the shipped SRD 1.0, which has no Transformations chapter. The
+      // kind exists so the search's vocabulary does not change under the reader
+      // when the dataset does; see the guard below, which excepts it by name.
+      transformation: dataset.transformations.length,
+      stance: dataset.stances.length,
       weapon: dataset.weapons.length,
       armor: dataset.armors.length,
       loot: dataset.loot.length,
@@ -83,9 +88,39 @@ describe('the index of everything shipped', () => {
     // The two figures the plan and the file's header both quote. Derived, so
     // that a folio which adds a weapon moves them here instead of leaving two
     // documents quoting a number the dataset stopped carrying.
-    expect(total).toBe(849);
-    expect(beyondRules).toHaveLength(780);
-    expect(of('rules')).toHaveLength(69);
+    // 1438 + the five Martial Stances rules sections SRD 2.0 prints on folio 13.
+    expect(total).toBe(1443);
+    expect(beyondRules).toHaveLength(1369);
+    expect(of('rules')).toHaveLength(74);
+  });
+
+  /*
+   * THE REACHABILITY THIS BRANCH SHIPPED A STEPPER WITHOUT, and it is asserted
+   * here rather than in `tests/tools/rules.test.ts` because that file needs the
+   * owner's PDFs and skips in CI. This one reads the committed dataset, so the
+   * runner actually checks it.
+   *
+   * Measured before folio 13's rules were parsed, by the critic that found it:
+   * "maximum of 6 Focus" 0 records, "Clear your Focus" 0, "active stance" 0 -
+   * while the app drew a Focus track with a `+` on it. The only route to Focus
+   * a player could find was one stance's d4.
+   */
+  it('answers a player who asks how the Focus track they can see gets filled', () => {
+    const found = (query: string): string[] =>
+      searchSrd(index, query)
+        .filter((hit) => hit.kind === 'rules')
+        .map((hit) => hit.id);
+
+    expect(found('maximum of 6 Focus')).toContain('focus');
+    expect(found('clear your Focus track')).toContain('focus');
+    expect(found('spend a Focus to shift')).toContain('shifting-into-stances');
+    expect(found('active stance')).toContain('dropping-out-of-stances');
+
+    // And the sentence itself is on the record, not merely matched by a word.
+    const focus = dataset.rules.find((r) => r.id === 'focus');
+    expect(focus?.sourcePage).toBe(13);
+    expect(focus?.body).toContain('roll a number of d6s equal to your Instinct');
+    expect(focus?.body).toContain('You can hold a maximum of 6 Focus.');
   });
 
   it('names every record the way the dataset names it, and stamps its own page', () => {
@@ -109,7 +144,17 @@ describe('the index of everything shipped', () => {
     // added to the union and forgotten in `srdIndex` would draw an empty band
     // header and nothing under it, which is the shape of a promise with nothing
     // behind it.
-    for (const kind of SRD_KINDS) expect(of(kind).length, kind).toBeGreaterThan(0);
+    //
+    // `transformation` used to be excepted here, with the exception itself
+    // checked and a note saying it would go red "if the app shipped SRD 2.0,
+    // for exactly the right reason". It did, and it did. The exception is
+    // DELETED rather than widened - which is what that note asked for - and
+    // the shipped chapter is asserted so the deletion cannot be read as the
+    // guard quietly losing a kind.
+    expect(dataset.transformations, 'the shipped book prints six').toHaveLength(6);
+    for (const kind of SRD_KINDS) {
+      expect(of(kind).length, kind).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -219,7 +264,18 @@ describe('searching the book beyond the rules', () => {
 
     expect(searchRules(dataset.rules, 'Acid Burrower')).toEqual([]);
     const burrower = searchSrd(beyondRules, 'Acid Burrower');
-    expect(burrower.map((h) => [h.kind, h.name])).toEqual([['adversary', 'Acid Burrower']]);
+    /*
+     * TWO now, and the second is the point rather than noise: SRD 2.0's Vast
+     * Desert environment names the Acid Burrower in its own text, so the
+     * search answers with the adversary AND with the place that uses it. The
+     * adversary is first because it is asked for by name and the environment
+     * merely says it - the ordering rule the check below `puts the records
+     * asked for by name ahead` states.
+     */
+    expect(burrower.map((h) => [h.kind, h.name])).toEqual([
+      ['adversary', 'Acid Burrower'],
+      ['environment', 'Vast Desert'],
+    ]);
     // Asked for by name, so there is no line to add and the page is the book's.
     expect(burrower[0]!.where).toBe('title');
     expect(burrower[0]!.line).toBeNull();

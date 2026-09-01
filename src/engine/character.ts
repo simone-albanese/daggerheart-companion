@@ -5,19 +5,32 @@
  * unambiguous arithmetic from the rules, it is not computed - it is left to
  * the player, with an override field where one is needed.
  */
-import { SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
+/*
+ * `MAX_FOCUS` is imported rather than declared beside `BASE_HOPE` above:
+ * `shared/migrations.ts` seeds a Focus track and cannot import from
+ * `src/engine/`, so the constant lives where both can read it. Its docblock is
+ * in `shared/types.ts`.
+ */
+import { MAX_FOCUS, SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
 import type {
+  Adversary,
+  Ancestry,
   Armor,
   Beastform,
   CharClass,
   Character,
+  Community,
   Dataset,
   DomainCard,
   DomainId,
+  Environment,
+  Item,
   Ref,
+  Stance,
   Subclass,
   Tier,
   Trait,
+  Transformation,
   Weapon,
 } from '../../shared/types.ts';
 import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
@@ -58,6 +71,7 @@ export const COUNTER_CEILINGS = {
   hp: MAX_HP,
   stress: MAX_STRESS,
   hope: BASE_HOPE,
+  focus: MAX_FOCUS,
   armorSlots: MAX_ARMOR_SCORE,
   companionStress: MAX_STRESS,
 } as const;
@@ -113,6 +127,157 @@ export function baseProficiency(level: number): number {
   return 1 + [2, 5, 8].filter((l) => level >= l).length;
 }
 
+/**
+ * The collections `byRef` carries, in the order that decides a bare-slug lookup.
+ *
+ * ## Why an order is needed at all
+ *
+ * A `Ref` is a bare slug and always has been, so one key space holds every
+ * kind of record. SRD 2.0 ends the assumption that a bare slug names one
+ * thing: it prints an Event environment called *Hold the Line* (folio 164)
+ * beside the Valor domain card of the same name (folio 223), and `slugify`
+ * reduces both to `hold-the-line`. Measured on the parsed book, that is the
+ * only collision among these twelve collections: 1336 entries in `byRef`
+ * against 1337 records across the twelve, one key short. There are none at all
+ * in `data/srd-1.0.json`, so this order changes nothing about the dataset the
+ * app ships today.
+ *
+ * `npm run build:srd -- --check --pdf Manuali/DH_SRD_2_2026_08_25.pdf` is the
+ * command that names the colliding pairs out loud; it reports two, because
+ * `tools/validate.ts` walks all fifteen collections and the second pair is in
+ * a collection this map does not carry.
+ *
+ * ## Why THIS order
+ *
+ * It is `BANDED_COLLECTIONS` from `src/transfer/registry.ts`, minus the one
+ * entry that is not indexed (see below), and it is deliberately the same
+ * decision rather than a second opinion: that docblock says the collection
+ * coming first "runs character-facing content first and GM-only content last,
+ * so `hold-the-line` resolves to the domain card a loadout can hold rather
+ * than to the environment a sheet can never point at". A ref that encodes to
+ * the domain card's registry id and reads back as an environment through
+ * `byRef` would be one app disagreeing with itself about one slug.
+ *
+ * The list is duplicated here rather than imported because `src/engine` does
+ * not depend on `src/transfer`, and importing it would pull all 771 rows of
+ * `data/registry.json` into every consumer of this module - including the
+ * parsers and the build tools, which have no wire format in them. The two
+ * lists are held together by a test instead
+ * (`tests/engine/byRefPrecedence.test.ts`), which fails if either moves.
+ *
+ * ## First wins, and it used to be last
+ *
+ * `put` used to write into `byRef` as it filled each typed map, so the LAST
+ * collection written won and the effective precedence was the reverse of the
+ * call order: consumables beat loot beat environments beat adversaries beat
+ * communities beat ancestries beat domain cards. Nothing chose that; it was
+ * the order the six returned maps happened to be needed in. Measured, it made
+ * `indexDataset(srd2).byRef.get('hold-the-line')` return the ENVIRONMENT - the
+ * record a `Character` has no field for - and lose the card a loadout holds.
+ *
+ * `transformations` is absent, and since `Character.transformationRef` exists
+ * that absence is a decision rather than a gap. `indexDataset` DOES carry the
+ * collection now - `collections.transformations`, the exact map - but this
+ * list is the bare-slug precedence and the card must stay out of it.
+ *
+ * The reason is the second collision SRD 2.0 prints: the Vampire adversary
+ * (folio 142) against the VAMPIRE transformation card (folio 45). Measured on
+ * the 2026-08-25 book, `parseAdversaries` and `parseTransformations` both
+ * produce the slug `vampire`. Appended here the card would lose the bare name
+ * to the adversary anyway (adversaries come first), so it would buy nothing;
+ * inserted higher it would TAKE that name from the adversary, which is a change
+ * to what every other caller in the app means by `vampire` in exchange for a
+ * lookup that has an exact map of its own. `byRef.get('vampire')` therefore
+ * still returns the adversary, which is what `BANDED_COLLECTIONS` decides, and
+ * `collections.transformations.get('vampire')` returns the card.
+ */
+export const INDEXED_COLLECTIONS = [
+  'classes',
+  'subclasses',
+  'ancestries',
+  'communities',
+  'domainCards',
+  'beastforms',
+  'weapons',
+  'armors',
+  'loot',
+  'consumables',
+  'adversaries',
+  'environments',
+] as const;
+
+export type IndexedCollection = (typeof INDEXED_COLLECTIONS)[number];
+
+/**
+ * One typed map per collection: the exact lookup for a caller that knows its
+ * kind.
+ *
+ * This is the `idIn` of the runtime index. `byRef` answers "whatever this slug
+ * names", which is the right question for an inventory row (it can hold a
+ * weapon, an armor, a loot item or a consumable) and the wrong one for a GM
+ * scene's `environmentRef`, a `LinkTarget` that already carries its own kind,
+ * or a character's `ancestryRefs` - those callers know the collection, and
+ * asking the whole key space is how they end up holding a domain card and
+ * calling it an environment.
+ *
+ * It also retires four unchecked casts. `features.ts` wrote
+ * `index.byRef.get(r) as Ancestry`, which is an assertion the map could not
+ * support: `byRef` is `Map<Ref, unknown>` precisely because it holds twelve
+ * kinds, so the cast said "trust me" about the one thing the collision makes
+ * untrue. These maps make the same lookups type-check on their own.
+ */
+export interface CollectionIndex {
+  classes: Map<Ref, CharClass>;
+  subclasses: Map<Ref, Subclass>;
+  ancestries: Map<Ref, Ancestry>;
+  communities: Map<Ref, Community>;
+  domainCards: Map<Ref, DomainCard>;
+  beastforms: Map<Ref, Beastform>;
+  weapons: Map<Ref, Weapon>;
+  armors: Map<Ref, Armor>;
+  loot: Map<Ref, Item>;
+  consumables: Map<Ref, Item>;
+  adversaries: Map<Ref, Adversary>;
+  environments: Map<Ref, Environment>;
+  /**
+   * The one collection here that is NOT in `INDEXED_COLLECTIONS`, and the only
+   * way to resolve a `transformationRef`.
+   *
+   * It is deliberately reachable only through its own map. SRD 2.0 prints an
+   * adversary VAMPIRE (folio 142) and a VAMPIRE transformation card (folio 45),
+   * and both slugify to `vampire` - measured on the 2026-08-25 book, not
+   * assumed. Putting transformations into the bare-slug map would either take
+   * that name off the adversary (if it went first) or hand a
+   * `transformationRef` the adversary (if it went last), and the second is the
+   * quiet one: `byRef.get('vampire')` would return a stat block and the sheet
+   * would draw its features as a transformation's.
+   *
+   * So `byRef` keeps exactly the twelve collections it had, the precedence
+   * `BANDED_COLLECTIONS` fixes is untouched, and the one field on `Character`
+   * that points here asks this map by name. `Registry.idIn` is the same
+   * decision one layer down, on the wire.
+   */
+  transformations: Map<Ref, Transformation>;
+  /**
+   * The second collection here that is NOT in `INDEXED_COLLECTIONS`, and the
+   * only way to resolve a `stanceRefs` entry.
+   *
+   * `transformations` is kept out of the bare-slug map because SRD 2.0 makes it
+   * collide. This one is kept out even though it does NOT: measured on both
+   * committed datasets, not one of the sixteen stance slugs appears in any
+   * other collection, so appending it to `INDEXED_COLLECTIONS` would change no
+   * answer today.
+   *
+   * It stays out because that is a fact about this printing and not about the
+   * field. `byRef` is for a caller that genuinely does not know the kind - an
+   * inventory row that can hold a weapon or a loot item - and `stanceRefs`
+   * always knows. Putting a collection into a shared key space to answer a
+   * question nobody asks of it is how `vampire` became a defect: not on the day
+   * the collection was added, but on the day a book printed the name twice.
+   */
+  stances: Map<Ref, Stance>;
+}
+
 export interface DatasetIndex {
   classes: Map<Ref, CharClass>;
   subclasses: Map<Ref, Subclass>;
@@ -120,32 +285,64 @@ export interface DatasetIndex {
   armors: Map<Ref, Armor>;
   cards: Map<Ref, DomainCard>;
   beastforms: Map<Ref, Beastform>;
+  /**
+   * Every indexed record under its bare slug, first collection in
+   * `INDEXED_COLLECTIONS` winning a slug two of them print.
+   *
+   * Ask this only when the caller genuinely does not know the kind. When it
+   * does, `collections` below is the lookup that cannot answer with the wrong
+   * one.
+   */
   byRef: Map<Ref, unknown>;
+  /** The same records, kept apart by collection. See `CollectionIndex`. */
+  collections: CollectionIndex;
 }
 
 export function indexDataset(ds: Dataset): DatasetIndex {
-  const byRef = new Map<Ref, unknown>();
   const put = <T extends { id: Ref }>(items: T[]): Map<Ref, T> => {
     const m = new Map<Ref, T>();
-    for (const it of items) {
-      m.set(it.id, it);
-      byRef.set(it.id, it);
-    }
+    for (const it of items) m.set(it.id, it);
     return m;
   };
-  const classes = put(ds.classes);
-  const subclasses = put(ds.subclasses);
-  const weapons = put(ds.weapons);
-  const armors = put(ds.armors);
-  const cards = put(ds.domainCards);
-  const beastforms = put(ds.beastforms);
-  put(ds.ancestries);
-  put(ds.communities);
-  put(ds.adversaries);
-  put(ds.environments);
-  put(ds.loot);
-  put(ds.consumables);
-  return { classes, subclasses, weapons, armors, cards, beastforms, byRef };
+  const collections: CollectionIndex = {
+    classes: put(ds.classes),
+    subclasses: put(ds.subclasses),
+    ancestries: put(ds.ancestries),
+    communities: put(ds.communities),
+    domainCards: put(ds.domainCards),
+    beastforms: put(ds.beastforms),
+    weapons: put(ds.weapons),
+    armors: put(ds.armors),
+    loot: put(ds.loot),
+    consumables: put(ds.consumables),
+    adversaries: put(ds.adversaries),
+    environments: put(ds.environments),
+    transformations: put(ds.transformations),
+    stances: put(ds.stances),
+  };
+  /*
+   * The bare-slug view, filled in `INDEXED_COLLECTIONS` order and never
+   * overwritten. The loop reads the exported list rather than the literal
+   * above so the precedence is stated in exactly one place - the object's own
+   * key order is a coincidence a refactor can break silently, and a test can
+   * only hold this file to the registry by reading a value.
+   */
+  const byRef = new Map<Ref, unknown>();
+  for (const name of INDEXED_COLLECTIONS) {
+    for (const [ref, record] of collections[name]) {
+      if (!byRef.has(ref)) byRef.set(ref, record);
+    }
+  }
+  return {
+    classes: collections.classes,
+    subclasses: collections.subclasses,
+    weapons: collections.weapons,
+    armors: collections.armors,
+    cards: collections.domainCards,
+    beastforms: collections.beastforms,
+    byRef,
+    collections,
+  };
 }
 
 /**
@@ -236,6 +433,21 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   const proficiency = baseProficiency(c.level) + advancementCount(c, 'proficiency');
 
   /*
+   * The Spellcast trait, worked out HERE and used twice.
+   *
+   * It used to be computed at the bottom, next to the returned object, and it
+   * has moved up because the register now needs it: Mage Robes' *Enchanted* is
+   * "a bonus to your damage thresholds equal to your Spellcast trait", and Mage
+   * Robes is tier 1 starting armour. Moved rather than copied - the same const
+   * is handed to `collectModifiers` and returned in `spellcastTrait` below - so
+   * the number the armour reads and the number the roll uses cannot disagree.
+   */
+  const subclasses = c.subclassRefs
+    .map((r) => ix.subclasses.get(r))
+    .filter((s): s is Subclass => s !== undefined);
+  const spellcastTrait = subclasses.find((s) => s.spellcastTrait !== null)?.spellcastTrait ?? null;
+
+  /*
    * What the sheet's own contents add, before anything below reads a total.
    *
    * FIRST, because Proficiency is a term in one of the rows - Galapa's *Shell*
@@ -243,8 +455,14 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * would mean working Proficiency out twice. Nothing here interprets a
    * feature's text; `modifiers.ts` holds a hand-authored register keyed on ref
    * and a test walks the dataset against it in both directions.
+   *
+   * Tier and the Spellcast trait ride along for the same reason Proficiency
+   * does: three more rows say "equal to your <that>", and this function is
+   * where all three are already known. A sheet with no Spellcast trait passes
+   * `null` and the rows that read it are simply not emitted - see `Amount` in
+   * `modifiers.ts` for why that is not a zero.
    */
-  const modifiers = collectModifiers(c, ix, proficiency);
+  const modifiers = collectModifiers(c, ix, proficiency, { tier, spellcastTrait });
 
   // A ref this dataset does not hold is not the same fact as an empty slot, and
   // taking the same branch for both is how a Guardian in improved chainmail
@@ -394,11 +612,6 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   // A scar permanently crosses out a Hope slot.
   const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
 
-  const subclasses = c.subclassRefs
-    .map((r) => ix.subclasses.get(r))
-    .filter((s): s is Subclass => s !== undefined);
-  const spellcastTrait = subclasses.find((s) => s.spellcastTrait !== null)?.spellcastTrait ?? null;
-
   const domains: DomainId[] = [...(klass?.domains ?? [])];
   if (c.multiclassDomain && !domains.includes(c.multiclassDomain)) {
     domains.push(c.multiclassDomain);
@@ -503,6 +716,13 @@ export function newCharacter(
     subclassRefs: [],
     ancestryRefs: [],
     communityRef: null,
+    // Also the fallback for every file older than schema 7, because
+    // `readCharacterRecord` spreads the file over a blank sheet.
+    transformationRef: null,
+    // Also the fallback for every file older than schema 8, because
+    // `readCharacterRecord` spreads the file over a blank sheet.
+    stanceRefs: [],
+    focus: { marked: 0, max: MAX_FOCUS },
     multiclassRef: null,
     multiclassDomain: null,
     level: 1,

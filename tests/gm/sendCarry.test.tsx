@@ -496,7 +496,8 @@ describe('what the environment list says about a Difficulty it has no number for
     // The fixture is the shipped SRD, so this is the dataset's own answer and
     // not a hand-kept list. If a layer ever adds a third, the row below covers
     // it too - what would break here is only this test's own arithmetic.
-    expect(special.map((e) => e.name)).toEqual(['Ambushed', 'Ambushers']);
+    // Three on the shipped book: SRD 2.0 adds Duel.
+    expect(special.map((e) => e.name)).toEqual(['Ambushed', 'Ambushers', 'Duel']);
   });
 
   it('prints the book’s word rather than dropping the field', () => {
@@ -523,7 +524,7 @@ describe('what the environment list says about a Difficulty it has no number for
   it('leaves every environment that has a number showing its number', () => {
     openList();
     const events = numbered.filter((e) => e.type === 'Event');
-    expect(events.length).toBe(4);
+    expect(events.length).toBe(10);
     for (const e of numbered) {
       expect(rowFor(e.name).textContent, `${e.name} lost its Difficulty`).toContain(
         `DIF ${String(e.difficulty)}`,

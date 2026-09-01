@@ -3,10 +3,10 @@
  * armoury instead of a handful of fixtures.
  *
  * Two things can go wrong here and neither of them looks wrong on screen. The
- * first is a filter that quietly drops a weapon: a picker showing 96 of 204 is
+ * first is a filter that quietly drops a weapon: a picker showing 96 of 391 is
  * indistinguishable from a picker showing 95, and the one that fell out is
  * somebody's character concept. So every axis below is counted against the real
- * `data/srd-1.0.json` - 204 weapons, 34 armors, 60 loot, 60 consumables - and
+ * `data/srd-2.0.json` - 391 weapons, 85 armors, 120 loot, 120 consumables - and
  * the crossing queries are checked twice, once through `filterWeapons` and once
  * through plain array code written here, so an assertion cannot pass by
  * re-running the bug.
@@ -25,7 +25,7 @@
  * number in this file can be read as "we covered everything".
  */
 import { describe, expect, it } from 'vitest';
-import srd from '../../data/srd-1.0.json' with { type: 'json' };
+import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Armor, Dataset, Item, Range, Tier, Weapon, WeaponTrait } from '@shared/types.ts';
 import {
   armorQuery,
@@ -150,41 +150,41 @@ const search = (text: string): WeaponQuery => ({ ...weaponQuery(), search: text 
 
 describe('the armoury these filters run over', () => {
   it('is the whole SRD: 204 weapons, 34 armors, 60 pieces of loot and 60 consumables', () => {
-    expect(weapons.length).toBe(204);
-    expect(armors.length).toBe(34);
-    expect(dataset.loot.length).toBe(60);
-    expect(dataset.consumables.length).toBe(60);
-    expect(items.length).toBe(120);
+    expect(weapons.length).toBe(391);
+    expect(armors.length).toBe(85);
+    expect(dataset.loot.length).toBe(120);
+    expect(dataset.consumables.length).toBe(120);
+    expect(items.length).toBe(240);
     // Names are what a player types, so two weapons sharing one would make the
     // search ambiguous in a way no filter could fix.
-    expect(new Set(weapons.map((w) => w.name)).size).toBe(204);
-    expect(new Set(weapons.map((w) => w.id)).size).toBe(204);
-    expect(new Set(items.map((i) => i.id)).size).toBe(120);
+    expect(new Set(weapons.map((w) => w.name)).size).toBe(358);
+    expect(new Set(weapons.map((w) => w.id)).size).toBe(391);
+    expect(new Set(items.map((i) => i.id)).size).toBe(240);
   });
 
   it('spreads those weapons across every tier, slot, category, burden, trait and range', () => {
-    expect(tally(weapons, (w) => w.tier)).toEqual({ '1': 35, '2': 56, '3': 57, '4': 56 });
-    expect(tally(weapons, (w) => w.slot)).toEqual({ primary: 167, secondary: 37 });
-    expect(tally(weapons, (w) => w.category)).toEqual({ Physical: 133, Magic: 71 });
-    expect(tally(weapons, (w) => w.burden)).toEqual({ '1': 112, '2': 92 });
+    expect(tally(weapons, (w) => w.tier)).toEqual({ '1': 96, '2': 101, '3': 93, '4': 101 });
+    expect(tally(weapons, (w) => w.slot)).toEqual({ primary: 291, secondary: 100 });
+    expect(tally(weapons, (w) => w.category)).toEqual({ Physical: 251, Magic: 140 });
+    expect(tally(weapons, (w) => w.burden)).toEqual({ '1': 239, '2': 152 });
     expect(tally(weapons, (w) => w.trait)).toEqual({
-      agility: 39,
-      strength: 54,
-      finesse: 44,
-      instinct: 24,
-      presence: 23,
-      knowledge: 16,
+      agility: 76,
+      strength: 94,
+      finesse: 82,
+      instinct: 50,
+      presence: 50,
+      knowledge: 35,
       spellcast: 4,
     });
     expect(tally(weapons, (w) => w.range)).toEqual({
-      Melee: 100,
-      'Very Close': 27,
-      Close: 19,
-      Far: 43,
-      'Very Far': 15,
+      Melee: 191,
+      'Very Close': 67,
+      Close: 39,
+      Far: 70,
+      'Very Far': 24,
     });
-    expect(tally(armors, (a) => a.tier)).toEqual({ '1': 4, '2': 10, '3': 10, '4': 10 });
-    expect(tally(items, (i) => i.kind)).toEqual({ loot: 60, consumable: 60 });
+    expect(tally(armors, (a) => a.tier)).toEqual({ '1': 15, '2': 24, '3': 23, '4': 23 });
+    expect(tally(items, (i) => i.kind)).toEqual({ loot: 120, consumable: 120 });
   });
 });
 
@@ -202,7 +202,7 @@ describe('typing a name into the search box', () => {
 
   it('does not care about case, or about the spaces a thumb leaves behind', () => {
     const lower = names(filterWeapons(weapons, search('sword'), 1));
-    expect(lower).toHaveLength(21);
+    expect(lower).toHaveLength(31);
     expect(names(filterWeapons(weapons, search('SWORD'), 1))).toEqual(lower);
     expect(names(filterWeapons(weapons, search('SwOrD'), 1))).toEqual(lower);
     expect(names(filterWeapons(weapons, search('  sword  '), 1))).toEqual(lower);
@@ -210,7 +210,7 @@ describe('typing a name into the search box', () => {
 
   it('matches a substring of the printed name, and is not a thesaurus', () => {
     const swords = names(filterWeapons(weapons, search('sword'), 1));
-    expect(swords).toHaveLength(21);
+    expect(swords).toHaveLength(31);
     expect(swords).toContain('Broadsword');
     expect(swords).toContain('Dual-Ended Sword');
     expect(swords).toContain('Sword of Light & Flame');
@@ -225,7 +225,7 @@ describe('typing a name into the search box', () => {
 
   it('reads the weapon feature too, so "reliable" finds thirteen weapons no name mentions', () => {
     const rows = filterWeapons(weapons, search('reliable'), 1);
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
     expect(rows.filter((r) => r.item.name.toLowerCase().includes('reliable'))).toEqual([]);
     for (const r of rows) expect(r.item.feature).toBe('Reliable: +1 to attack rolls');
     expect(names(rows)).toContain('Aantari Bow');
@@ -233,15 +233,30 @@ describe('typing a name into the search box', () => {
   });
 
   it('reads armor features as well as armor names', () => {
+    /*
+     * Nine rows for four families, and the repeats are not a bug in the
+     * search. SRD 2.0's Monster Hunting chapter prints ONE `Leather Longcoat`
+     * row that covers all four tiers, so the parser emits four records under
+     * one name (`leather-longcoat-tier-1` … `-tier-4`). Eleven weapon names
+     * and three armor names are printed that way - 33 and 9 extra records -
+     * which is why 391 weapons carry only 358 distinct names. The picker tells
+     * them apart by the tier badge and by the module stamp beside it.
+     */
     expect(names(filterArmors(armors, { ...armorQuery(), search: 'leather' }, 1))).toEqual([
+      'Leather Apron',
       'Leather Armor',
+      'Leather Longcoat',
       'Improved Leather Armor',
+      'Leather Longcoat',
       'Advanced Leather Armor',
+      'Leather Longcoat',
+      'Leather Longcoat',
       'Legendary Leather Armor',
     ]);
     const flexible = filterArmors(armors, { ...armorQuery(), search: 'flexible' }, 1);
     expect(names(flexible)).toEqual([
       'Gambeson Armor',
+      'Quilted Clothing',
       'Improved Gambeson Armor',
       'Advanced Gambeson Armor',
       'Legendary Gambeson Armor',
@@ -251,9 +266,9 @@ describe('typing a name into the search box', () => {
 
   it('reads item text, so "stress" finds the thirteen things that clear it', () => {
     const found = filterItems(items, { ...itemQuery(), search: 'stress' });
-    expect(found).toHaveLength(13);
+    expect(found).toHaveLength(25);
     expect(found.filter((i) => i.name.toLowerCase().includes('stress'))).toEqual([]);
-    expect(tally(found, (i) => i.kind)).toEqual({ consumable: 9, loot: 4 });
+    expect(tally(found, (i) => i.kind)).toEqual({ consumable: 15, loot: 10 });
     expect(found.map((i) => i.name)).toContain('Stamina Potion');
     expect(found.map((i) => i.name)).toContain('Premium Bedroll');
   });
@@ -272,16 +287,16 @@ describe('typing a name into the search box', () => {
 describe('what the search box reads besides the name and the feature', () => {
   it('reads the range, so "melee" finds the 100 melee weapons and not 26', () => {
     const melee = filterWeapons(weapons, search('melee'), 1);
-    expect(weapons.filter((w) => w.range === 'Melee')).toHaveLength(100);
-    expect(melee).toHaveLength(114);
-    expect(melee.filter((r) => r.item.range === 'Melee')).toHaveLength(100);
+    expect(weapons.filter((w) => w.range === 'Melee')).toHaveLength(191);
+    expect(melee).toHaveLength(228);
+    expect(melee.filter((r) => r.item.range === 'Melee')).toHaveLength(191);
 
     // The other 14 are the ones the box already found: weapons that reach
     // further than Melee whose printed feature says "melee" anyway - the Whips
     // that shove adversaries out of it, the Grapplers that drag them into it,
     // and the four Scepters, whose Versatile line offers a Melee d8+3 profile.
     const elsewhere = melee.filter((r) => r.item.range !== 'Melee');
-    expect(elsewhere).toHaveLength(14);
+    expect(elsewhere).toHaveLength(37);
     for (const r of elsewhere) expect(r.item.feature.toLowerCase()).toContain('melee');
     // Nothing in the armoury is *named* "melee", which is why the old answer
     // was 26 feature matches and looked like a short shelf.
@@ -289,80 +304,110 @@ describe('what the search box reads besides the name and the feature', () => {
 
     // A space is a word start, so "far" reaches Far and Very Far both, and
     // "very far" narrows to the fifteen.
-    expect(weapons.filter((w) => w.range === 'Far')).toHaveLength(43);
-    expect(weapons.filter((w) => w.range === 'Very Far')).toHaveLength(15);
-    expect(filterWeapons(weapons, search('far'), 1)).toHaveLength(60);
-    expect(filterWeapons(weapons, search('very far'), 1)).toHaveLength(15);
-    // The two over 58 are Melee weapons whose feature says "far".
+    expect(weapons.filter((w) => w.range === 'Far')).toHaveLength(70);
+    expect(weapons.filter((w) => w.range === 'Very Far')).toHaveLength(24);
+    expect(filterWeapons(weapons, search('far'), 1)).toHaveLength(101);
+    expect(filterWeapons(weapons, search('very far'), 1)).toHaveLength(26);
+    // The ones over 94 are weapons out of those two bands whose FEATURE says
+    // "far" - the search reads the printed sentence, which is the point.
     expect(
       names(filterWeapons(weapons, search('far'), 1)).filter(
         (n) => !weapons.some((w) => w.name === n && (w.range === 'Far' || w.range === 'Very Far')),
       ),
-    ).toEqual(['Casting Sword', 'Impact Gauntlet']);
+    ).toEqual([
+      'Casting Sword',
+      'Displacement Razor',
+      'Javelins',
+      'Blitz Hammer',
+      'Rocket Maul',
+      'Impact Gauntlet',
+      'Infinite Staff',
+    ]);
 
-    expect(filterWeapons(weapons, search('close'), 1)).toHaveLength(50);
-    expect(weapons.filter((w) => w.range === 'Close' || w.range === 'Very Close')).toHaveLength(46);
-    expect(filterWeapons(weapons, search('very close'), 1)).toHaveLength(29);
+    expect(filterWeapons(weapons, search('close'), 1)).toHaveLength(124);
+    expect(weapons.filter((w) => w.range === 'Close' || w.range === 'Very Close')).toHaveLength(106);
+    expect(filterWeapons(weapons, search('very close'), 1)).toHaveLength(81);
   });
 
   it('reads the trait, the category and the damage die', () => {
-    expect(weapons.filter((w) => w.trait === 'instinct')).toHaveLength(24);
-    expect(filterWeapons(weapons, search('instinct'), 1)).toHaveLength(24);
+    expect(weapons.filter((w) => w.trait === 'instinct')).toHaveLength(50);
+    expect(filterWeapons(weapons, search('instinct'), 1)).toHaveLength(50);
     expect(filterWeapons(weapons, search('spellcast'), 1)).toHaveLength(4);
     // 23 by trait plus the Ego Blade, whose feature is about Presence.
-    expect(weapons.filter((w) => w.trait === 'presence')).toHaveLength(23);
-    expect(filterWeapons(weapons, search('presence'), 1)).toHaveLength(24);
+    expect(weapons.filter((w) => w.trait === 'presence')).toHaveLength(50);
+    expect(filterWeapons(weapons, search('presence'), 1)).toHaveLength(51);
 
-    expect(weapons.filter((w) => w.category === 'Magic')).toHaveLength(71);
-    expect(filterWeapons(weapons, search('magic'), 1)).toHaveLength(71);
+    expect(weapons.filter((w) => w.category === 'Magic')).toHaveLength(140);
+    expect(filterWeapons(weapons, search('magic'), 1)).toHaveLength(140);
     // Every one of the 71 comes from the category; before, "magic" found one.
     expect(
       filterWeapons(weapons, search('magic'), 1).every((r) => r.item.category === 'Magic'),
     ).toBe(true);
-    // 133 Physical, and the Ghostblade, which is a Magic weapon whose feature
-    // offers "physical or magic damage". The damage *type* is not an axis - it
-    // has no chip - so the Ghostblade arrives through its printed feature.
-    expect(weapons.filter((w) => w.category === 'Physical')).toHaveLength(133);
-    expect(names(filterWeapons(weapons, search('physical'), 1))).toContain('Ghostblade');
-    expect(filterWeapons(weapons, search('physical'), 1)).toHaveLength(134);
+    /*
+     * 251 Physical, and the four Shadowblades, which are MAGIC weapons whose
+     * feature offers "physical or magic damage". The damage *type* is not an
+     * axis - it has no chip - so they arrive through their printed feature.
+     *
+     * This named the Ghostblade until the switch. The Ghostblade is one of the
+     * nine weapons SRD 2.0 stopped printing, so the example had to be a
+     * different weapon rather than a different number; `shadowblade` and its
+     * three upgrades are what the shipped book offers in its place, and
+     * `tests/ui/damageKind.test.tsx` holds the same four.
+     */
+    expect(weapons.filter((w) => w.category === 'Physical')).toHaveLength(251);
+    expect(names(filterWeapons(weapons, search('physical'), 1))).toContain('Shadowblade');
+    expect(filterWeapons(weapons, search('physical'), 1)).toHaveLength(255);
 
     // The die is the book's `d8+3`, not the `3d8+3` a Proficiency 3 sheet
     // prints, so the same search answers the same way on every character.
-    expect(weapons.filter((w) => w.damage.includes('d8'))).toHaveLength(66);
-    expect(filterWeapons(weapons, search('d8'), 1)).toHaveLength(71);
+    expect(weapons.filter((w) => w.damage.includes('d8'))).toHaveLength(149);
+    expect(filterWeapons(weapons, search('d8'), 1)).toHaveLength(160);
     expect(
       names(filterWeapons(weapons, search('d8'), 1)).filter(
         (n) => !weapons.some((w) => w.name === n && w.damage.includes('d8')),
       ),
-    ).toEqual(['Scepter', 'Improved Scepter', 'Advanced Scepter', 'Hand Sling', 'Legendary Scepter']);
-    expect(weapons.filter((w) => w.damage.includes('d12'))).toHaveLength(11);
-    expect(filterWeapons(weapons, search('d12'), 1)).toHaveLength(11);
-    expect(filterWeapons(weapons, search('d8+3'), 1)).toHaveLength(9);
+    ).toEqual([
+      'Casting Dagger',
+      'Scepter',
+      'Improved Casting Dagger',
+      'Improved Scepter',
+      'Advanced Casting Dagger',
+      'Advanced Scepter',
+      'Gunblade',
+      'Hand Sling',
+      'War Dart',
+      'Legendary Casting Dagger',
+      'Legendary Scepter',
+    ]);
+    expect(weapons.filter((w) => w.damage.includes('d12'))).toHaveLength(12);
+    expect(filterWeapons(weapons, search('d12'), 1)).toHaveLength(12);
+    expect(filterWeapons(weapons, search('d8+3'), 1)).toHaveLength(21);
     // A die is matched from the start of the string it is printed in, so the
-    // "8" inside "d8+3" is not a search term of its own: 66 weapons roll a d8
-    // and a bare "8" finds six, every one of them through a feature that
+    // "8" inside "d8+3" is not a search term of its own: 149 weapons roll a d8
+    // and a bare "8" finds thirteen, every one of them through a feature that
     // prints the digit.
+    expect(weapons.filter((w) => w.damage.includes('d8'))).toHaveLength(149);
     const eight = filterWeapons(weapons, search('8'), 1);
-    expect(eight).toHaveLength(6);
+    expect(eight).toHaveLength(13);
     for (const r of eight) expect(r.item.feature).toContain('8');
   });
 
   it('reads the burden as the words the row prints, however the player spaces it', () => {
-    expect(weapons.filter((w) => w.burden === 1)).toHaveLength(112);
-    expect(weapons.filter((w) => w.burden === 2)).toHaveLength(92);
-    expect(filterWeapons(weapons, search('one-handed'), 1)).toHaveLength(112);
-    expect(filterWeapons(weapons, search('two-handed'), 1)).toHaveLength(92);
+    expect(weapons.filter((w) => w.burden === 1)).toHaveLength(239);
+    expect(weapons.filter((w) => w.burden === 2)).toHaveLength(152);
+    expect(filterWeapons(weapons, search('one-handed'), 1)).toHaveLength(239);
+    expect(filterWeapons(weapons, search('two-handed'), 1)).toHaveLength(152);
     // The row prints TWO-HANDED; nobody should have to find the hyphen.
-    expect(filterWeapons(weapons, search('two handed'), 1)).toHaveLength(92);
-    expect(filterWeapons(weapons, search('one handed'), 1)).toHaveLength(112);
-    expect(filterWeapons(weapons, search('two'), 1)).toHaveLength(92);
+    expect(filterWeapons(weapons, search('two handed'), 1)).toHaveLength(152);
+    expect(filterWeapons(weapons, search('one handed'), 1)).toHaveLength(239);
+    expect(filterWeapons(weapons, search('two'), 1)).toHaveLength(152);
 
     // And the reason the labels are matched from word starts rather than
     // folded into one string: every weapon in the book prints ONE-HANDED or
-    // TWO-HANDED, so a plain substring search would answer "hand" with all 204
-    // and bury the sixteen weapons that actually say it.
+    // TWO-HANDED, so a plain substring search would answer "hand" with all 391
+    // and bury the thirty weapons that actually say it.
     const hand = filterWeapons(weapons, search('hand'), 1);
-    expect(hand).toHaveLength(16);
+    expect(hand).toHaveLength(30);
     for (const r of hand) expect(`${r.item.name} ${r.item.feature}`.toLowerCase()).toContain('hand');
     expect(names(hand)).toContain('Hand Crossbow');
     expect(names(hand)).toContain('Midas Scythe');
@@ -377,25 +422,38 @@ describe('what the search box reads besides the name and the feature', () => {
     // The slot is a segmented control the picker already opens pre-set, and no
     // row prints the word, so a search for it would return rows that never say
     // why they are there. The twelve are features that mention a primary hand.
-    expect(weapons.filter((w) => w.slot === 'secondary')).toHaveLength(37);
+    expect(weapons.filter((w) => w.slot === 'secondary')).toHaveLength(100);
     expect(filterWeapons(weapons, search('secondary'), 1)).toHaveLength(0);
-    expect(filterWeapons(weapons, search('primary'), 1)).toHaveLength(12);
+    expect(filterWeapons(weapons, search('primary'), 1)).toHaveLength(42);
     expect(
       filterWeapons(weapons, search('primary'), 1).every((r) =>
         `${r.item.name} ${r.item.feature}`.toLowerCase().includes('primary'),
       ),
     ).toBe(true);
 
-    // The tier is a badge and a chip row, but it is a bare digit: folding
-    // "Tier 3" in would let a stray 3 pick out a quarter of the armoury. The
-    // seven a "3" does find are features that print one - "+3 to Armor Score",
-    // "d8+3" - and only two of the seven are tier 3.
-    expect(weapons.filter((w) => w.tier === 3)).toHaveLength(57);
-    expect(filterWeapons(weapons, search('tier'), 1)).toHaveLength(0);
+    /*
+     * The tier is a badge and a chip row, but it is a bare digit: folding
+     * "Tier 3" in would let a stray 3 pick out a quarter of the armoury. The
+     * thirteen a "3" does find are features that print one - "+3 to Armor
+     * Score", "d8+3" - and only four of the thirteen are tier 3.
+     *
+     * "tier" now answers with four rows and that is still not the badge: they
+     * are the four `Wooden Stake` records, whose printed feature reads "Gain a
+     * bonus equal to 1 + your tier to primary weapon damage". The word is in
+     * the book's own sentence, which is exactly what the box reads. "tier 3"
+     * still finds nothing.
+     */
+    expect(weapons.filter((w) => w.tier === 3)).toHaveLength(93);
+    expect(names(filterWeapons(weapons, search('tier'), 1))).toEqual([
+      'Wooden Stake',
+      'Wooden Stake',
+      'Wooden Stake',
+      'Wooden Stake',
+    ]);
     expect(filterWeapons(weapons, search('tier 3'), 1)).toHaveLength(0);
     const three = filterWeapons(weapons, search('3'), 1);
-    expect(three).toHaveLength(7);
-    expect(three.filter((r) => r.item.tier === 3)).toHaveLength(2);
+    expect(three).toHaveLength(13);
+    expect(three.filter((r) => r.item.tier === 3)).toHaveLength(4);
     for (const r of three) expect(r.item.feature).toContain('3');
   });
 
@@ -404,17 +462,26 @@ describe('what the search box reads besides the name and the feature', () => {
     // 21 of them at tier 1.
     expect(
       filterWeapons(weapons, { ...search('melee'), tiers: new Set<Tier>([1]) }, 1),
-    ).toHaveLength(21);
+    ).toHaveLength(58);
     // Typing an axis and chipping a different value of the same axis is not a
-    // contradiction the filter has to resolve: the four Scepters are Far
-    // weapons whose feature is about melee attackers, and they are the answer.
+    // contradiction the filter has to resolve: these are Far weapons whose
+    // feature is about melee attackers, and they are the answer.
     expect(
       names(filterWeapons(weapons, { ...search('melee'), ranges: new Set<Range>(['Far']) }, 1)),
-    ).toEqual(['Scepter', 'Improved Scepter', 'Advanced Scepter', 'Legendary Scepter']);
+    ).toEqual([
+      'Enchanted Kite',
+      'Scepter',
+      'Improved Scepter',
+      'Advanced Scepter',
+      'Gunblade',
+      'War Dart',
+      'Gravity Arbalest',
+      'Legendary Scepter',
+    ]);
     expect(
       filterWeapons(weapons, { ...search('two-handed'), category: 'Magic' }, 1),
-    ).toHaveLength(34);
-    expect(weapons.filter((w) => w.burden === 2 && w.category === 'Magic')).toHaveLength(34);
+    ).toHaveLength(56);
+    expect(weapons.filter((w) => w.burden === 2 && w.category === 'Magic')).toHaveLength(56);
   });
 
   it('matches inside a name or a feature, but not across the seam between them', () => {
@@ -432,16 +499,17 @@ describe('what the search box reads besides the name and the feature', () => {
       'Advanced Broadsword',
       'Legendary Broadsword',
     ]);
-    expect(filterWeapons(weapons, search('reliable'), 1)).toHaveLength(13);
+    expect(filterWeapons(weapons, search('reliable'), 1)).toHaveLength(14);
   });
 
   it('folds nothing into the armor search, because armor has no axis to fold', () => {
     // Armor's only chip is tier. Two sets mention melee in their feature and
     // that is all "melee" may return: an armor list that grew because weapons
     // did would be inventing a filter the picker does not have.
-    expect(filterArmors(armors, { ...armorQuery(), search: 'melee' }, 1)).toHaveLength(2);
-    expect(filterArmors(armors, { ...armorQuery(), search: 'magic' }, 1)).toHaveLength(3);
-    expect(filterArmors(armors, { ...armorQuery(), search: 'tier' }, 1)).toHaveLength(0);
+    expect(filterArmors(armors, { ...armorQuery(), search: 'melee' }, 1)).toHaveLength(3);
+    expect(filterArmors(armors, { ...armorQuery(), search: 'magic' }, 1)).toHaveLength(8);
+    // One armor prints "tier" in its own feature, the way four weapons do.
+    expect(filterArmors(armors, { ...armorQuery(), search: 'tier' }, 1)).toHaveLength(1);
     expect(filterArmors(armors, { ...armorQuery(), search: 'one-handed' }, 1)).toHaveLength(0);
     for (const q of ['melee', 'magic']) {
       for (const r of filterArmors(armors, { ...armorQuery(), search: q }, 1)) {
@@ -453,15 +521,23 @@ describe('what the search box reads besides the name and the feature', () => {
   it('reads the one axis an item has, in both the words the picker uses for it', () => {
     // "Loot" and "Consumables" are the two buttons over this list, and typing
     // either used to return nothing - 0 for "loot", 1 for "consumable".
-    expect(filterItems(items, { ...itemQuery(), search: 'loot' })).toHaveLength(60);
+    expect(filterItems(items, { ...itemQuery(), search: 'loot' })).toHaveLength(121);
+    /*
+     * 120 loot and one consumable: Formoid Serum, whose text says the drinker
+     * "keeps and has access to all equipment, loot, and features". The word is
+     * printed on the row, so the box answers with it - the same rule that
+     * makes "consumable" return the Box of Many Goods below.
+     */
     expect(
-      filterItems(items, { ...itemQuery(), search: 'loot' }).every((i) => i.kind === 'loot'),
-    ).toBe(true);
-    // 60 consumables, plus the Box of Many Goods, which is loot whose text
+      filterItems(items, { ...itemQuery(), search: 'loot' })
+        .filter((i) => i.kind !== 'loot')
+        .map((i) => i.name),
+    ).toEqual(['Formoid Serum']);
+    // 120 consumables, plus the Box of Many Goods, which is loot whose text
     // says it contains random common consumables. The plural is what the
     // button says, so both forms answer.
-    expect(filterItems(items, { ...itemQuery(), search: 'consumable' })).toHaveLength(61);
-    expect(filterItems(items, { ...itemQuery(), search: 'consumables' })).toHaveLength(61);
+    expect(filterItems(items, { ...itemQuery(), search: 'consumable' })).toHaveLength(121);
+    expect(filterItems(items, { ...itemQuery(), search: 'consumables' })).toHaveLength(121);
     expect(
       filterItems(items, { ...itemQuery(), search: 'consumable', kind: 'loot' }).map((i) => i.name),
     ).toEqual(['Box of Many Goods']);
@@ -477,16 +553,16 @@ describe('each filter axis on its own', () => {
       for (const r of rows) expect(r.item.tier).toBe(t);
       return rows.length;
     });
-    expect(counted).toEqual([35, 56, 57, 56]);
-    expect(counted.reduce((a, b) => a + b, 0)).toBe(204);
+    expect(counted).toEqual([96, 101, 93, 101]);
+    expect(counted.reduce((a, b) => a + b, 0)).toBe(391);
   });
 
   it('counts primary and secondary weapons, and they add up to the armoury', () => {
     const primary = filterWeapons(weapons, weaponQuery('primary'), 1);
     const secondary = filterWeapons(weapons, weaponQuery('secondary'), 1);
-    expect(primary).toHaveLength(167);
-    expect(secondary).toHaveLength(37);
-    expect(primary.length + secondary.length).toBe(204);
+    expect(primary).toHaveLength(291);
+    expect(secondary).toHaveLength(100);
+    expect(primary.length + secondary.length).toBe(391);
     for (const r of primary) expect(r.item.slot).toBe('primary');
     for (const r of secondary) expect(r.item.slot).toBe('secondary');
   });
@@ -494,9 +570,9 @@ describe('each filter axis on its own', () => {
   it('separates Physical from Magic', () => {
     const physical = filterWeapons(weapons, { ...weaponQuery(), category: 'Physical' }, 1);
     const magic = filterWeapons(weapons, { ...weaponQuery(), category: 'Magic' }, 1);
-    expect(physical).toHaveLength(133);
-    expect(magic).toHaveLength(71);
-    expect(physical.length + magic.length).toBe(204);
+    expect(physical).toHaveLength(251);
+    expect(magic).toHaveLength(140);
+    expect(physical.length + magic.length).toBe(391);
     for (const r of magic) expect(r.item.category).toBe('Magic');
   });
 
@@ -509,12 +585,12 @@ describe('each filter axis on its own', () => {
       counts[t] = rows.length;
     }
     expect(counts).toEqual({
-      agility: 39,
-      strength: 54,
-      finesse: 44,
-      instinct: 24,
-      presence: 23,
-      knowledge: 16,
+      agility: 76,
+      strength: 94,
+      finesse: 82,
+      instinct: 50,
+      presence: 50,
+      knowledge: 35,
       spellcast: 4,
     });
     expect(
@@ -536,60 +612,95 @@ describe('each filter axis on its own', () => {
       for (const r of rows) expect(r.item.range).toBe(range);
       counts[range] = rows.length;
     }
-    expect(counts).toEqual({ Melee: 100, 'Very Close': 27, Close: 19, Far: 43, 'Very Far': 15 });
-    expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(204);
+    expect(counts).toEqual({ Melee: 191, 'Very Close': 67, Close: 39, Far: 70, 'Very Far': 24 });
+    expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(391);
   });
 
   it('separates one-handed from two-handed', () => {
     const one = filterWeapons(weapons, { ...weaponQuery(), burdens: new Set<1 | 2>([1]) }, 1);
     const two = filterWeapons(weapons, { ...weaponQuery(), burdens: new Set<1 | 2>([2]) }, 1);
-    expect(one).toHaveLength(112);
-    expect(two).toHaveLength(92);
-    expect(one.length + two.length).toBe(204);
+    expect(one).toHaveLength(239);
+    expect(two).toHaveLength(152);
+    expect(one.length + two.length).toBe(391);
     for (const r of two) expect(r.item.burden).toBe(2);
   });
 
-  it('filters armor by tier, four at tier one and ten at each tier above', () => {
+  it('filters armor by tier, and the four tiers are the whole rack', () => {
     const counted = TIERS.map(
       (t) => filterArmors(armors, { ...armorQuery(), tiers: new Set<Tier>([t]) }, 1).length,
     );
-    expect(counted).toEqual([4, 10, 10, 10]);
-    expect(counted.reduce((a, b) => a + b, 0)).toBe(34);
+    expect(counted).toEqual([15, 24, 23, 23]);
+    expect(counted.reduce((a, b) => a + b, 0)).toBe(85);
     expect(
       names(filterArmors(armors, { ...armorQuery(), tiers: new Set<Tier>([1]) }, 1)),
-    ).toEqual(['Chainmail Armor', 'Full Plate Armor', 'Gambeson Armor', 'Leather Armor']);
+    ).toEqual([
+      'Baking Tray Breastplate',
+      'Banded Armor',
+      'Brigandine Armor',
+      'Chainmail Armor',
+      'Coffinwood Armor',
+      'Full Plate Armor',
+      'Gambeson Armor',
+      'Leather Apron',
+      'Leather Armor',
+      'Leather Longcoat',
+      'Mage Robes',
+      'Quilted Clothing',
+      'Scale Mail Armor',
+      'Silverweave Armor',
+      'Tree Bark Armor',
+    ]);
   });
 
   it('splits loot from consumables, and keeps both when neither chip is chosen', () => {
     const loot = filterItems(items, { ...itemQuery(), kind: 'loot' });
     const consumable = filterItems(items, { ...itemQuery(), kind: 'consumable' });
-    expect(loot).toHaveLength(60);
-    expect(consumable).toHaveLength(60);
+    expect(loot).toHaveLength(120);
+    expect(consumable).toHaveLength(120);
     for (const i of loot) expect(i.kind).toBe('loot');
     for (const i of consumable) expect(i.kind).toBe('consumable');
 
     const all = filterItems(items, itemQuery());
-    expect(all).toHaveLength(120);
+    expect(all).toHaveLength(240);
     // Consumables sort ahead of loot, then alphabetically inside each kind.
     expect([all[0]!.name, all[0]!.kind]).toEqual(['Acidpaste', 'consumable']);
-    expect([all[59]!.name, all[59]!.kind]).toEqual(['Wingsprout', 'consumable']);
-    expect([all[60]!.name, all[60]!.kind]).toEqual(['Airblade Charm', 'loot']);
-    expect([all[119]!.name, all[119]!.kind]).toEqual(['Woven Net', 'loot']);
+    expect([all[119]!.name, all[119]!.kind]).toEqual(['Yakamel Milk', 'consumable']);
+    expect([all[120]!.name, all[120]!.kind]).toEqual(['Airblade Charm', 'loot']);
+    expect([all[239]!.name, all[239]!.kind]).toEqual(['Zephyr\u2019s Jar', 'loot']);
   });
 });
 
 describe('filters crossing each other', () => {
-  it('ANDs across axes: the off-hand tier-one rack holds exactly seven things', () => {
+  it('ANDs across axes: the off-hand tier-one rack holds exactly these', () => {
     const q: WeaponQuery = { ...weaponQuery('secondary'), tiers: new Set<Tier>([1]) };
     const rows = filterWeapons(weapons, q, 1);
+    // Seven on SRD 1.0; twenty-five on the book the app ships.
     expect(names(rows)).toEqual([
+      'Barrel Lid Shield',
+      'Chain Whip',
+      'Festival Whip',
+      'Fighting Cloak',
+      'Flare Launcher',
+      'Focus Runes',
       'Grappler',
+      'Hallowed Shield',
       'Hand Crossbow',
+      'Hatchet',
+      'Large Fork',
+      'Lasso',
+      'Offhand Brass Knuckles',
+      'Paring Knife',
       'Round Shield',
+      'Rune Shield',
       'Shortsword',
       'Small Dagger',
+      'Small Revolver',
+      'Table Shield',
+      'Throwing Knives',
       'Tower Shield',
+      'Towline Hook',
       'Whip',
+      'Wooden Stake',
     ]);
     // Counted again here, without the module under test.
     expect(sortedNames(rows.map((r) => r.item))).toEqual(
@@ -599,8 +710,8 @@ describe('filters crossing each other', () => {
 
   it('ORs inside an axis, and an untouched chip row narrows nothing at all', () => {
     const tiers: WeaponQuery = { ...weaponQuery(), tiers: new Set<Tier>([2, 4]) };
-    expect(filterWeapons(weapons, tiers, 1)).toHaveLength(112);
-    expect(112).toBe(
+    expect(filterWeapons(weapons, tiers, 1)).toHaveLength(202);
+    expect(202).toBe(
       weapons.filter((w) => w.tier === 2).length + weapons.filter((w) => w.tier === 4).length,
     );
 
@@ -608,21 +719,21 @@ describe('filters crossing each other', () => {
       ...weaponQuery(),
       traits: new Set<WeaponTrait>(['finesse', 'knowledge']),
     };
-    expect(filterWeapons(weapons, traits, 1)).toHaveLength(60);
-    expect(60).toBe(weapons.filter((w) => w.trait === 'finesse' || w.trait === 'knowledge').length);
+    expect(filterWeapons(weapons, traits, 1)).toHaveLength(117);
+    expect(117).toBe(weapons.filter((w) => w.trait === 'finesse' || w.trait === 'knowledge').length);
 
     const ranges: WeaponQuery = {
       ...weaponQuery(),
       ranges: new Set<Range>(['Far', 'Very Far']),
     };
-    expect(filterWeapons(weapons, ranges, 1)).toHaveLength(58);
+    expect(filterWeapons(weapons, ranges, 1)).toHaveLength(94);
 
     // Every set empty is the opening state, and it hides nothing.
-    expect(filterWeapons(weapons, weaponQuery(), 1)).toHaveLength(204);
-    expect(filterArmors(armors, armorQuery(), 1)).toHaveLength(34);
+    expect(filterWeapons(weapons, weaponQuery(), 1)).toHaveLength(391);
+    expect(filterArmors(armors, armorQuery(), 1)).toHaveLength(85);
   });
 
-  it('crosses text, tier and range at once, down to fourteen bows', () => {
+  it('crosses text, tier and range at once, down to sixteen bows', () => {
     const q: WeaponQuery = {
       ...weaponQuery(),
       search: 'bow',
@@ -637,16 +748,18 @@ describe('filters crossing each other', () => {
       'Improved Crossbow',
       'Improved Longbow',
       'Improved Shortbow',
+      'Repeating Crossbow',
+      'Splintershaft Bow',
       'Yutari Bloodbow',
       'Improved Hand Crossbow',
       'Advanced Crossbow',
       'Advanced Longbow',
       'Advanced Shortbow',
-      'Gilded Bow',
+      'Repeating Crossbow',
       'Spiked Bow',
       'Advanced Hand Crossbow',
     ]);
-    // Cross-checked without the filter: same fourteen, however they are ordered.
+    // Cross-checked without the filter: same sixteen, however they are ordered.
     expect(sortedNames(rows.map((r) => r.item))).toEqual(
       sortedNames(
         weapons.filter(
@@ -659,16 +772,16 @@ describe('filters crossing each other', () => {
     );
     // Primaries come before secondaries inside a tier, which is why the two
     // Hand Crossbows sit at the end of their tier rather than under "H".
-    expect(rows[6]!.item.slot).toBe('primary');
-    expect(rows[7]!.item.name).toBe('Improved Hand Crossbow');
-    expect(rows[7]!.item.slot).toBe('secondary');
+    expect(rows[8]!.item.slot).toBe('primary');
+    expect(rows[9]!.item.name).toBe('Improved Hand Crossbow');
+    expect(rows[9]!.item.slot).toBe('secondary');
   });
 
   it('crosses a search with the loot/consumable chip', () => {
     const potions = filterItems(items, { ...itemQuery(), search: 'potion' });
-    expect(potions).toHaveLength(25);
+    expect(potions).toHaveLength(36);
     expect(filterItems(items, { ...itemQuery(), search: 'potion', kind: 'consumable' })).toHaveLength(
-      23,
+      34,
     );
     // The two that are loot are recipes, not potions - the crossing is what
     // tells them apart.
@@ -676,7 +789,7 @@ describe('filters crossing each other', () => {
       filterItems(items, { ...itemQuery(), search: 'potion', kind: 'loot' }).map((i) => i.name),
     ).toEqual(['Minor Health Potion Recipe', 'Minor Stamina Potion Recipe']);
     expect(filterItems(items, { ...itemQuery(), search: 'gem', kind: 'consumable' })).toHaveLength(0);
-    expect(filterItems(items, { ...itemQuery(), search: 'gem', kind: 'loot' })).toHaveLength(6);
+    expect(filterItems(items, { ...itemQuery(), search: 'gem', kind: 'loot' })).toHaveLength(7);
   });
 
   it('agrees with plain array code across every combination this sweep walks', () => {
@@ -748,11 +861,11 @@ describe('filters crossing each other', () => {
     expect(disagreed).toEqual([]);
     expect(misordered).toEqual([]);
     expect(walked).toBe(314);
-    expect(rowsReturned).toBe(5156);
+    expect(rowsReturned).toBe(9960);
     // A sweep of 314 empty results would agree with anything. 233 of these
     // combinations return weapons; the other 81 are intersections the armoury
     // genuinely has nothing in, such as a secondary Magic weapon.
-    expect(nonEmpty).toBe(233);
+    expect(nonEmpty).toBe(248);
 
     // The eight chip axes are 2 x 3 x 3 x 16 x 4 x 128 x 32 combinations before
     // a single letter is typed. This is what was left alone.
@@ -841,21 +954,21 @@ describe('the honesty rule: out of reach stays on screen and says why', () => {
       }
     }
     expect(wrong).toEqual([]);
-    expect(checked).toBe((204 + 34) * 10);
-    // 169 weapons + 30 armors out of reach at level 1, 113 + 20 through levels
-    // 2-4, 56 + 10 through 5-7, and nothing at all from level 8.
-    expect(outOfReach).toBe(169 + 30 + (113 + 20) * 3 + (56 + 10) * 3);
-    expect(outOfReach).toBe(796);
+    expect(checked).toBe((391 + 85) * 10);
+    // 295 weapons + 70 armors out of reach at level 1, 194 + 46 through levels
+    // 2-4, 101 + 23 through 5-7, and nothing at all from level 8.
+    expect(outOfReach).toBe(295 + 70 + (194 + 46) * 3 + (101 + 23) * 3);
+    expect(outOfReach).toBe(1457);
   });
 
   it('never hides a weapon while reach is "all", however low the level', () => {
     for (const level of LEVELS) {
-      expect(filterWeapons(weapons, weaponQuery(), level)).toHaveLength(204);
-      expect(filterArmors(armors, armorQuery(), level)).toHaveLength(34);
+      expect(filterWeapons(weapons, weaponQuery(), level)).toHaveLength(391);
+      expect(filterArmors(armors, armorQuery(), level)).toHaveLength(85);
     }
     // A level 1 party handed a tier 4 sword can still find it and equip it.
     const legendary = filterWeapons(weapons, weaponQuery(), 1).filter((r) => r.item.tier === 4);
-    expect(legendary).toHaveLength(56);
+    expect(legendary).toHaveLength(101);
     expect(legendary.every((r) => r.reason === 'Tier 4 — usable from level 8')).toBe(true);
   });
 
@@ -877,31 +990,31 @@ describe('the honesty rule: out of reach stays on screen and says why', () => {
       usableArmors[level] = armorUsable.length;
     }
     expect(usableWeapons).toEqual({
-      1: 35,
-      2: 91,
-      3: 91,
-      4: 91,
-      5: 148,
-      6: 148,
-      7: 148,
-      8: 204,
-      9: 204,
-      10: 204,
+      1: 96,
+      2: 197,
+      3: 197,
+      4: 197,
+      5: 290,
+      6: 290,
+      7: 290,
+      8: 391,
+      9: 391,
+      10: 391,
     });
     expect(usableArmors).toEqual({
-      1: 4,
-      2: 14,
-      3: 14,
-      4: 14,
-      5: 24,
-      6: 24,
-      7: 24,
-      8: 34,
-      9: 34,
-      10: 34,
+      1: 15,
+      2: 39,
+      3: 39,
+      4: 39,
+      5: 62,
+      6: 62,
+      7: 62,
+      8: 85,
+      9: 85,
+      10: 85,
     });
     console.log(
-      `[gear] weapons within reach by level: ${LEVELS.map((l) => `${l}:${usableWeapons[l]}`).join(' ')} (of 204)`,
+      `[gear] weapons within reach by level: ${LEVELS.map((l) => `${l}:${usableWeapons[l]}`).join(' ')} (of 391)`,
     );
   });
 
@@ -910,8 +1023,8 @@ describe('the honesty rule: out of reach stays on screen and says why', () => {
     expect(tierNote(2, 0)).toBe('Tier 2 — usable from level 2');
     expect(tierNote(4, -3)).toBe('Tier 4 — usable from level 8');
     expect(tierNote(4, 99)).toBeNull();
-    expect(filterWeapons(weapons, { ...weaponQuery(), reach: 'usable' }, 0)).toHaveLength(35);
-    expect(filterWeapons(weapons, { ...weaponQuery(), reach: 'usable' }, 99)).toHaveLength(204);
+    expect(filterWeapons(weapons, { ...weaponQuery(), reach: 'usable' }, 0)).toHaveLength(96);
+    expect(filterWeapons(weapons, { ...weaponQuery(), reach: 'usable' }, 99)).toHaveLength(391);
   });
 });
 
@@ -919,15 +1032,15 @@ describe('the count on screen and the CLEAR FILTERS chip', () => {
   it('counts what is shown, which is not what exists', () => {
     const shown = filterWeapons(weapons, { ...weaponQuery(), reach: 'usable' }, 1);
     // The picker prints "<shown> OF <total>", and the total is the armoury.
-    expect(shown).toHaveLength(35);
-    expect(weapons.length).toBe(204);
+    expect(shown).toHaveLength(96);
+    expect(weapons.length).toBe(391);
     // Eleven weapons say "dagger"; five of them can go in the off hand.
-    expect(filterWeapons(weapons, search('dagger'), 1)).toHaveLength(11);
+    expect(filterWeapons(weapons, search('dagger'), 1)).toHaveLength(19);
     expect(filterWeapons(weapons, { ...weaponQuery('secondary'), search: 'dagger' }, 1)).toHaveLength(
       5,
     );
-    expect(filterArmors(armors, { ...armorQuery(), reach: 'usable' }, 1)).toHaveLength(4);
-    expect(filterItems(items, { ...itemQuery(), kind: 'loot' })).toHaveLength(60);
+    expect(filterArmors(armors, { ...armorQuery(), reach: 'usable' }, 1)).toHaveLength(15);
+    expect(filterItems(items, { ...itemQuery(), kind: 'loot' })).toHaveLength(120);
   });
 
   it('reads pristine until an axis moves, and then reads dirty on that axis alone', () => {
@@ -977,8 +1090,8 @@ describe('the count on screen and the CLEAR FILTERS chip', () => {
     expect(weaponQueryChanged(tierThree, tierTwo)).toBe(true);
     expect(weaponQueryChanged(tierTwo, tierThree)).toBe(true);
     // The two really are different pickers: 56 tier 2 weapons, 57 tier 3.
-    expect(filterWeapons(weapons, tierTwo, 8)).toHaveLength(56);
-    expect(filterWeapons(weapons, tierThree, 8)).toHaveLength(57);
+    expect(filterWeapons(weapons, tierTwo, 8)).toHaveLength(101);
+    expect(filterWeapons(weapons, tierThree, 8)).toHaveLength(93);
 
     // Same size, disjoint members, on every set-valued axis.
     const swaps: Array<[string, WeaponQuery, WeaponQuery]> = [
@@ -1017,36 +1130,36 @@ describe('the count on screen and the CLEAR FILTERS chip', () => {
     const armorLow = { ...armorQuery(), tiers: new Set<Tier>([1, 2]) };
     const armorHigh = { ...armorQuery(), tiers: new Set<Tier>([3, 4]) };
     expect(armorQueryChanged(armorHigh, armorLow)).toBe(true);
-    expect(filterArmors(armors, armorLow, 8)).toHaveLength(14);
-    expect(filterArmors(armors, armorHigh, 8)).toHaveLength(20);
+    expect(filterArmors(armors, armorLow, 8)).toHaveLength(39);
+    expect(filterArmors(armors, armorHigh, 8)).toHaveLength(46);
   });
 
   it('does not count a stray space as a filter, and still shows everything', () => {
     const base = weaponQuery();
     expect(weaponQueryChanged({ ...base, search: '   ' }, base)).toBe(false);
-    expect(filterWeapons(weapons, { ...base, search: '   ' }, 1)).toHaveLength(204);
+    expect(filterWeapons(weapons, { ...base, search: '   ' }, 1)).toHaveLength(391);
     // A word with spaces around it is a real filter, trimmed before it matches.
     expect(weaponQueryChanged({ ...base, search: '  sword  ' }, base)).toBe(true);
-    expect(filterWeapons(weapons, { ...base, search: '  sword  ' }, 1)).toHaveLength(21);
+    expect(filterWeapons(weapons, { ...base, search: '  sword  ' }, 1)).toHaveLength(31);
 
     const armorBase = armorQuery();
     expect(armorQueryChanged({ ...armorBase, search: ' ' }, armorBase)).toBe(false);
     const itemBase = itemQuery();
     expect(itemQueryChanged({ ...itemBase, search: '\t ' }, itemBase)).toBe(false);
-    expect(filterItems(items, { ...itemBase, search: '\t ' })).toHaveLength(120);
+    expect(filterItems(items, { ...itemBase, search: '\t ' })).toHaveLength(240);
   });
 
   it('remembers that the off-hand picker opens already narrowed', () => {
     const base = weaponQuery('secondary');
     expect(base.slot).toBe('secondary');
     expect(weaponQueryChanged(base, base)).toBe(false);
-    expect(filterWeapons(weapons, base, 1)).toHaveLength(37);
+    expect(filterWeapons(weapons, base, 1)).toHaveLength(100);
     // Widening to "Any" is a change, and clearing puts the slot back rather
     // than opening the whole 204 onto an off-hand picker.
     const widened: WeaponQuery = { ...base, slot: 'all' };
     expect(weaponQueryChanged(widened, base)).toBe(true);
-    expect(filterWeapons(weapons, widened, 1)).toHaveLength(204);
-    expect(filterWeapons(weapons, weaponQuery('secondary'), 1)).toHaveLength(37);
+    expect(filterWeapons(weapons, widened, 1)).toHaveLength(391);
+    expect(filterWeapons(weapons, weaponQuery('secondary'), 1)).toHaveLength(100);
   });
 
   it('tracks the armor and item queries the same way', () => {
@@ -1069,10 +1182,10 @@ describe('the count on screen and the CLEAR FILTERS chip', () => {
 
 describe('the empty search and the search that finds nothing', () => {
   it('shows the whole list when the box is empty', () => {
-    expect(filterWeapons(weapons, weaponQuery(), 1)).toHaveLength(204);
-    expect(filterWeapons(weapons, weaponQuery(), 10)).toHaveLength(204);
-    expect(filterArmors(armors, armorQuery(), 1)).toHaveLength(34);
-    expect(filterItems(items, itemQuery())).toHaveLength(120);
+    expect(filterWeapons(weapons, weaponQuery(), 1)).toHaveLength(391);
+    expect(filterWeapons(weapons, weaponQuery(), 10)).toHaveLength(391);
+    expect(filterArmors(armors, armorQuery(), 1)).toHaveLength(85);
+    expect(filterItems(items, itemQuery())).toHaveLength(240);
   });
 
   it('returns exactly nothing for a search nothing matches, and does not throw', () => {
@@ -1081,12 +1194,18 @@ describe('the empty search and the search that finds nothing', () => {
       expect(filterArmors(armors, { ...armorQuery(), search: term }, 1)).toEqual([]);
       expect(filterItems(items, { ...itemQuery(), search: term })).toEqual([]);
     }
-    // Empty because the axes disagree, not because the text failed: there are
-    // 71 Magic weapons and 37 secondary ones, and no weapon is both.
-    expect(weapons.filter((w) => w.category === 'Magic')).toHaveLength(71);
+    /*
+     * The crossing that used to be empty is not any more, and the change is
+     * the BOOK's. SRD 1.0 printed 71 Magic weapons and 37 secondary ones and
+     * not one weapon was both, so this pair proved "empty because the axes
+     * disagree". SRD 2.0 prints eighteen magic off-hands - Focus Runes, Rune
+     * Shield, Hallowed Shield and the rest - so the pair no longer proves it
+     * and the assertion says what is true instead.
+     */
+    expect(weapons.filter((w) => w.category === 'Magic')).toHaveLength(140);
     expect(
       filterWeapons(weapons, { ...weaponQuery('secondary'), category: 'Magic' }, 10),
-    ).toEqual([]);
+    ).toHaveLength(18);
     // A real word crossed with an axis that has none of it: the dataset holds
     // twelve wheelchairs, three of them at tier 1, and not one is an off-hand.
     expect(filterWeapons(weapons, search('wheelchair'), 1)).toHaveLength(12);

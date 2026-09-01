@@ -49,6 +49,7 @@ import { MAX_FEAR } from '../../engine/encounter.ts';
 import { Fold } from '../shared/Fold.tsx';
 import { useGm } from './gmStore.ts';
 import { FearGuide } from './ReferenceTables.tsx';
+import { SRD_LABEL } from '../../store/dataset.ts';
 
 const DIAMOND = 'polygon(50% 0,100% 50%,50% 100%,0 50%)';
 
@@ -255,7 +256,7 @@ export function FearBoard({ phone }: { phone: boolean }): React.JSX.Element {
         </div>
       </div>
 
-      <Fold label="WHAT TO SPEND IT ON" summary="SRD 1.0">
+      <Fold label="WHAT TO SPEND IT ON" summary={SRD_LABEL}>
         <FearGuide besidePool />
       </Fold>
     </section>

@@ -8,7 +8,7 @@
  *
  * The silhouettes are not redrawn here. `DOMAIN_MARKS` already states each
  * domain's polygon, so the polygon is converted; two sources of truth for
- * nine shapes is exactly how a shape and its colour drift apart.
+ * ten shapes is exactly how a shape and its colour drift apart.
  */
 import { DOMAIN_MARKS } from '../shared/DomainMark.tsx';
 import type { DomainId } from '../../../shared/types.ts';

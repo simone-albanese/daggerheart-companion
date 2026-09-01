@@ -58,6 +58,10 @@ const MOMENTLESS: readonly string[] = [
   'additional-gm-guidance', // the same, one page further
   'preparing-combat-encounters', // preparation, done away from the table
   'campaign-frames', // the shape of a whole campaign
+  // Folio 13, ratified separately on 1 September. Same property as the eight
+  // above: a sheet set up once, and a choice taken at a level-up.
+  'martial-stances', // the Martial Stances sheet, taken when the subclass is
+  'stances', // two chosen at the subclass, one more per level
 ];
 
 interface BallotRow {
@@ -65,9 +69,23 @@ interface BallotRow {
   moments: Moment[];
 }
 
-const ballot = JSON.parse(
-  readFileSync(new URL('../../docs/handoff/BALLOT-MOMENTI-2026-08-26.json', import.meta.url), 'utf8'),
-) as BallotRow[];
+/*
+ * TWO ballots, read as one list.
+ *
+ * The second is not five rows appended to the first, and the reason is the
+ * reason a ratification has a date on it: the document of 26 August ratified
+ * the sixty-nine sections that book printed, and editing it to say seventy-four
+ * would make it describe a decision nobody took that day. SRD 2.0's five come
+ * with their own file and their own date, and this guard holds the shipped
+ * table against the union.
+ */
+const readBallot = (name: string): BallotRow[] =>
+  JSON.parse(readFileSync(new URL(`../../docs/handoff/${name}`, import.meta.url), 'utf8')) as BallotRow[];
+
+const ballot = [
+  ...readBallot('BALLOT-MOMENTI-2026-08-26.json'),
+  ...readBallot('BALLOT-MOMENTI-SRD-2-2026-09-01.json'),
+];
 
 const sections = baseDataset.rules;
 const ids = new Set(sections.map((section) => section.id));
@@ -90,18 +108,22 @@ describe('the shipped membership says what was ratified', () => {
 
   it('is the shape the ratification recorded', () => {
     /*
-     * The three counts the owner's decision states, checked against the
-     * shipped table rather than against the ballot - so this fails if the
-     * table drifts even where the document does not. They are the
+     * The three counts the owner's decisions state, checked against the
+     * shipped table rather than against the ballots - so this fails if the
+     * table drifts even where the documents do not. They are the
      * specification, which is the one thing a test may carry as a literal.
+     *
+     * TWO ratifications now, and the figures are their sum: 61 + 3 sections
+     * with a moment, 94 + 3 memberships, 8 + 2 excused. Folio 13's five each
+     * took exactly one moment or none, so only the one-moment arity moves.
      */
     const memberships = Object.values(SECTION_MOMENTS).reduce((n, ms) => n + ms.length, 0);
-    expect(Object.keys(SECTION_MOMENTS), 'sections with at least one moment').toHaveLength(61);
-    expect(memberships, 'memberships in total').toBe(94);
-    expect(MOMENTLESS, 'sections with none').toHaveLength(8);
+    expect(Object.keys(SECTION_MOMENTS), 'sections with at least one moment').toHaveLength(64);
+    expect(memberships, 'memberships in total').toBe(97);
+    expect(MOMENTLESS, 'sections with none').toHaveLength(10);
 
     const arity = Object.values(SECTION_MOMENTS).map((ms) => ms.length);
-    expect(arity.filter((n) => n === 1), 'one moment').toHaveLength(30);
+    expect(arity.filter((n) => n === 1), 'one moment').toHaveLength(33);
     expect(arity.filter((n) => n === 2), 'two moments').toHaveLength(29);
     expect(arity.filter((n) => n === 3), 'three moments').toHaveLength(2);
   });
@@ -143,8 +165,8 @@ describe('the membership stays true to the dataset', () => {
     expect(unknown).toEqual([]);
   });
 
-  it('accounts for all sixty-nine, and the count is what the exclusion list rests on', () => {
-    expect(sections, 'the shipped rules sections').toHaveLength(69);
+  it('accounts for all seventy-four, and the count is what the exclusion list rests on', () => {
+    expect(sections, 'the shipped rules sections').toHaveLength(74);
     expect(Object.keys(SECTION_MOMENTS).length + MOMENTLESS.length).toBe(sections.length);
   });
 });

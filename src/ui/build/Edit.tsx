@@ -12,8 +12,10 @@
  */
 import { useState } from 'react';
 import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
+import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
+import { unresolvedWeapons } from '../../engine/holdings.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -28,8 +30,10 @@ import {
 } from './GearPicker.tsx';
 import {
   Callout,
+  Choice,
   Columns,
   ExperienceEditor,
+  FeatureBlock,
   GoldEditor,
   InventoryEditor,
   LabelledInput,
@@ -63,6 +67,20 @@ export function Edit({
       ? undefined
       : index.weapons.get(character.activeSecondaryWeapon);
   const armor = character.activeArmor === null ? undefined : index.armors.get(character.activeArmor);
+  /*
+   * The refs on this sheet that this build cannot name, read as a pair so the
+   * two weapon slots cannot be repaired one at a time - which is exactly how
+   * they came to be silent. `unresolvedWeapons` is the same fact `Play` reads
+   * to draw its `VanishedWeapon` row, asked once in the engine rather than
+   * re-derived here: two routes to one answer is two answers eventually.
+   *
+   * The armor is worked out on the spot, because there is no shared helper for
+   * it: `deriveStats` carries `unresolvedArmor` for its own arithmetic, and
+   * `stats` is in hand here - so the third slot tells the truth for free rather
+   * than being left as the one that still says «Search 85 sets of armor» over a
+   * ref the sheet is still holding.
+   */
+  const missing = unresolvedWeapons(character, index);
   const lineage = [
     ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
     (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
@@ -149,6 +167,10 @@ export function Edit({
               </p>
             </Section>
 
+            <TransformationSection character={character} onPatch={patch} />
+
+            <StancesSection character={character} onPatch={patch} />
+
             <Section label="Traits" hint="A DOT MEANS MARKED THIS TIER">
               <div className="stack" style={{ gap: 7 }}>
                 {TRAITS.map((t: Trait) => (
@@ -197,6 +219,11 @@ export function Edit({
                   meta={primary && weaponSummary(primary, stats)}
                   note={primary && tierNote(primary.tier, character.level)}
                   empty={`Search ${dataset.weapons.length} weapons`}
+                  unresolved={
+                    missing.primary === null
+                      ? null
+                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.primary }
+                  }
                   onOpen={() => setPicking('primary')}
                   onClear={() => patch({ activePrimaryWeapon: null })}
                 />
@@ -213,6 +240,11 @@ export function Edit({
                       : secondary && tierNote(secondary.tier, character.level)
                   }
                   empty="Optional"
+                  unresolved={
+                    missing.secondary === null
+                      ? null
+                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.secondary }
+                  }
                   onOpen={() => setPicking('secondary')}
                   onClear={() => patch({ activeSecondaryWeapon: null })}
                 />
@@ -222,6 +254,11 @@ export function Edit({
                   meta={armor && armorSummary(armor, stats.thresholds, stats.armorScore)}
                   note={armor && tierNote(armor.tier, character.level)}
                   empty={`Search ${dataset.armors.length} sets of armor`}
+                  unresolved={
+                    stats.unresolvedArmor === null
+                      ? null
+                      : { banner: 'ARMOR NOT IN THIS BUILD', ref: stats.unresolvedArmor }
+                  }
                   onOpen={() => setPicking('armor')}
                   onClear={() => {
                     patch({ activeArmor: null });
@@ -319,6 +356,545 @@ export function Edit({
         )
       )}
     </div>
+  );
+}
+
+/**
+ * The transformation a character holds: one card, added here and removed here.
+ *
+ * ## Why this screen, and why this position on it
+ *
+ * The owner settled two halves of the placement before it was built - not a
+ * step in character creation, and not a fifth nav entry - and both of those are
+ * refusals. What is left is where it goes, and the answer is the screen whose
+ * mode is literally called `sheet` (`Build.tsx`), in the LEFT column
+ * immediately under Identity.
+ *
+ * **Read-vs-touch.** These are two different lifetimes in one section. The
+ * *touch* - choosing a card, or dropping it - happens once or twice in a
+ * campaign, when the GM hands it over; folio 42 gives them away, so the player
+ * never browses these. The *read* - two features, verbatim - happens whenever
+ * someone asks what the card does. So the picker is folded away behind one row
+ * and the features are not folded at all: the rare gesture pays a tap, the
+ * frequent read pays nothing.
+ *
+ * **Thumb arc.** Nothing here is placed for the thumb, and that is the
+ * decision rather than an oversight. On a 393x852 phone the comfortable arc is
+ * roughly the lower half of the glass, and it is spent on this screen's two
+ * permanent controls - the mode switch and, at the very bottom, Delete. A
+ * once-a-campaign control competing for that band would be taking room from
+ * gestures made every session. Under Identity it is reached by a short scroll,
+ * which is the right price for a gesture made once.
+ *
+ * **Target size.** Every control here is `Choice` or a `btn` at `var(--tap)`,
+ * which is the 44px floor; nothing is smaller, and the six picker rows are full
+ * column width, so the smallest target in the section is 44 x the column.
+ *
+ * ## Shown, never applied
+ *
+ * Nothing in this component computes. It writes one `Ref` and it renders the
+ * dataset's own strings through `FeatureBlock`, the same component the Wizard
+ * draws an ancestry's features with. `deriveStats` does not read
+ * `transformationRef`, and `normalizeActive()` is deliberately NOT called after
+ * a pick - there is no maximum to re-clamp, because nothing about Evasion,
+ * thresholds, Stress or the armor track moved.
+ *
+ * ## The section that draws itself when there is nothing to pick
+ *
+ * SRD 1.0 prints no transformations, so on the dataset the app ships today
+ * `dataset.transformations` is empty and this whole section is absent - an
+ * empty picker over a chapter the book does not have would be furniture.
+ *
+ * It is absent *unless the character holds one anyway*, which is a real state:
+ * a sheet imported by QR or file from a build shipping SRD 2.0 arrives with a
+ * `transformationRef` this build cannot name, parked as `?14005`. Hiding the
+ * section then would be the exact defect already measured on a dropped weapon -
+ * a reference on the sheet with no trace of it anywhere on the glass. So it
+ * draws the same ghost the armor path draws, in the same words and the same
+ * colour, naming the raw ref and offering the one thing this build can honestly
+ * do with it: leave it, or drop it.
+ */
+function TransformationSection({
+  character,
+  onPatch,
+}: {
+  character: Character;
+  onPatch: (p: Partial<Character>) => void;
+}): React.JSX.Element | null {
+  const dataset = useApp((s) => s.dataset);
+  const index = useApp((s) => s.index);
+  const [picking, setPicking] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [reading, setReading] = useState(false);
+
+  const ref = character.transformationRef;
+  // `collections.transformations`, never `byRef`: SRD 2.0 prints an adversary
+  // VAMPIRE (folio 142) beside the VAMPIRE card (folio 45) and both slugify to
+  // `vampire`, so the bare-slug map answers with the stat block.
+  const held = ref === null ? undefined : index.collections.transformations.get(ref);
+  const cards = dataset.transformations;
+
+  if (cards.length === 0 && ref === null) return null;
+
+  return (
+    <Section label="Transformation" hint="GRANTED BY THE GM · SHOWN, NEVER APPLIED">
+      {ref !== null && held === undefined && (
+        <div
+          className="panel stack"
+          style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
+        >
+          <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
+            TRANSFORMATION NOT IN THIS BUILD
+          </span>
+          <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+            {ref}
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            onClick={() => {
+              onPatch({ transformationRef: null });
+            }}
+          >
+            Drop it
+          </button>
+        </div>
+      )}
+
+      {held !== undefined && (
+        <div className="panel stack" style={{ gap: 10, padding: '12px 13px' }}>
+          <span className="spread" style={{ alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ font: '800 17px/1.15 var(--sans)', letterSpacing: '-0.01em' }}>
+              {held.name}
+            </span>
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              {held.features.length} FEATURE{held.features.length === 1 ? '' : 'S'}
+            </span>
+          </span>
+          {/*
+            The FEATURES first and the card's prose folded under them, which is
+            the opposite of the order the book prints and is a decision taken by
+            looking at the rendered card rather than at the page.
+            
+            Measured in Chrome on the real VAMPIRE card (folio 45, 1055
+            characters of prose), one DOM node moved and nothing else - same
+            CSS, same content, the offset of the `Fangs` heading from the top
+            of the section:
+            
+              393x852    92.05 features first   371.79 the book's order   -279.74
+              1280x800   77.05                  293.32                    -216.27
+            
+            The prose alone measures 269.74px on the phone. Prose is read once,
+            when the GM hands the card over; `Fangs` and `Feed` are read every
+            time somebody asks what the card does. So the frequent read pays
+            nothing and the rare one pays a tap - read-vs-touch cutting the same
+            way it does for the picker above. Folded, the whole held card is
+            521.59px at 393x852 against 801.33 with the text open.
+          */}
+          {held.features.map((f) => (
+            <FeatureBlock key={f.name} name={f.name} text={f.text} />
+          ))}
+          {held.description !== '' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                aria-expanded={reading}
+                style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+                onClick={() => {
+                  setReading(!reading);
+                }}
+              >
+                {reading ? 'Hide the card’s text' : 'Read the card’s text'}
+              </button>
+              {reading && (
+                <p className="t-dense" style={{ margin: 0, whiteSpace: 'pre-line' }}>
+                  {held.description}
+                </p>
+              )}
+            </>
+          )}
+          {held.questions.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                aria-expanded={asking}
+                style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+                onClick={() => {
+                  setAsking(!asking);
+                }}
+              >
+                {asking ? 'Hide' : 'Show'} {held.questions.length} questions
+              </button>
+              {asking && (
+                <ul className="stack" style={{ gap: 6, margin: 0, paddingLeft: 18 }}>
+                  {held.questions.map((q) => (
+                    <li key={q} className="t-dense">
+                      {q}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {picking ? (
+        <div className="stack" style={{ gap: 8 }}>
+          {cards.map((t) => (
+            <Choice
+              key={t.id}
+              selected={t.id === ref}
+              onClick={() => {
+                /*
+                 * A second tap on the card already held removes it, which is
+                 * the same gesture `aria-pressed` already promises. No
+                 * `normalizeActive()` on either branch: nothing derived moved.
+                 */
+                onPatch({ transformationRef: t.id === ref ? null : t.id });
+                setPicking(false);
+              }}
+              title={t.name}
+              meta={`${t.features.map((f) => f.name.toUpperCase()).join(' · ')}`}
+              body={t.description}
+              clamp={2}
+            />
+          ))}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            onClick={() => {
+              setPicking(false);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        cards.length > 0 && (
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ minHeight: 'var(--tap)' }}
+              onClick={() => {
+                setPicking(true);
+              }}
+            >
+              {held === undefined ? `Add a transformation` : 'Change it'}
+            </button>
+            {held !== undefined && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ minHeight: 'var(--tap)' }}
+                onClick={() => {
+                  onPatch({ transformationRef: null });
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )
+      )}
+    </Section>
+  );
+}
+
+/**
+ * The martial stances a character knows, and the Focus they are holding.
+ *
+ * ## Where it is, and the two halves of that answer
+ *
+ * The screen is the one whose mode is literally called `sheet` (`Build.tsx`),
+ * in the LEFT column immediately under `TransformationSection`, which is
+ * immediately under Identity. No fifth nav entry: a fifth desktop nav entry
+ * overpaints the header by 69px, measured, and this is a section for one
+ * subclass out of twenty-six.
+ *
+ * Under the transformation and not above it because the two are ordered by how
+ * many sheets they are on. A transformation is GM-granted and can land on any
+ * character; stances belong to the Brawler's Martial Artist and to nobody else.
+ * Measured in Chrome at 393x852 on a real sheet, this section is **83.5px** for
+ * a character who knows no stance and holds no Focus - one button, and exactly
+ * the height the Transformation section is - against **354.47px** for a Martial
+ * Artist holding three. The thing that is 83.5px for almost everyone sorts
+ * below the thing that is not.
+ *
+ * ## Read-vs-touch, which cuts three ways here rather than two
+ *
+ * Three gestures with three different frequencies live in this one section, and
+ * they are drawn at three different depths. Measured at 393x852 on a level-5
+ * Martial Artist knowing Favored, Reliable and Anchored:
+ *
+ *   - **Reading a known stance's rule.** Every combat, several times - a
+ *     Martial Artist reads what they are shifting into. Not folded, no tap:
+ *     three blocks of 58.37, 58.37 and 74.23px, all of them open.
+ *   - **Moving Focus.** Once per shift, so several times per combat. One
+ *     stepper, two 44x44 buttons, never folded.
+ *   - **Choosing or dropping a stance.** Twice at level 1 and once per level
+ *     after: eleven times in a whole campaign. Folded behind one 146.11x44
+ *     button.
+ *
+ * What the fold buys, measured rather than assumed: the section is 354.47px
+ * closed and **1750.75px** with the picker open, and the scroll area on that
+ * phone is 603px. So the sixteen rows are 1396.28px - 2.32 screenfuls - that
+ * the frequent reader never scrolls past, in exchange for one tap on the rare
+ * gesture.
+ *
+ * The Focus row is the one that does not sit comfortably here, and the cost is
+ * named rather than hidden: it is a per-combat control four gestures deep in
+ * the tab visited least. The section it belongs beside is Play's own track
+ * strip, and that is this lane's openQuestions entry with the exact edit; what
+ * this screen owes it in the meantime is to be the only place it exists rather
+ * than the second.
+ *
+ * ## Thumb arc
+ *
+ * Measured, and the answer is that this section does not have to choose. At
+ * 393x852 the scroll area is 603px tall and starts at y=188, and the fixed
+ * furniture is the nav bar at y=791..852 and the mode switch above the scroll;
+ * the comfortable arc is the lower half, y>=426. Scrolled so the section sits
+ * at the top of the scroll area, the Focus `+` centres at y=249.5 - above the
+ * arc - and `Change stances` centres at y=520.47, inside it.
+ *
+ * That is backwards for the frequencies above, and it does not matter, because
+ * the whole section is 354.47px against a 603px scroll area: it fits on the
+ * glass entire, so which of its controls is under the thumb is one scroll
+ * gesture, not a layout decision. What would have made it a layout decision is
+ * a section taller than the scroll area, and the fold is what keeps it from
+ * being one.
+ *
+ * ## Target size
+ *
+ * Measured on the rendered page rather than read off the CSS. `Stepper`'s two
+ * Focus buttons are 44.00 x 44.00; the picker button is 146.11 x 44.00; the
+ * sixteen picker rows are 369.00 wide with a minimum height of 62.87. The
+ * smallest target in the section is therefore 44x44, which is the floor
+ * `var(--tap)` names, and nothing is under it.
+ *
+ * ## Shown, never applied
+ *
+ * Nothing here computes. It writes a `Ref[]` and a `Counter` and renders the
+ * dataset's own strings. `deriveStats` does not read `stanceRefs` and must not:
+ * six of the sixteen name a number - Aggressive's `-1` to Evasion, Anchored's
+ * `+2` to damage thresholds, Reliable's `+1` to attack rolls - and every one is
+ * conditional on being IN the stance, which this app does not track and the
+ * book ties to the scene, to Severe damage and to the last Hit Point.
+ * `normalizeActive()` is deliberately not called after a pick: no derived
+ * maximum moved, because none of them reads this.
+ *
+ * ## The section that draws itself when there is nothing to pick
+ *
+ * On the SRD 1.0 dataset `dataset.stances` is empty and this whole section is
+ * absent - a picker over a chapter the book does not print is furniture. It is
+ * absent *unless the character carries something anyway*, which is a real
+ * state: a sheet arriving by QR or file from a build shipping SRD 2.0 brings
+ * `?15008` for a stance this build cannot name, or a Focus track this build has
+ * no chapter for. Hiding it then is the defect already measured on a dropped
+ * weapon - a reference on the sheet with no trace of it on the glass - so it
+ * draws the same ghost row the armor and transformation paths draw, naming the
+ * raw ref and offering the one honest thing: drop it.
+ */
+function StancesSection({
+  character,
+  onPatch,
+}: {
+  character: Character;
+  onPatch: (p: Partial<Character>) => void;
+}): React.JSX.Element | null {
+  const dataset = useApp((s) => s.dataset);
+  const index = useApp((s) => s.index);
+  const [picking, setPicking] = useState(false);
+
+  const all = dataset.stances;
+  // `collections.stances`, never `byRef`: the stances are deliberately out of
+  // the bare-slug map, so this is the only lookup that can answer.
+  const known = character.stanceRefs.map((ref) => ({
+    ref,
+    record: index.collections.stances.get(ref),
+  }));
+  const unnamed = known.filter((k) => k.record === undefined);
+  const holdsFocus = character.focus.marked > 0;
+
+  if (all.length === 0 && known.length === 0 && !holdsFocus) return null;
+
+  const toggle = (id: string): void => {
+    const has = character.stanceRefs.includes(id);
+    onPatch({
+      stanceRefs: has
+        ? character.stanceRefs.filter((r) => r !== id)
+        : [...character.stanceRefs, id],
+    });
+  };
+
+  /*
+   * The tier this character has reached, from the level alone - the same
+   * `tierOf` the gear picker reads, so the two screens cannot disagree about
+   * what tier 3 means.
+   */
+  const characterTier = tierOf(character.level);
+  const byTier = [1, 2, 3, 4].map((tier) => ({
+    tier,
+    rows: all.filter((s) => s.tier === tier),
+  }));
+
+  return (
+    <Section label="Martial Stances" hint="KNOWN, NOT ACTIVE · SHOWN, NEVER APPLIED">
+      {(known.length > 0 || holdsFocus) && (
+        <div
+          className="spread"
+          style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap', maxWidth: 330 }}
+        >
+          <span className="row" style={{ gap: 8 }}>
+            <span style={{ font: '600 14px/1 var(--sans)' }}>Focus</span>
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              HELD
+            </span>
+          </span>
+          <Stepper
+            label="Focus"
+            value={character.focus.marked}
+            min={0}
+            max={character.focus.max}
+            width={34}
+            format={(v) => `${v}/${character.focus.max}`}
+            onChange={(marked) => {
+              onPatch({ focus: { ...character.focus, marked } });
+            }}
+          />
+        </div>
+      )}
+
+      {unnamed.map(({ ref }) => (
+        <div
+          key={ref}
+          className="panel stack"
+          style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
+        >
+          <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
+            STANCE NOT IN THIS BUILD
+          </span>
+          <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+            {ref}
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            onClick={() => {
+              onPatch({ stanceRefs: character.stanceRefs.filter((r) => r !== ref) });
+            }}
+          >
+            Drop it
+          </button>
+        </div>
+      ))}
+
+      {/*
+        The known stances, in the book's own tier order rather than the order
+        they were picked in: the rule a player checks is "from your tier or
+        lower", so the tier is what the list is read against. Their text is not
+        folded - see read-vs-touch above.
+      */}
+      {known.some((k) => k.record !== undefined) && (
+        <div className="stack" style={{ gap: 8 }}>
+          {all
+            .filter((s) => character.stanceRefs.includes(s.id))
+            .map((s) => (
+              <FeatureBlock key={s.id} name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
+            ))}
+        </div>
+      )}
+
+      {picking ? (
+        <div className="stack" style={{ gap: 8 }}>
+          {byTier.map(({ tier, rows }) =>
+            rows.length === 0 ? null : (
+              <div key={tier} className="stack" style={{ gap: 8 }}>
+                <span className="t-label" style={{ color: 'var(--dim)' }}>
+                  TIER {tier}
+                </span>
+                {rows.map((s) => (
+                  <Choice
+                    key={s.id}
+                    selected={character.stanceRefs.includes(s.id)}
+                    /*
+                     * ABOVE THIS CHARACTER'S TIER: dimmed and explained, never
+                     * blocked, and the two halves are a decision each.
+                     *
+                     * Folio 13: "Mark a new stance from your tier or below each
+                     * time you gain a level." So a tier above this one is not
+                     * yet the player's to mark, and a picker that said nothing
+                     * would be letting them take it without ever printing the
+                     * rule they were breaking.
+                     *
+                     * It is not DISABLED, which is `GearPicker`'s decision for
+                     * out-of-level gear and the same argument: the tier is
+                     * arithmetic, and a GM who hands a player something early
+                     * is not a state this app may refuse to represent. Hiding
+                     * it would be worse still - `gear.ts` calls that lying by
+                     * omission, and the sheet already says SHOWN, NEVER
+                     * APPLIED, so nothing here moves a number either way.
+                     */
+                    dim={s.tier > characterTier}
+                    reason={
+                      s.tier > characterTier
+                        ? `Tier ${s.tier} — markable from level ${TIER_LEVELS[s.tier][0] ?? 1}`
+                        : undefined
+                    }
+                    /*
+                     * A second tap on a stance already known removes it, which
+                     * is what `aria-pressed` already promises. The picker stays
+                     * OPEN either way - unlike the transformation picker, which
+                     * closes on a pick, because that field holds one card and
+                     * this one holds two at level 1 and more later. Closing
+                     * after the first of two would make the common gesture pay
+                     * two extra taps.
+                     */
+                    onClick={() => {
+                      toggle(s.id);
+                    }}
+                    title={s.name}
+                    body={s.text}
+                  />
+                ))}
+              </div>
+            ),
+          )}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            onClick={() => {
+              setPicking(false);
+            }}
+          >
+            Done
+          </button>
+        </div>
+      ) : (
+        all.length > 0 && (
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ minHeight: 'var(--tap)' }}
+              onClick={() => {
+                setPicking(true);
+              }}
+            >
+              {known.length === 0 ? 'Add a stance' : `Change stances (${known.length})`}
+            </button>
+          </div>
+        )
+      )}
+    </Section>
   );
 }
 

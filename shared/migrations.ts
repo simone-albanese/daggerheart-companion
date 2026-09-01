@@ -39,7 +39,7 @@
  * it does not need converting: it ships inside the bundle, so it is always the
  * one this build expects.
  */
-import { SCHEMA_VERSION } from './types.ts';
+import { MAX_FOCUS, SCHEMA_VERSION } from './types.ts';
 
 export interface Migration {
   /** The version this reads. It produces `from + 1`, always. */
@@ -74,6 +74,10 @@ export const OLDEST_READABLE = 3;
  *
  * The second is duller still, and that is the point twice over: both of them
  * seed a field with the value the older build already behaved as if it had.
+ *
+ * The third seeds nothing at all - the 5 -> 6 bump moved only `Dataset` - and
+ * the fourth is back to the ordinary shape: one new `Character` field,
+ * `transformationRef`, seeded with the value every schema-6 sheet meant.
  */
 export const MIGRATIONS: readonly Migration[] = [
   {
@@ -114,6 +118,102 @@ export const MIGRATIONS: readonly Migration[] = [
       }
       return { ...r, companion: { ...(companion as Record<string, unknown>), damageType: 'phy' } };
     },
+  },
+  {
+    from: 5,
+    note: 'the dataset grew a transformations collection and four widened fields; no schema-5 character field changed',
+    /*
+     * A copy, and the first character converter that seeds nothing.
+     *
+     * The 5 -> 6 bump is entirely about `Dataset`: `transformations`,
+     * `DamageKind`, `Feature.kind`, `Feature.features` and `Adversary.stress`.
+     * Not one of them is on `Character`, so a schema-5 sheet is already a valid
+     * schema-6 sheet, field for field, and there is nothing here to repair or
+     * to fill. Inventing work for this function - restamping a field, seeding a
+     * default some reader already supplies - would be the kind of converter
+     * that looks diligent and is the one nobody notices has gone stale.
+     *
+     * `{ ...r }` rather than `r` itself, for the reason `CAMPAIGN_MIGRATIONS`
+     * gives at its own first entry: `migrateCharacterRecord` spreads a
+     * `schemaVersion` onto whatever comes back, and returning the argument
+     * would leave that spread as the only thing standing between a caller's
+     * record and being restamped in place. One allocation buys a pure chain,
+     * and purity is what a test can assert.
+     *
+     * **What the number buys, since the field list is empty.** Not the usual
+     * thing. `shared/campaigns.ts` bumps so that old builds REFUSE new records,
+     * because an old build would silently truncate one; here an old build would
+     * read a schema-6 sheet perfectly, and the refusal it now gets is a cost
+     * rather than a benefit. It is paid for the dataset half of what this
+     * constant names: `Dataset.schemaVersion` is typed `typeof SCHEMA_VERSION`
+     * and the shipped JSON carries the number, so a `Dataset` whose shape moved
+     * under a constant that did not is an artifact stamped with a version that
+     * no longer identifies it - and the only check that can see that
+     * (`baseDataset.schemaVersion === SCHEMA_VERSION`) is the one that fires
+     * when the constant moves and the JSON is not rebuilt. The argument in full
+     * is at `SCHEMA_VERSION` in `shared/types.ts`, including the question it
+     * leaves open.
+     */
+    apply: (r) => ({ ...r }),
+  },
+  {
+    from: 6,
+    note: 'a character can hold one transformation card, starting with none',
+    /*
+     * `null`, and it is the same kind of answer the `from: 3` entry gives: not
+     * a guess, but the value the older build already behaved as if it had.
+     *
+     * A schema-6 build had no `transformationRef`, no picker on the sheet and
+     * no field on the wire, so every schema-6 sheet held no transformation.
+     * `null` is that fact written down.
+     *
+     * It overwrites rather than preserving a key that is already there, for the
+     * reason the `from: 3` converter gives at length: a record stamped 6 that
+     * carries a schema-7 field is a record whose own header is wrong, and
+     * believing the field over the header lets a hand-edited file decide what
+     * the schema means.
+     *
+     * **This is the first converter since the 3 -> 4 step whose refusal earns
+     * its keep.** A schema-6 build reading a schema-7 sheet would not merely be
+     * behind: `readCharacterRecord` spreads the file over `newCharacter()`, and
+     * a blank schema-6 sheet has no `transformationRef` key, so the field would
+     * be dropped on read and written back out gone. The bump is what turns
+     * that silent deletion into `checkReadable`'s "was written by a newer
+     * version of the app" refusal, with the file untouched.
+     */
+    apply: (r) => ({ ...r, transformationRef: null }),
+  },
+  {
+    from: 7,
+    note: 'a character can know martial stances and hold Focus, starting with none of either',
+    /*
+     * Two fields in one converter, because the 7 -> 8 bump is one fact: a
+     * Martial Artist's sheet. `stanceRefs` is the marked circles and `focus` is
+     * the track beside them; a sheet with one and not the other is not a state
+     * any build has ever written.
+     *
+     * `[]` and a zeroed six-box track, and neither is a guess. A schema-7 build
+     * had no stance list, no Focus track, no picker and no field on the wire,
+     * so no sheet it wrote knew a stance or held a Focus - which is exactly
+     * what these two values say.
+     *
+     * The maximum comes from `MAX_FOCUS` rather than being written as `6` here.
+     * `COUNTER_CEILINGS.focus` is the same constant, and it is what refuses a
+     * seventh box arriving over the wire; a converter seeding a literal beside
+     * it is how the stored track and the check on it come to disagree.
+     *
+     * It overwrites rather than preserving keys that are already there, for the
+     * reason the `from: 3` converter gives at length: a record stamped 7 that
+     * carries a schema-8 field is a record whose own header is wrong.
+     *
+     * **The refusal earns its keep, and more than seven's did.** A schema-7
+     * build reading a schema-8 sheet would drop both fields on read and write
+     * them back out gone - `readCharacterRecord` spreads the file over
+     * `newCharacter()`, and a blank schema-7 sheet has neither key. Seven's
+     * refusal protected one ref; this one protects a list of up to eleven and
+     * the Focus a player is holding mid-scene.
+     */
+    apply: (r) => ({ ...r, stanceRefs: [], focus: { marked: 0, max: MAX_FOCUS } }),
   },
 ];
 

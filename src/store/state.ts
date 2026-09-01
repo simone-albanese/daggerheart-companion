@@ -838,6 +838,14 @@ function boundCounters(c: Character): Character {
     stress: bound(c.stress, COUNTER_CEILINGS.stress),
     hope: bound(c.hope, COUNTER_CEILINGS.hope),
     armorSlots: bound(c.armorSlots, COUNTER_CEILINGS.armorSlots),
+    /*
+     * `focus` was the one ceiling this function did not hold. `COUNTER_CEILINGS`
+     * has carried it since schema 8 and NOTHING on this path read it - the wire
+     * refused an over-large track, the store did not. Measured in the running
+     * app: a record with `focus: { marked: 1048576, max: 1048576 }` drew
+     * `1048576/1048576` in the Martial Stances section.
+     */
+    focus: bound(c.focus, COUNTER_CEILINGS.focus),
   };
   if (c.companion !== null) {
     next.companion = {
