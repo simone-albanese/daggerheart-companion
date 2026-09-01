@@ -3296,7 +3296,7 @@ function ControlRow({
         onClick={() => setPicking(true)}
         disabled={held.length >= MAX_HELD}
         aria-label="Hold a die for later rolls"
-        title="A Rally, Prayer or Slayer Die, or the d6 from Help an Ally"
+        title="A Rally, Prayer, Slayer or Patron Die, or the d6 from Help an Ally"
         style={{
           flex: 'none',
           minHeight: 'var(--control)',
