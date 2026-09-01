@@ -993,18 +993,70 @@ const active = (): Character => useApp.getState().characters[0]!;
 describe('adding, removing and moving Focus on the sheet', () => {
   const withStances: Dataset = makeDataset({ stances: baseDataset.stances });
 
+  /*
+   * The subclass the sheet belongs to. Every mount below carries it, because
+   * without it the section is not this character's to see - which is the whole
+   * of the next two checks.
+   */
+  const MARTIAL_ARTIST = 'martial-artist';
+
   it('draws no section at all on a dataset with no stances', () => {
-    mount(sheet({ classRef: 'test-class' }), makeDataset());
+    mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST] }), makeDataset());
     expect(container.textContent).not.toContain('Martial Stances');
   });
 
+  it('names a subclass the shipped book actually prints', () => {
+    /*
+     * The address `STANCE_SUBCLASS` writes down, checked against the dataset -
+     * which is the condition this repo puts on writing an address in `src/` at
+     * all. If a printing renames the Martial Artist, this reddens instead of
+     * the section quietly never drawing again for anybody.
+     */
+    const sub = baseDataset.subclasses.find((x) => x.id === MARTIAL_ARTIST);
+    expect(sub, `no subclass called ${MARTIAL_ARTIST} in this build`).toBeDefined();
+    expect(sub!.name).toBe('Martial Artist');
+    expect(sub!.classRef).toBe('brawler');
+  });
+
+  it('draws nothing at all for a character who did not take the subclass', () => {
+    /*
+     * THE OWNER'S DEFECT. Folio 13: "When you choose the Martial Artist
+     * subclass, take the Martial Stances sheet." The gate used to be only
+     * "does this book print stances", so every character on the branch got a
+     * MARTIAL STANCES section and an `Add a stance` button - a wizard included.
+     * That is the app promising something the book does not give them.
+     */
+    mount(sheet({ classRef: 'test-class', subclassRefs: ['school-of-knowledge'] }), withStances);
+    expect(container.textContent).not.toContain('Martial Stances');
+    expect(named2('Add a stance'), 'no way in either').toBeUndefined();
+  });
+
+  it('still shows what a non-Martial-Artist already carries, and offers no more', () => {
+    /*
+     * The other half, and the one a hard gate would have broken. A sheet can
+     * arrive carrying stances - from another device, or from a subclass chosen
+     * differently - and hiding them would make them invisible AND UNDROPPABLE
+     * while they went on being written to storage. So they are drawn; only the
+     * picker is withheld, because seeing what you carry is not permission to
+     * take more.
+     */
+    mount(
+      sheet({ classRef: 'test-class', subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] }),
+      withStances,
+    );
+    expect(container.textContent).toContain('Martial Stances');
+    expect(container.textContent).toContain('Favored');
+    expect(named2('Add a stance'), 'no picker for someone it is not for').toBeUndefined();
+    expect(named2('Change stances (1)'), 'nor the other label').toBeUndefined();
+  });
+
   it('adds no nav entry, because the section lives on a screen that exists', () => {
-    mount(sheet({ classRef: 'test-class' }), withStances);
+    mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST] }), withStances);
     expect(container.querySelector('nav')).toBeNull();
   });
 
   it('opens a picker of sixteen under four tier heads, every row a 44px target', () => {
-    mount(sheet({ classRef: 'test-class' }), withStances);
+    mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST] }), withStances);
     press(named2('Add a stance'));
     for (const s of baseDataset.stances) expect(named2(s.name), s.name).toBeDefined();
     for (const tier of [1, 2, 3, 4]) {
@@ -1032,7 +1084,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
      *     something over early is not a state this app may refuse to draw.
      * `GearPicker` made all three the same way for out-of-level gear.
      */
-    mount(sheet({ classRef: 'test-class', level: 1 }), withStances);
+    mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST], level: 1 }), withStances);
     press(named2('Add a stance'));
 
     const honed = named2('Honed');
@@ -1049,7 +1101,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
   });
 
   it('writes the refs and nothing else, and draws the rules it wrote', async () => {
-    const before = sheet({ classRef: 'test-class' });
+    const before = sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST] });
     mount(before, withStances);
     press(named2('Add a stance'));
     press(named2('Favored'));
@@ -1070,7 +1122,10 @@ describe('adding, removing and moving Focus on the sheet', () => {
   });
 
   it('removes one with a second tap on the row that is already on', async () => {
-    mount(sheet({ classRef: 'test-class', stanceRefs: ['favored'] }), withStances);
+    mount(
+      sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST], stanceRefs: ['favored'] }),
+      withStances,
+    );
     press(named2('Change stances'));
     expect(named2('Favored')!.getAttribute('aria-pressed')).toBe('true');
     press(named2('Favored'));
@@ -1100,7 +1155,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
   });
 
   it('draws no Focus row for a character who knows no stance and holds none', () => {
-    mount(sheet({ classRef: 'test-class' }), withStances);
+    mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST] }), withStances);
     expect(buttons().some((b) => b.getAttribute('aria-label') === 'Increase Focus')).toBe(false);
   });
 
