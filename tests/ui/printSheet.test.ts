@@ -32,6 +32,9 @@ import {
   makeWeapon,
 } from '../fixtures/factories.ts';
 
+/** The revision the app ships, from the dataset itself. `SRD 2.0` -> `2.0`. */
+const shippedSrd = (baseDataset.layers[0]?.label ?? '').replace(/^SRD /, '');
+
 const CSS_PATH = 'src/ui/print/sheet.css';
 
 const ancestry = (id: string): Ancestry => ({
@@ -433,7 +436,15 @@ describe('the printed page', () => {
   });
 
   it('carries the attribution the licence requires', () => {
-    expect(html).toContain('Daggerheart System Reference Document 1.0');
+    /*
+     * The SHIPPED revision, not a literal. §4.1(a) identifies the Public Game
+     * Content this product includes, so the sentence has to name the book the
+     * app actually draws — and when the shipped dataset became SRD 2.0 this
+     * assertion went on protecting `1.0`, which is a false legal statement
+     * held green by a test. Derived from `baseDataset` the same way the notice
+     * is, so it cannot disagree with it and cannot go stale again.
+     */
+    expect(html).toContain(`Daggerheart System Reference Document ${shippedSrd}`);
   });
 });
 

@@ -73,6 +73,10 @@ import { useApp, type Screen } from '../../src/store/state.ts';
 import { ATTRIBUTION } from '../../src/ui/shared/CompatibleMark.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { playedCharacter } from './fixture.ts';
+import { baseDataset } from '../../src/store/dataset.ts';
+
+/** The revision the app ships, from the dataset itself. `SRD 2.0` -> `2.0`. */
+const shippedSrd = (baseDataset.layers[0]?.label ?? '').replace(/^SRD /, '');
 
 declare global {
   // eslint-disable-next-line no-var
@@ -619,7 +623,15 @@ describe('what the notice actually says, clause by clause of §4.1', () => {
   it('(b) identifies the Public Game Content and names who made it', () => {
     // The clause wants the material named, not merely a © line: "Daggerheart
     // System Reference Document 1.0" is the Public Game Content by its own name.
-    expect(NOTICE).toContain('Daggerheart System Reference Document 1.0');
+    /*
+     * The SHIPPED revision, not a literal. §4.1(a) identifies the Public Game
+     * Content this product includes, so the sentence has to name the book the
+     * app actually draws — and when the shipped dataset became SRD 2.0 this
+     * assertion went on protecting `1.0`, which is a false legal statement
+     * held green by a test. Derived from `baseDataset` the same way the notice
+     * is, so it cannot disagree with it and cannot go stale again.
+     */
+    expect(NOTICE).toContain(`Daggerheart System Reference Document ${shippedSrd}`);
     expect(NOTICE).toContain('Critical Role, LLC');
   });
 
