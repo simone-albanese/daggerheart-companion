@@ -318,6 +318,32 @@ describe('an equipped weapon that the next dataset does not print', () => {
     expect(body).not.toContain('NOT IN THIS BUILD');
   });
 
+  /*
+   * THE OTHER EMPTY. `null` is not the only way this app says "nothing
+   * equipped": `''` is too, and `deriveStats` reads
+   * `activeArmor === null || activeArmor === ''` for exactly that reason.
+   * `unresolvedWeapons` guards it with `ref !== ''` and nothing held that
+   * guard down.
+   *
+   * Measured: delete `ref !== ''` from `unresolvedWeapons` and all 4559 tests
+   * stay green, while `missing('')` begins answering `''` - because
+   * `index.weapons.has('')` is false, so an EMPTY slot is reported as holding
+   * a weapon this build cannot name, and both screens draw the banner over
+   * nothing. The `ref !== ''` in `characterRefs` above is a different guard
+   * and IS held down - deleting that one fails two tests.
+   */
+  it('CONTROL: the empty STRING is empty too, and draws no banner either', () => {
+    const ds = withoutTheNine();
+    expect(
+      unresolvedWeapons(
+        { ...playedCharacter(), activePrimaryWeapon: '', activeSecondaryWeapon: '' },
+        indexDataset(ds),
+      ),
+    ).toEqual({ primary: null, secondary: null });
+    const body = draw(ds, { activePrimaryWeapon: '', activeSecondaryWeapon: '' });
+    expect(body).not.toContain('NOT IN THIS BUILD');
+  });
+
   it('is still not dropped: the ref stays on the sheet, and the engine is what reports it', () => {
     const ds = withoutTheNine();
     const ix = indexDataset(ds);
