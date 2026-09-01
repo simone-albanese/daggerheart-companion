@@ -718,6 +718,62 @@ describe('the Warlock`s Patron Die, which costs a Favor', () => {
     );
   });
 
+  it('freezes the Favor the purchase left, rather than tracking the live number', () => {
+    /*
+     * A confirmation is a report of an event, so its number has to be the
+     * number at the event. Rendered from the live track it kept updating: buy
+     * at three, "2 FAVOR LEFT", then a downtime tribute puts the track back up
+     * and the same sentence reads "TAKEN ... 5 FAVOR LEFT" about a purchase
+     * that left two.
+     *
+     * Nothing in this branch raises Favor - the track's own controls are
+     * another lane's - so the tribute is played here by writing the store the
+     * way that lane will, which is what makes this reachable before it lands.
+     */
+    warlock(3);
+    click(named('Spend a Favor'));
+    expect(text()).toContain('2 FAVOR LEFT');
+
+    act(() => {
+      const c = character();
+      useApp.setState({ characters: [{ ...c, favor: { marked: 5, max: 6 } }] });
+    });
+    expect(text(), 'the confirmation followed the track instead of the purchase').toContain(
+      '2 FAVOR LEFT',
+    );
+    expect(text()).not.toContain('5 FAVOR LEFT');
+  });
+
+  it('does not carry one Warlock`s purchase onto the next Warlock`s sheet', () => {
+    /*
+     * The last purchase is component state, and this list is keyed by pool. Two
+     * Warlocks on one device share the key `patron`, so React kept the instance
+     * across a switch of the active sheet and the second Warlock opened onto
+     * "TAKEN · A D8 IS IN YOUR ROLL'S DICE TRAY" about a die they never bought
+     * and a Favor they still have. The key is `<character>:<pool>` now.
+     *
+     * No `fresh()` here on purpose: switching the ACTIVE character is exactly
+     * the gesture under test, so the tree has to stay mounted across it.
+     */
+    const first = warlock(3);
+    click(named('Spend a Favor'));
+    expect(text()).toContain('TAKEN');
+
+    const second = { ...playedCharacter(), id: 'second-warlock', classRef: 'warlock',
+      subclassRefs: [], multiclassRef: null, level: 1, levelUpHistory: [],
+      favor: { marked: 2, max: 6 } } as Character;
+    act(() => {
+      useApp.setState({ characters: [character(), second], activeId: second.id });
+    });
+    render(createElement(DicePools, { stats: deriveStats(second, dataset, index) }));
+
+    expect(text(), 'the second Warlock inherited a purchase they never made').not.toContain(
+      'TAKEN',
+    );
+    expect(tray(second), 'and they did not inherit the die either').toEqual([]);
+    expect(first.id).not.toBe(second.id);
+  });
+
   it('refuses with an empty track, and says what to do about it', () => {
     const c = warlock(0);
     const call = named('Spend a Favor');

@@ -611,7 +611,18 @@ function PaidDie({
   const buy = useHeldDice((s) => s.buy);
   const update = useApp((s) => s.update);
   const held = useHeldFor(character.id);
-  const [bought, setBought] = useState(false);
+  /**
+   * The Favor left at the moment of the last purchase, or null before one.
+   *
+   * A NUMBER AND NOT A BOOLEAN, because a confirmation is a report of an event
+   * and has to be frozen at it. Rendered from the live track, the line kept
+   * updating: buy at three, the sheet says `2 FAVOR LEFT`, then a downtime
+   * tribute puts the track back to five and the same sentence now reads `TAKEN
+   * ... 5 FAVOR LEFT` about a purchase that left two. Nothing in this branch
+   * raises Favor yet - the track's own controls are another lane's - which is
+   * exactly why it is worth fixing before that lane lands rather than after.
+   */
+  const [leftAfterBuying, setLeftAfterBuying] = useState<number | null>(null);
 
   const favor = character.favor.marked;
   const full = held.length >= MAX_HELD;
@@ -648,7 +659,10 @@ function PaidDie({
         disabled={favor <= 0 || full}
         aria-label={`Spend a Favor to call on your patron and take a d${String(pool.sides)}. You hold ${String(favor)} Favor.`}
         onClick={() => {
-          if (buy(character.id, pool.sides, spendAFavor)) setBought(true);
+          if (!buy(character.id, pool.sides, spendAFavor)) return;
+          // Read after the charge, not before: this is what the purchase left.
+          const live = useApp.getState().characters.find((c) => c.id === character.id);
+          setLeftAfterBuying(live?.favor.marked ?? 0);
         }}
       >
         Spend a Favor · take a d{pool.sides}
@@ -661,10 +675,10 @@ function PaidDie({
           answer to the gesture was two paragraphs below the gesture with an
           unrelated refusal in the gap. Measured in Chrome at 393px wide - the
           block is 190px at rest, 218px with the confirmation, 274px with both. */}
-      {bought && (
+      {leftAfterBuying !== null && (
         <span className="t-meta" style={{ color: 'var(--hope)' }}>
           TAKEN · A D{pool.sides} IS IN YOUR ROLL&apos;S DICE TRAY · TAP IT THERE TO
-          ADD IT TO THE ROLL · {favor} FAVOR LEFT
+          ADD IT TO THE ROLL · {leftAfterBuying} FAVOR LEFT
         </span>
       )}
       {favor <= 0 && (
@@ -743,7 +757,15 @@ export function DicePools({ stats }: { stats: DerivedStats }): React.JSX.Element
             affordance={affordance}
           />
         ) : (
-          <PaidDie key={pool.id} pool={pool} character={character} />
+          /*
+           * KEYED ON THE CHARACTER AS WELL AS THE POOL. `PaidDie` holds the
+           * last purchase in component state, and switching the active sheet
+           * re-renders this list with the same `patron` key - so React kept the
+           * instance and one Warlock's `TAKEN · 2 FAVOR LEFT` carried over onto
+           * the next Warlock's sheet, about a die that character never bought.
+           * A composite key makes the two sheets two components.
+           */
+          <PaidDie key={`${character.id}:${pool.id}`} pool={pool} character={character} />
         ),
       )}
       {/*

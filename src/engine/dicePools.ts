@@ -273,6 +273,16 @@ const POOLS: Record<string, PoolSpec> = {
     rolledAt: 'spend',
     beneficiary: 'self',
     cost: 'favor',
+    /*
+     * One use, and the screen does not draw it. `PaidDie` prints the whole
+     * feature underneath the control and that paragraph already ends with
+     * "adding its result to the total", so rendering this too would be the same
+     * sentence twice in eight lines. It is here because `spends` is what a pool
+     * says its dice are FOR - the auditor walks it, and a second priced pool
+     * with an appliable use (`apply: 'hope'`) would need the screen to read it.
+     * `apply: null` is the honest answer for this one: the total belongs to a
+     * roll the app has not made yet, and nothing on this sheet moves.
+     */
     spends: [
       {
         apply: null,
