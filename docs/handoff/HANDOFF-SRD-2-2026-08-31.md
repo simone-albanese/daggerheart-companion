@@ -8,26 +8,27 @@ I commit si citano **per oggetto, mai per SHA**: il ramo si ribasa e gli hash mu
 
 ## 0. Stato, misurato — 1 settembre 2026
 
-Ramo `srd-2`, spinto fino a *«Hand over a branch that is ready, a wave that is in
-flight, and two things I got wrong»*; **otto commit nuovi non ancora spinti**.
-**PR #66 APERTA, NON UNITA.** 36 commit, 149 file, +22.006 / −1.419.
+Ramo `srd-2`, spinto fino a *«Bring the handoff up to a branch whose wave has
+landed»*; **tre commit nuovi dopo quello**.
+**PR #66 APERTA, NON UNITA.** 39 commit, 149 file, +22.236 / −1.421.
 
-**Questi numeri sono misurati a *«Sweep the collection that arrived after the
-sweep was widened»*, e il commit di questo documento ne aggiunge uno.** È esattamente il difetto che la versione precedente di questa
-sezione aveva: diceva «27 commit, +18.116» quando erano già 28 e +18.165, perché
-il commit che scriveva la frase la rendeva falsa. Un numero qui va riletto, mai
-ricopiato.
+**Questi numeri sono misurati a *«Pin the tier head's bold guard, and stop the
+docblock claiming what it cannot»*, e il commit di questo documento ne aggiunge
+uno.** È esattamente il difetto che la versione precedente di questa sezione aveva:
+diceva «27 commit, +18.116» quando erano già 28 e +18.165, perché il commit che
+scriveva la frase la rendeva falsa. Un numero qui va riletto, mai ricopiato.
 
 ```
 npx tsc --noEmit                              0 errori
-npx vitest run                                186 file / 4615 test
+npx vitest run                                186 file / 4617 test
 npm run build:srd -- --check                  data/srd-2.0.json matches the source.
 npm run build:srd -- --check --pdf <SRD 1>    data/srd-1.0.json matches the source.
 npm run build:registry -- --check             1368 id, 9 conservati, zero numeri spostati
-CI sulla PR                                   l'ultima verde è la run 33473015636
-                                              (la consegna precedente citava 33463548440:
-                                              una run diversa). Va rilanciata: gli otto
-                                              commit non sono ancora spinti.
+CI sulla PR                                   verde sulla run 33476768085, sul commit
+                                              esatto del ramo. (La consegna precedente
+                                              citava 33463548440, che era verde ma su un
+                                              commit più vecchio.) Dopo gli ultimi tre
+                                              commit va rilanciata.
 ```
 
 Il PDF dell'SRD 1 è `Manuali/Daggerheart-SRD-9-09-25.pdf` — non c'è nessun file
@@ -64,8 +65,15 @@ integrate, verdi e committate. Non c'è nulla in volo.
 **Come si è capito che era viva**, perché la prossima volta conterà: i
 transcript degli agenti **ritardano di minuti** — quello di `pricing` era fermo
 alle 07:20:15 mentre la corsia consegnava alle 07:26:28. Il segnale onesto è
-**il mtime della cartella della corsia**, non il transcript e non il journal
-(che conteneva due righe `started` e nessun `result` dall'inizio alla fine).
+**il mtime della cartella della corsia**.
+
+> **Correzione a una frase che avevo scritto qui.** Avevo scritto che il journal
+> «conteneva due righe `started` e nessun `result` dall'inizio alla fine».
+> **È falso, e l'errore era mio: l'avevo letto troppo presto.** Alle 08:16 quel
+> file aveva **sette** righe — due `started`, due `result`, e poi altri due
+> `started` con i loro `result`. Il journal è una fonte **lenta**, non muta: non
+> dice mai «ancora niente», dice «niente ANCORA». Rileggerlo, non dedurne la
+> morte.
 
 **Due trappole, entrambe scattate:**
 
@@ -82,6 +90,43 @@ alle 07:20:15 mentre la corsia consegnava alle 07:26:28. Il segnale onesto è
    in questa sessione, quindi la sua consegna **conteneva già** quel lavoro. Un
    merge a tre vie non è servito, ma solo perché è stato **misurato** prima:
    28 file consegnati, 28 percorsi differenti fra corsia e HEAD, zero collisioni.
+
+### L'ondata aveva una FASE DI VERIFICA, e ha trovato cose vere
+
+Dopo le due corsie sono partiti **altri due agenti**, uno per corsia, che hanno
+ricostruito l'albero da `git archive` sulla base giusta e rifatto le misure con
+sonde proprie. Verdetto di entrambi: **CONFIRMED_WITH_DEFECTS**. Trenta
+affermazioni delle corsie messe alla prova, **ventisette reggono**; le tre che
+non reggono sono un conteggio già corretto qui, e due istruzioni di consegna che
+puntano nella direzione sbagliata.
+
+**Due difetti erano numeri veri su una scheda, e sono riparati:**
+
+1. **Spidersilk Tunic** (armatura tier 2, folio 72), *Wall-Crawling*: **«+1
+   Evasion»**. Nessun `to`, nessun `bonus`: la cifra attaccata alla statistica.
+   È la **terza** grafia che il libro usa e questo file ne conosceva due. Non
+   prezzata: chi la indossava leggeva **un'Evasione in meno** di quella che il
+   libro gli dà. Ora è una riga di registro, provata sulla scheda contro
+   `improved-leather-armor` — stesso tier, stesso Armor Score, stesse soglie,
+   **nessuna feature** — 12 → 13.
+2. **Untouchable** (carta Bone 1): «Gain a bonus to your Evasion equal to **half**
+   your Agility». Stessa forma di `fortified-armor` e `armorer`, che erano state
+   prese; passata per una parola. Dichiarata in `UNPRICED_AMOUNT`: dimezzare è
+   una **quinta** quantità e `Amount` ne sa nominare quattro.
+
+**E il buco che le aveva lasciate passare è chiuso.** `MUST_FLAG` inchiodava le
+GRAFIE e non le STATISTICHE: si potevano cancellare cinque tratti
+dall'alternanza con la suite tutta verde, accecando la scansione su **22 siti
+veri**. Ora c'è una voce per ogni membro dell'alternanza, ogni frase letta dal
+dataset e non inventata. Provato: quella cancellazione è rossa, rimettere `to`
+obbligatorio è rosso, togliere `half|twice` è rosso.
+
+**Un terzo difetto, sulla corsia stances:** la guardia `isBoldSans` di `tierOf`
+si poteva togliere **del tutto** lasciando 4615 test verdi. Ora è inchiodata
+dal caso raggiungibile (una riga *chiara* che legge `TIER 2`). Il caso *display*
+invece **non è testabile**, ed è un ramo irraggiungibile: il taglio della coda
+toglie ogni riga display prima che `tierOf` la veda. Il docblock che sosteneva
+il contrario è stato corretto.
 
 ---
 
@@ -133,8 +178,8 @@ file dicono 26 agosto: **tre settimane di scarto, registrate entrambe** in `LICE
   passato da `number | 'proficiency'` a `number | DynamicAmount`, e
   `collectModifiers` riceve tier e tratto Spellcast. **`mage-robes` è fra quelli
   chiusi**, ed era il caso che pesava: armatura iniziale di livello 1.
-  Restano dichiarati e non prezzati: **5** in `UNPRICED_AMOUNT` (le quattro
-  coffinwood e `domainCard|eldritch-flesh`), **13** in `UNPRICED_LANE`, **32** in
+  Restano dichiarati e non prezzati: **6** in `UNPRICED_AMOUNT` (le quattro
+  coffinwood, `domainCard|eldritch-flesh` e `domainCard|untouchable`), **13** in `UNPRICED_LANE`, **32** in
   `SITUATIONAL`.
 - **`everySite()` percorre 12 collezioni su 16** (erano 8 su 15). Non percorse:
   `domains`, `adversaries`, `environments`, `rules`. 1102 siti.
@@ -260,7 +305,18 @@ perché la forma si ripete.
    a trait of your choice» sui **tiri di danno**, che il registro non modella.
    Avevo indovinato la forma della regex invece di eseguirla.
 
-E una quarta, che non era mia ma va detta perché è la stessa forma: la corsia
+4. **Ho dichiarato l'ondata finita mentre aveva una fase di verifica in corso**,
+   e ho scritto in §1 che il journal non aveva mai prodotto una riga `result`.
+   Falso: ne aveva quattro, più due `started` che non avevo visto. Avevo letto
+   il file una volta sola, presto, e trattato quella lettura come definitiva.
+   Un journal vuoto non dice «niente»: dice «niente ANCORA».
+
+E una quinta, che non era mia ma va detta perché è la stessa forma: la corsia
 `pricing` ha **corretto sé stessa** fra la prima e la seconda consegna, su
 numeri che aveva scritto lei. Una consegna non è una fonte più affidabile di un
 documento: si rilegge.
+
+**La verifica ha ripagato il suo costo.** Due numeri sbagliati su una scheda vera
+(§1), trovati non rileggendo le corsie ma **costruendo una scansione diversa** e
+guardando cosa segnalava che le corsie non spiegavano. Rileggere il lavoro di
+qualcun altro con i suoi stessi strumenti non è verificarlo.
