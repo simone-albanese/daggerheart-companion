@@ -436,6 +436,40 @@ describe('the tier heads', () => {
     expect(out.map((s) => s.tier)).toEqual([1, 1, 1, 1]);
     expect(out.map((s) => s.name)).not.toContain('Legendary Beast');
   });
+
+  it('wants the tier head BOLD, and a light line that reads TIER 2 is not one', () => {
+    /*
+     * THE HALF THE TEST ABOVE CANNOT REACH, and it took an outside mutation to
+     * see it. `tierOf`'s `isBoldSans` guard can be deleted OUTRIGHT - not
+     * merely widened to accept display - and every gate stays green: 186 files
+     * / 4615 tests, `stances 16`, both books matching. Measured, twice.
+     *
+     * The reason the display case cannot reach it is structural, and it is why
+     * the test above proves the tail cut rather than the guard: the tail is
+     * `all.slice(headAt + 1).find(isDisplay)`, so the FIRST display line after
+     * the head ends the chapter. A display line can therefore never sit inside
+     * the slice, and `tierOf` never sees one.
+     *
+     * What CAN sit inside the slice is a light line - body text, which is most
+     * of the chapter. So that is what this feeds it. `TIER 2` in the running
+     * face, between two tier-1 stances: with the guard it is prose and is
+     * swallowed by `Favored`; without it, `Reliable` silently becomes tier 2,
+     * and a Martial Artist choosing "two stances from Tier 1" would be offered
+     * one the book files a tier higher.
+     */
+    const pages = BOOK([
+      chapterHead('MARTIAL STANCES'),
+      banner('STANCE FEATURES'),
+      tierHead(1),
+      named('Favored', 'Gain a bonus to damage rolls equal to a trait of'),
+      body('your choice.'),
+      body('TIER 2'),
+      named('Reliable', 'Gain a +1 bonus to your attack rolls.'),
+    ]);
+    const out = parseStances(pages);
+    expect(out.map((s) => s.name)).toEqual(['Favored', 'Reliable']);
+    expect(out.map((s) => s.tier)).toEqual([1, 1]);
+  });
 });
 
 // ---------------------------------------------------------------------------

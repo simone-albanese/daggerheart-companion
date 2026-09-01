@@ -167,8 +167,23 @@ const isFeaturesBanner = (l: Line): boolean =>
  * Not `isDisplay`, which is what SRD 1.0 sets ITS tier heads in - the beastform
  * chapter's `TIER 2` on folio 13 of that book is `11.3 EvelethCleanThin`. This
  * chapter's are `10.0 QuestaSans-Medium` with the weight the extractor reports
- * as bold. Reading the wrong signal would make every beastform tier head open a
- * stance block.
+ * as bold.
+ *
+ * WHAT THIS GUARD ACTUALLY BUYS, measured rather than argued. An earlier draft
+ * of this docblock said reading the wrong signal would make every beastform
+ * tier head open a stance block. It would not, and the reason is structural:
+ * the tail is `all.slice(headAt + 1).find(isDisplay)`, so the FIRST display
+ * line after the chapter head ends the chapter. No display line can sit inside
+ * the slice, and this function never sees one. Widening the test to accept
+ * `isDisplay` is therefore an unreachable branch - it changes no answer on
+ * either book, and no test can kill it.
+ *
+ * What the guard does buy is the LIGHT case, and that one is reachable and
+ * real: body text is most of the chapter, and a running-face line reading
+ * `TIER 2` would open a tier without it. Deleting the guard outright is a
+ * behaviour change, it is pinned by *"wants the tier head BOLD, and a light
+ * line that reads TIER 2 is not one"*, and before that test existed it left all
+ * 186 files / 4615 tests green.
  */
 const tierOf = (l: Line): number | null => {
   if (!isBoldSans(l)) return null;
