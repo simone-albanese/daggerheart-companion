@@ -107,6 +107,55 @@ export function vaultCard(c: Character, ref: Ref): Character {
   };
 }
 
+/**
+ * Give a card back: off the loadout and out of the vault, in one move.
+ *
+ * ## What this is, and the thing it is deliberately NOT
+ *
+ * `vaultCard` moves a card you own from one of your lists to the other, and
+ * `recallCard` moves it back for Stress. Neither reduces what you own, and
+ * until this function nothing did: `Cards.tsx`'s three branches are
+ * loadout -> vault, vault -> loadout and unowned -> vault, and its four footer
+ * words are MARK n HP? / IN LOADOUT / RECALL / TAKE. A card taken by a
+ * mis-tap stayed taken.
+ *
+ * So this is **recovery from a touch**, not a rule. The mechanic that gives a
+ * card up in exchange for another is step four's second sentence, and it lives
+ * in `applyLevelUp` with the constraint the book puts on it - same level or
+ * lower, a domain you can reach, recorded in `levelUpHistory`. This writes no
+ * record, because nothing happened: the sheet is being put back the way it was
+ * before a finger landed in the wrong place.
+ *
+ * The two must not be confused in the code or on the screen, and the reason is
+ * concrete rather than tidy. `levelUpHistory` is the record of what each level
+ * did; `deriveStats` reads it, the codec carries it, and a table can look at
+ * it. If an undo wrote an exchange there, the record would say a player traded
+ * a card away at a level where they had simply mis-tapped - and the exchange's
+ * own constraint would then be enforced against, or waived for, a thing that
+ * was never a choice.
+ *
+ * Nor is it a way around that constraint, though it might look like one. Taking
+ * a card in the browser has never been gated by the exchange rule and is not
+ * gated by it now: `cardAvailability` allows a domain you have and a level at
+ * or under your cap, which is what step four's FIRST sentence allows, and this
+ * screen has always been the table's own bookkeeping rather than the
+ * level-up's. What the ✕ adds is the ability to put something back, which is
+ * the direction that was missing.
+ *
+ * Both lists, unconditionally. A ref in both is not a state this app writes,
+ * and removing it from only the one it was found in would leave a sheet still
+ * owning the card it just gave back.
+ */
+export function releaseCard(c: Character, ref: Ref): Character {
+  if (!c.loadout.includes(ref) && !c.vault.includes(ref)) return c;
+  return {
+    ...c,
+    loadout: c.loadout.filter((r) => r !== ref),
+    vault: c.vault.filter((r) => r !== ref),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function reorderLoadout(c: Character, from: number, to: number): Character {
   const next = [...c.loadout];
   const [moved] = next.splice(from, 1);

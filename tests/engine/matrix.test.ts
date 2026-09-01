@@ -447,6 +447,29 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
 
   // -------------------------------------------------------------------------
 
+  /*
+   * The matrix has to REACH Favor, not merely be allowed to carry it.
+   *
+   * `buildCharacter` destructures `ix` for `eligibleCards` and, when the track
+   * was added, went on calling `newCharacter` without it - so `grantsFavor`
+   * was asked about a class it could not resolve and every sample answered
+   * zero. Measured at the time: 0 of 133 sheets carried Favor, warlocks
+   * included, which is a matrix that exercises the field on no row at all.
+   * A codec or migration mutant on that path had nothing to redden.
+   *
+   * Pinned as an equality between two counts rather than as "> 0": a matrix
+   * that stopped rotating the Warlock would satisfy a floor while covering
+   * nothing, and that is the same shape of hole this is here to close.
+   */
+  it('reaches Favor on every Warlock it builds, and on nobody else', () => {
+    const warlocks = rows.filter((r) => r.character.classRef === 'warlock');
+    const carrying = rows.filter((r) => r.character.favor.marked > 0);
+    expect(warlocks.length, 'the matrix rotates the Warlock at all').toBeGreaterThan(0);
+    expect(carrying.map((r) => r.character.id).sort()).toEqual(
+      warlocks.map((r) => r.character.id).sort(),
+    );
+  });
+
   describe('coverage, measured rather than assumed', () => {
     it('touches every community, weapon, armor and domain card in the dataset', () => {
       const communities = new Set<string>();

@@ -39,7 +39,7 @@
  * it does not need converting: it ships inside the bundle, so it is always the
  * one this build expects.
  */
-import { MAX_FOCUS, SCHEMA_VERSION } from './types.ts';
+import { MAX_FAVOR, MAX_FOCUS, SCHEMA_VERSION } from './types.ts';
 
 export interface Migration {
   /** The version this reads. It produces `from + 1`, always. */
@@ -214,6 +214,44 @@ export const MIGRATIONS: readonly Migration[] = [
      * the Focus a player is holding mid-scene.
      */
     apply: (r) => ({ ...r, stanceRefs: [], focus: { marked: 0, max: MAX_FOCUS } }),
+  },
+  {
+    from: 8,
+    note: 'a character can hold Favor, and an existing one starts holding none',
+    /*
+     * **Zero, and a new WARLOCK's sheet says three. Both are right, and the
+     * word the difference turns on is "start".**
+     *
+     * The Warlock's feature reads *"You start with 3 Favor... The maximum Favor
+     * you can hold at one time is 6."* `newCharacter()` in
+     * `src/engine/character.ts` seeds 3 for a class whose features grant Favor
+     * and 0 for every other class, because that function is what a character
+     * starts as. This converter is not: it runs on somebody who has
+     * been playing, at whatever point in a session the update lands, and the
+     * three Favor it would hand them is a resource nobody at that table watched
+     * them earn. The two converters before this one made the same call for the
+     * same reason - `stanceRefs: []` and a zeroed Focus track, not a plausible
+     * one - and the owner's decision here is that this one follows them.
+     *
+     * The maximum comes from `MAX_FAVOR` rather than being written as `6` here.
+     * `COUNTER_CEILINGS.favor` is the same constant, and it is what refuses a
+     * seventh box arriving over the wire; a converter seeding a literal beside
+     * it is how a stored track and the check on it come to disagree.
+     *
+     * It overwrites rather than preserving a key that is already there, for the
+     * reason the `from: 3` converter gives at length: a record stamped 8 that
+     * carries a schema-9 field is a record whose own header is wrong, and
+     * believing the field over the header lets a hand-edited file decide what
+     * the schema means.
+     *
+     * **The refusal earns its keep.** A schema-8 build reading a schema-9 sheet
+     * would drop the track on read and write it back out gone -
+     * `readCharacterRecord` spreads the file over `newCharacter()`, and a blank
+     * schema-8 sheet has no `favor` key. What that costs a Warlock is the Favor
+     * they are holding in the middle of a scene, which is exactly the loss
+     * eight's refusal was worth more than seven's for.
+     */
+    apply: (r) => ({ ...r, favor: { marked: 0, max: MAX_FAVOR } }),
   },
 ];
 

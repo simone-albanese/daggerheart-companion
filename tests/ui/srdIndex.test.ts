@@ -88,10 +88,11 @@ describe('the index of everything shipped', () => {
     // The two figures the plan and the file's header both quote. Derived, so
     // that a folio which adds a weapon moves them here instead of leaving two
     // documents quoting a number the dataset stopped carrying.
-    // 1438 + the five Martial Stances rules sections SRD 2.0 prints on folio 13.
-    expect(total).toBe(1443);
+    // 1438 + the five Martial Stances rules sections SRD 2.0 prints on folio 13
+    // + the eight the equipment chapter's own island reads off folios 55-83.
+    expect(total).toBe(1451);
     expect(beyondRules).toHaveLength(1369);
-    expect(of('rules')).toHaveLength(74);
+    expect(of('rules')).toHaveLength(82);
   });
 
   /*
