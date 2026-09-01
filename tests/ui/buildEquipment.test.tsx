@@ -84,6 +84,17 @@ const IGNORER = makeClass({
 });
 const PLAIN = makeClass({ id: 'warrior', name: 'Not The Warrior', classFeatures: [feature()] });
 
+/*
+ * The four tier 1 weapons the burden cases are built on, plus one weapon and
+ * one set of armor at tier 4.
+ *
+ * The tier 4 pair is what the refusal cases need and nothing else uses them:
+ * every character on this file is level 1, so `canEquip` is false for them on
+ * both screens and true for everything else, with no level arithmetic in the
+ * way of reading the assertion. Their names are deliberately unlike the
+ * others' - `named()` matches on substring, and a `Legendary Longsword` beside
+ * a `Longsword` would make every press in this file ambiguous.
+ */
 const dataset: Dataset = makeDataset({
   classes: [IGNORER, PLAIN],
   weapons: [
@@ -91,8 +102,13 @@ const dataset: Dataset = makeDataset({
     makeWeapon({ id: 'longsword', name: 'Longsword', slot: 'primary', burden: 1 }),
     makeWeapon({ id: 'small-dagger', name: 'Small Dagger', slot: 'secondary', burden: 1 }),
     makeWeapon({ id: 'round-shield', name: 'Round Shield', slot: 'secondary', burden: 1 }),
+    makeWeapon({ id: 'star-pike', name: 'Star Pike', slot: 'primary', burden: 1, tier: 4 }),
+    makeWeapon({ id: 'moon-fang', name: 'Moon Fang', slot: 'secondary', burden: 1, tier: 4 }),
   ],
-  armors: [makeArmor({ id: 'gambeson', name: 'Gambeson' })],
+  armors: [
+    makeArmor({ id: 'gambeson', name: 'Gambeson' }),
+    makeArmor({ id: 'dragon-plate', name: 'Dragon Plate', tier: 4 }),
+  ],
 });
 const index = indexDataset(dataset);
 
@@ -540,5 +556,132 @@ describe('the sentence under a slot, spoken as well as printed', () => {
 
     mount({ primary: 'small-dagger' });
     expect(noteRegion('Primary weapon').style.marginTop).toBe('6px');
+  });
+});
+
+/**
+ * The other limit in the same chapter, and the one that is a refusal.
+ *
+ * THE DEFECT, in the shipped build's own words. The Equipment chapter this app
+ * renders on its own rules screen says *"You can't equip weapons or armor with
+ * a higher tier than you."* Both pickers dimmed the row, printed `TIER 4 —
+ * USABLE FROM LEVEL 8` on it, and equipped it on the tap. The UI contradicted
+ * the text, in one build, one screen away from it.
+ *
+ * ## Why it is asked on both screens here, again
+ *
+ * The refusal lives in `WeaponPicker` and `ArmorPicker`, which both screens
+ * share - so one implementation covers four combinations and looks right from
+ * either call site alone. That is the same shape as the burden defect at the
+ * top of this file, where two screens wrote one rule two ways, and it is the
+ * reason this file exists rather than two. The four cases are walked here
+ * rather than reasoned about from the shared dialog.
+ *
+ * ## And what is NOT refused, which is half the decision
+ *
+ * Nothing is taken off a sheet that already carries it. The last two cases are
+ * that half: a character holding tier 4 gear at level 1 keeps every ref, and
+ * is told - `slotTierNote` - rather than quietly stripped. `Edit.tsx` refuses
+ * the stripping shape in writing, one section up, about the off-hand.
+ */
+describe('the tier the book says a character cannot equip', () => {
+  const KEPT = 'TIER 4 — KEPT; YOU CANNOT EQUIP IT AGAIN UNTIL LEVEL 8';
+  const stored = (): Character => useApp.getState().characters[0]!;
+
+  /** A picker row, and the fact that it is drawn as one that cannot be taken. */
+  function refusedRow(name: string): HTMLButtonElement {
+    const found = named(name);
+    expect(found, `no row for ${name} in the open picker`).toBeDefined();
+    expect(found!.getAttribute('aria-disabled'), `${name} is offered as takeable`).toBe('true');
+    // Shown, and still carrying the list's own sentence: the refusal is not an
+    // excuse to hide the row or to stop saying when it opens up.
+    expect(found!.textContent, `${name} lost its reason`).toContain('TIER 4 — USABLE FROM LEVEL 8');
+    return found!;
+  }
+
+  it('refuses a tier 4 weapon in the wizard, and takes the tier 1 one beside it', () => {
+    mount({});
+    press(slot('Primary weapon'));
+    press(refusedRow('Star Pike'));
+    expect(draft.primary, 'the wizard equipped what the book refuses').toBeNull();
+
+    // The control, in the same open dialog: the refusal is about the tier and
+    // not about the picker having stopped working.
+    press(named('Longsword'));
+    expect(draft.primary).toBe('longsword');
+  });
+
+  it('refuses one in the off-hand too, where the burden sentence lives', () => {
+    mount({ primary: 'longsword' });
+    press(slot('Secondary weapon'));
+    press(refusedRow('Moon Fang'));
+    expect(draft.secondary, 'the off-hand took what the main hand would not').toBeNull();
+    expect(draft.primary, 'the other hand moved on its own').toBe('longsword');
+  });
+
+  it('refuses tier 4 armor in the wizard', () => {
+    mount({});
+    press(slot('Armor'));
+    press(refusedRow('Dragon Plate'));
+    expect(draft.armor).toBeNull();
+
+    press(named('Gambeson'));
+    expect(draft.armor).toBe('gambeson');
+  });
+
+  it('refuses the same weapon and the same armor on the sheet', async () => {
+    mountSheet({ primary: null, secondary: null });
+    press(slot('Primary weapon'));
+    press(refusedRow('Star Pike'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(stored().activePrimaryWeapon, 'the sheet equipped what the wizard refused').toBeNull();
+
+    press(named('Longsword'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(stored().activePrimaryWeapon).toBe('longsword');
+
+    press(slot('Armor'));
+    press(refusedRow('Dragon Plate'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(stored().activeArmor).toBeNull();
+  });
+
+  it('keeps what a sheet arrived carrying, and says so under the slot', () => {
+    /*
+     * The half that is not a refusal. This state is reachable without any
+     * picker: a file or QR from a level 10 character, a level typed back down
+     * on this very screen. Stripping it on sight would be the app making a
+     * decision behind the player at the moment they can least see it happen.
+     */
+    mountSheet({ primary: 'star-pike', secondary: null, armor: 'dragon-plate' });
+    expect(stored().activePrimaryWeapon, 'the sheet was quietly disarmed').toBe('star-pike');
+    expect(stored().activeArmor, 'the armor came off on its own').toBe('dragon-plate');
+    expect(noteOf('Primary weapon')).toBe(KEPT);
+    expect(noteOf('Armor')).toBe(KEPT);
+    // And the way out is the one it has always been: the ✕ the player presses.
+    expect(clears()).toContain('Clear Primary weapon');
+  });
+
+  it('says the same thing on the wizard, for the same held gear', () => {
+    // The draft can no longer reach this state through the picker, and it can
+    // still arrive in one - `Wizard.tsx` restores a saved draft. Both screens
+    // print one sentence, which is the standing promise of this file.
+    mount({ primary: 'star-pike', armor: 'dragon-plate' });
+    expect(noteOf('Primary weapon')).toBe(KEPT);
+    expect(noteOf('Armor')).toBe(KEPT);
+  });
+
+  it('says nothing at all about a tier the character has reached', () => {
+    // The control on all six above: the sentence is the tier's, not the slot's.
+    mount({ primary: 'longsword', armor: 'gambeson' });
+    expect(noteOf('Primary weapon')).toBe('');
+    expect(noteOf('Armor')).toBe('');
+    expect(container.textContent).not.toContain('KEPT');
   });
 });

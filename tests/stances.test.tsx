@@ -1143,9 +1143,17 @@ describe('adding, removing and moving Focus on the sheet', () => {
      *   - it is SHOWN, because hiding it tells a player it does not exist;
      *   - it is DIMMED and carries the sentence, so the rule is on the glass
      *     rather than in the book they do not have open;
-     *   - it is NOT DISABLED, because the tier is arithmetic and a GM who hands
-     *     something over early is not a state this app may refuse to draw.
-     * `GearPicker` made all three the same way for out-of-level gear.
+     *   - it is NOT DISABLED, because folio 13 spends no verb on it: "Mark a
+     *     new stance from your tier or below each time you gain a level" is a
+     *     rule about gaining a level, and nothing anywhere says what a
+     *     character holding one anyway may not do.
+     *
+     * `GearPicker` made all three the same way and now makes the third one
+     * differently, which is the book's doing rather than a drift: the
+     * Equipment chapter DOES spend the verb - "You can't equip weapons or
+     * armor with a higher tier than you" - so the gear pickers refuse the tap
+     * and this picker still only says. `src/ui/build/gear.ts` carries the same
+     * split between the tier limit and the burden limit beside it.
      */
     mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST], level: 1 }), withStances);
     press(named2('Add a stance'));

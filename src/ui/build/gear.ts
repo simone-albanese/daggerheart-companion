@@ -11,10 +11,20 @@
  * catching itself copying forward: it is the field count of `WeaponQuery`,
  * which is nine, and `filterWeapons` applies all nine.)
  *
- * Nothing here decides what a player may own. Tier is arithmetic - tier 3 gear
- * appears at level 5 - so the tier a character has reached is computed, said
- * out loud, and then left alone. A GM who hands a level 2 party a tier 4 sword
- * has not broken a rule this app is entitled to enforce.
+ * Nothing here decides what a player may OWN, and one thing here decides what
+ * they may EQUIP. Tier is arithmetic - tier 3 gear appears at level 5 - and
+ * the Equipment chapter spends a verb on the consequence: *"You can't equip
+ * weapons or armor with a higher tier than you."* So the tier a character has
+ * reached is computed, said out loud, and then acted on at exactly one moment:
+ * `canEquip` is the predicate the two pickers refuse a pick on.
+ *
+ * That paragraph used to end "and then left alone", with a GM who hands a
+ * level 2 party a tier 4 sword as the case it was protecting. The sword is
+ * still protected and the sentence was still wrong: nothing stops the GM
+ * giving it, nothing takes it off a sheet that already carries it, it stays in
+ * every list at full length - and the app now declines to be the thing that
+ * puts it on, because the book it ships in the same build says it cannot. What
+ * this file must not do is DROP something; refusing to add is a different act.
  *
  * The search box is one of those filters and reads the same axes the chips do,
  * for the same reason: a box that answered "melee" with 26 of the 100 melee
@@ -48,9 +58,73 @@ export const tierLevel = (tier: Tier): number => TIER_LEVELS[tier][0] ?? 1;
 /** Show everything, or only what this level can use. */
 export type Reach = 'all' | 'usable';
 
-/** Why gear of this tier is out of reach at this level. Null when it is not. */
+/**
+ * Whether a character at this level may put gear of this tier ON.
+ *
+ * Equipment: *"You can't equip weapons or armor with a higher tier than you."*
+ * That is the whole of the rule and the whole of this predicate. It is a
+ * separate export from `tierNote` below rather than a reading of it, because
+ * the two are asked in different places for different reasons and only one of
+ * them refuses: a list asks `tierNote` what to print under a row it is
+ * showing, and a pick asks `canEquip` whether to happen at all.
+ *
+ * ## Where it is asked, and where it deliberately is not
+ *
+ * Asked in `WeaponPicker` and `ArmorPicker` - the two dialogs, shared by the
+ * wizard and the sheet, so all four screen-and-kind combinations get one
+ * answer - on the row's tap AND on the RANDOM draw, which is the same act with
+ * dice in front of it.
+ *
+ * Not asked of a sheet that already holds something. There is no sweep, no
+ * normalisation on load, nothing that reads `activeArmor` and clears it. A
+ * sheet arriving by file or QR from a level 10 character, or one whose level
+ * was edited down, keeps every ref it came with and is TOLD about it by
+ * `slotTierNote`. `Edit.tsx` refuses the other shape in writing - *"a sheet
+ * that quietly unequipped the off-hand when a greatsword arrived would be the
+ * app making a call the table gets to make"* - and stripping gear on load is
+ * that call made behind the player's back, at the moment they are least able
+ * to see it happen.
+ */
+export const canEquip = (tier: Tier, level: number): boolean => tier <= tierOf(level);
+
+/**
+ * Why gear of this tier is out of reach at this level, as a LIST says it. Null
+ * when it is not.
+ *
+ * "Usable from level 8" and not "you can't equip this": a picker row is a
+ * thing being offered, and the useful fact about a row you cannot take is when
+ * you can. The row itself carries the refusal, by declining the tap.
+ */
 export const tierNote = (tier: Tier, level: number): string | null =>
-  tier <= tierOf(level) ? null : `Tier ${tier} — usable from level ${tierLevel(tier)}`;
+  canEquip(tier, level) ? null : `Tier ${tier} — usable from level ${tierLevel(tier)}`;
+
+/**
+ * The same fact as a SLOT says it: this is on the character, it is staying on
+ * the character, and it cannot be put back once it comes off. Null when the
+ * tier is within reach.
+ *
+ * ## Why the slot needs its own sentence at all
+ *
+ * Before the pickers refused anything, `tierNote` was true in both places and
+ * said the same useful thing in both: this is above your level, here is when
+ * it opens. It stopped being enough under a slot the moment a pick could be
+ * refused, because the slot is now the one place in the app showing a state
+ * the app will not re-enter. A player reading `TIER 4 — USABLE FROM LEVEL 8`
+ * under a sword they are holding, with a ✕ beside it, has been told nothing
+ * about the only thing that could hurt them: the ✕ is a one-way door until
+ * level 8.
+ *
+ * So the slot's line names the two halves of the owner's decision in the order
+ * they matter - **kept**, then **not again** - and the level it opens at,
+ * which is the only actionable number in the sentence. It replaces `tierNote`
+ * under a slot rather than being appended to it: appended, the line reads
+ * "usable from level 8 · you cannot equip it again until level 8", which says
+ * the same number twice and reads as a contradiction on the first pass.
+ */
+export const slotTierNote = (tier: Tier, level: number): string | null =>
+  canEquip(tier, level)
+    ? null
+    : `Tier ${tier} — kept; you cannot equip it again until level ${tierLevel(tier)}`;
 
 // ---------------------------------------------------------------------------
 // What a filled slot says about what is in it
@@ -120,12 +194,36 @@ export interface WeaponInSlot {
  * sentence is about - it is the optional one, and it is the one whose ✕ is the
  * cheap way out if the table decides the limit stands.
  *
- * ## And it does not refuse anything
+ * ## And it does not refuse anything, where the tier limit now does
  *
- * Folio 55 states a limit; it does not say what happens when a sheet is over
- * it. That is the table's call, so this is a count and a limit side by side
- * with no verb between them - not "no hand left for this", which reads as the
- * app declining to hold the weapon it is in fact holding.
+ * The book states this limit and stops: *"Your character's maximum burden is 2
+ * hands."* No verb follows the number and no sentence in the chapter says what
+ * a character over it may not do. That is the table's call, so this is a count
+ * and a limit side by side with no verb between them - not "no hand left for
+ * this", which reads as the app declining to hold the weapon it is in fact
+ * holding.
+ *
+ * The SAME chapter writes the other limit with the verb in it: *"You can't
+ * equip weapons or armor with a higher tier than you."* That one is a refusal
+ * and `canEquip` above is it, so this one file now treats two limits from one
+ * chapter in two different ways.
+ *
+ * **The book is what distinguishes them, not us.** One sentence stops at the
+ * number and the other spends a "can't" on it; the app follows that grammar
+ * instead of choosing a policy and applying it evenly. It is worth being blunt
+ * about how thin the evidence is - the whole distinction is one modal verb -
+ * and that is exactly why it is not a judgement call to be re-argued at every
+ * call site: both sentences are read off the shipped dataset by
+ * `tests/ui/gear.test.ts`, and `MAX_BURDEN` is pinned to the number inside the
+ * first of them, so a printing that adds a consequence to the burden line or
+ * takes the "can't" out of the tier line reddens a test before it reaches a
+ * screen.
+ *
+ * The third sentence in that chapter is a refusal this app deliberately does
+ * not implement: *"They can't equip armor while in danger or under pressure."*
+ * That is a state of play - the app does not know whether you are in danger,
+ * and nothing on any sheet could tell it - where the tier is a property of the
+ * character and the item. See the note in `tests/ui/gear.test.ts`.
  */
 const handsNote = ({ slot, weapon, primary, ignoresBurden }: WeaponInSlot): string | null => {
   if (slot !== 'secondary' || ignoresBurden) return null;
@@ -184,7 +282,9 @@ const bookSlotNote = ({ slot, weapon }: WeaponInSlot): string | null =>
  */
 export function weaponNote(at: WeaponInSlot): string | null {
   if (at.weapon === undefined) return null;
-  const lines = [handsNote(at), bookSlotNote(at), tierNote(at.weapon.tier, at.level)].filter(
+  // `slotTierNote`, never `tierNote`: this is a slot, and a slot is the one
+  // place where "usable from level 8" is no longer the whole truth.
+  const lines = [handsNote(at), bookSlotNote(at), slotTierNote(at.weapon.tier, at.level)].filter(
     (line): line is string => line !== null,
   );
   return lines.length === 0 ? null : lines.join(' · ');

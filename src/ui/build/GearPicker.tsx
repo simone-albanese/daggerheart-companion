@@ -13,14 +13,29 @@
  * decides for itself what gives when there is not enough of it; `PickerDialog`
  * below is where that decision is written down, with the measurements.
  *
- * What a character cannot use yet is shown, dimmed, with the level it arrives
- * at. Hiding it would answer "what can I use" by pretending the rest of the
- * book does not exist, and a player deciding what to save for needs to see the
- * tier 3 weapon they are saving for.
+ * What a character cannot use yet is SHOWN, dimmed, with the level it arrives
+ * at - and cannot be taken. Hiding it would answer "what can I use" by
+ * pretending the rest of the book does not exist, and a player deciding what
+ * to save for needs to see the tier 3 weapon they are saving for; handing it
+ * over would contradict, in the same build, the sentence this app ships in its
+ * own rules screen: Equipment, *"You can't equip weapons or armor with a
+ * higher tier than you."* So the row is drawn in full, is readable, is
+ * reachable by keyboard, and is `aria-disabled`. `gear.ts` carries the
+ * reasoning and the predicate (`canEquip`), and says why the burden limit
+ * beside it is still only a sentence.
+ *
+ * THIS IS THE ONE THING THESE DIALOGS REFUSE, and it is worth saying where the
+ * refusal stops. Nothing here strips a sheet that already carries out-of-tier
+ * gear, nothing filters it out of a list, and nothing stops a GM handing it
+ * over in the fiction. What is refused is this app being the thing that puts
+ * it on.
  *
  * TWO OF THE THREE PICKERS CAN ROLL. Weapons and armor carry a tier - all 204
  * and all 34 of them - so both take an `Rng` and put a RANDOM button in the
- * count row, which draws from the rows the filters left standing. Loot and
+ * count row, which draws from the rows the filters left standing THAT THIS
+ * CHARACTER CAN EQUIP: dice in front of an act do not change what the act is,
+ * and a randomiser that could equip what a tap cannot would be a second door
+ * around the refusal, one control to the left of it. Loot and
  * consumables carry no tier at all, so `ItemPicker` takes no dice and offers
  * no such button: a "randomise by tier" control over 120 items with no tier
  * would be a filter the dataset cannot honour, which on this screen is the
@@ -1067,6 +1082,7 @@ function PickerRow({
   stamp,
   body,
   reason,
+  blocked = false,
   selected,
   onClick,
 }: {
@@ -1078,6 +1094,23 @@ function PickerRow({
   stamp?: string;
   body?: string;
   reason?: string | null;
+  /**
+   * The book will not let this character equip this row, so the tap does
+   * nothing.
+   *
+   * `aria-disabled` and an absent handler, NOT the `disabled` attribute, and
+   * the difference is who can read the row. A disabled button leaves the tab
+   * order, and the thing this row carries that nothing else does is the item's
+   * feature text - which is the whole reason to look at gear you cannot have
+   * yet, because that is how a player decides what to level towards. So the
+   * row stays reachable and readable and only stops acting.
+   *
+   * The dimming and the `reason` line were already here for out-of-reach gear
+   * and are unchanged; what they mean has changed under them, from "not yet"
+   * to "not from here". They carry it together: `reason` says the level it
+   * opens at, in words, inside the row.
+   */
+  blocked?: boolean;
   selected: boolean;
   onClick: () => void;
 }): React.JSX.Element {
@@ -1085,7 +1118,8 @@ function PickerRow({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={blocked ? undefined : onClick}
+      aria-disabled={blocked || undefined}
       aria-pressed={selected}
       className="stack"
       style={{
@@ -1098,6 +1132,7 @@ function PickerRow({
         background: selected ? 'var(--raised)' : 'var(--app)',
         border: `1px solid ${selected ? 'var(--line)' : 'var(--line-soft)'}`,
         borderLeft: `3px solid ${selected ? 'var(--hope)' : 'transparent'}`,
+        cursor: blocked ? 'not-allowed' : 'pointer',
       }}
     >
       <span className="stack" style={{ gap: 6, width: '100%', opacity: why === null ? 1 : 0.5 }}>
@@ -1184,16 +1219,28 @@ export function WeaponPicker({
   // as a list with a weapon missing from it, one indirection earlier.
   const tiers = useMemo(() => tiersIn(weapons), [weapons]);
 
-  // Exactly what is on screen, so the count beside the button is the size of
-  // the draw. Out-of-reach weapons are in it because they are in the list:
-  // this dialog shows them dimmed on purpose, and a randomiser that silently
-  // skipped them would be the hiding this file refuses to do everywhere else.
+  /*
+   * What the dice may land on: the rows the filters left, less the ones this
+   * character cannot equip.
+   *
+   * This used to be every row on screen, under a comment saying that
+   * out-of-reach weapons were in the draw "because they are in the list" and
+   * that skipping them would be the hiding this file refuses to do. That
+   * reasoning was sound while a tap could equip them; it inverts now that one
+   * cannot. Showing a row and drawing it are two different promises, and the
+   * one this control makes is that it will EQUIP what it lands on - so its
+   * pool has to be the pool a tap has, or the refusal has a second door with
+   * dice in front of it.
+   *
+   * Nothing is hidden by this. The list is unchanged, the count beside the
+   * button still says how many rows are on screen, and the button's own label
+   * says how many of them it may draw - which is the number a player needs
+   * before pressing it and the only number a screen reader gets.
+   */
+  const drawable = rows.filter((r) => r.eligible).map((r) => r.item);
+
   const pickRandom = (): void => {
-    const chosen = randomGear(
-      rows.map((r) => r.item),
-      q.tiers,
-      rng,
-    );
+    const chosen = randomGear(drawable, q.tiers, rng);
     if (chosen !== null) onPick(chosen.id);
   };
 
@@ -1297,15 +1344,15 @@ export function WeaponPicker({
           onClear={() => setQ(base)}
           random={
             <RandomButton
-              label={`Equip a random weapon of ${tierPhrase(q.tiers)}, from the ${String(rows.length)} showing`}
-              disabled={rows.length === 0}
+              label={`Equip a random weapon of ${tierPhrase(q.tiers)}, from the ${String(drawable.length)} you can equip`}
+              disabled={drawable.length === 0}
               onClick={pickRandom}
             />
           }
         />
       }
     >
-      {rows.map(({ item, reason }) => (
+      {rows.map(({ item, eligible, reason }) => (
         <PickerRow
           key={item.id}
           title={item.name}
@@ -1315,6 +1362,7 @@ export function WeaponPicker({
           stamp={originStamp(item)}
           body={item.feature}
           reason={reason}
+          blocked={!eligible}
           selected={value === item.id}
           onClick={() => onPick(item.id)}
         />
@@ -1363,12 +1411,11 @@ export function ArmorPicker({
     [armors, q, search, sheet.level],
   );
 
+  /** The rows the filters left that this character can wear. See `WeaponPicker`. */
+  const drawable = rows.filter((r) => r.eligible).map((r) => r.item);
+
   const pickRandom = (): void => {
-    const chosen = randomGear(
-      rows.map((r) => r.item),
-      q.tiers,
-      rng,
-    );
+    const chosen = randomGear(drawable, q.tiers, rng);
     if (chosen !== null) onPick(chosen.id);
   };
 
@@ -1451,15 +1498,15 @@ export function ArmorPicker({
           onClear={() => setQ(base)}
           random={
             <RandomButton
-              label={`Wear a random set of armor of ${tierPhrase(q.tiers)}, from the ${String(rows.length)} showing`}
-              disabled={rows.length === 0}
+              label={`Wear a random set of armor of ${tierPhrase(q.tiers)}, from the ${String(drawable.length)} you can equip`}
+              disabled={drawable.length === 0}
               onClick={pickRandom}
             />
           }
         />
       }
     >
-      {rows.map(({ item, reason }) => {
+      {rows.map(({ item, eligible, reason }) => {
         const shown = preview.get(item.id);
         return (
           <PickerRow
@@ -1475,6 +1522,7 @@ export function ArmorPicker({
             stamp={originStamp(item)}
             body={item.feature}
             reason={reason}
+            blocked={!eligible}
             selected={value === item.id}
             onClick={() => onPick(item.id)}
           />

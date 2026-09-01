@@ -21,7 +21,7 @@ import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
-import { tierNote, weaponNote } from './gear.ts';
+import { slotTierNote, weaponNote } from './gear.ts';
 import {
   ArmorPicker,
   armorSummary,
@@ -276,7 +276,7 @@ export function Edit({
                   label="Armor"
                   title={armor?.name ?? null}
                   meta={armor && armorSummary(armor, stats.thresholds, stats.armorScore)}
-                  note={armor && tierNote(armor.tier, character.level)}
+                  note={armor && slotTierNote(armor.tier, character.level)}
                   empty={`Search ${dataset.armors.length} sets of armor`}
                   unresolved={
                     stats.unresolvedArmor === null
@@ -957,13 +957,22 @@ function StancesSection({
                      * would be letting them take it without ever printing the
                      * rule they were breaking.
                      *
-                     * It is not DISABLED, which is `GearPicker`'s decision for
-                     * out-of-level gear and the same argument: the tier is
-                     * arithmetic, and a GM who hands a player something early
-                     * is not a state this app may refuse to represent. Hiding
-                     * it would be worse still - `gear.ts` calls that lying by
-                     * omission, and the sheet already says SHOWN, NEVER
-                     * APPLIED, so nothing here moves a number either way.
+                     * It is not DISABLED, and `GearPicker` no longer agrees
+                     * with that - which is the point rather than a drift. The
+                     * Equipment chapter spends a verb on gear: *"You can't
+                     * equip weapons or armor with a higher tier than you."*
+                     * Folio 13 spends none on stances: *"Mark a new stance
+                     * from your tier or below each time you gain a level"* is
+                     * a rule for gaining a level, and no sentence anywhere
+                     * says what a character who has one anyway may not do. So
+                     * the gear picker refuses and this one says; the book is
+                     * what splits them, and `gear.ts` carries the same split
+                     * between the tier limit and the burden limit.
+                     *
+                     * Hiding it would be worse than either - `gear.ts` calls
+                     * that lying by omission - and the sheet already says
+                     * SHOWN, NEVER APPLIED, so nothing here moves a number
+                     * either way.
                      */
                     dim={s.tier > characterTier}
                     reason={

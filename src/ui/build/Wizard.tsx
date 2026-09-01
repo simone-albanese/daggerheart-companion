@@ -61,7 +61,7 @@ import {
   type StepId,
   type Warning,
 } from './creation.ts';
-import { tierNote, weaponNote } from './gear.ts';
+import { slotTierNote, weaponNote } from './gear.ts';
 import {
   ArmorPicker,
   armorSummary,
@@ -1417,7 +1417,7 @@ export function StepEquipment({
             label="Armor"
             title={armor?.name ?? null}
             meta={armor && armorSummary(armor, stats.thresholds, stats.armorScore)}
-            note={armor && tierNote(armor.tier, sheet.level)}
+            note={armor && slotTierNote(armor.tier, sheet.level)}
             empty={`Search ${dataset.armors.length} sets of armor`}
             onOpen={() => setOpen('armor')}
             onClear={() => set({ armor: null })}
