@@ -701,6 +701,26 @@ function TransformationSection({
  * draws the same ghost row the armor and transformation paths draw, naming the
  * raw ref and offering the one honest thing: drop it.
  */
+/**
+ * The subclass the book ties martial stances to, as an ADDRESS and not a
+ * sentence.
+ *
+ * Folio 13: "When you choose the Martial Artist subclass, take the Martial
+ * Stances sheet." So the sheet is that subclass's, and drawing it on a wizard
+ * is the app promising something the book does not give them.
+ *
+ * A slug is written here rather than derived because the two ways of deriving
+ * it are both worse. Matching the feature text for "martial stance" is the trap
+ * this branch already fell into once - `stance` is a substring of
+ * `circumstance` - and adding a flag to `Subclass` would put a fact about ONE
+ * subclass into the shape of all twenty-six. `chapters.ts` writes addresses the
+ * same way, under the same rule: an address may be written down WHEN IT IS
+ * CHECKED AGAINST THE DATASET EVERY RUN, and `stances.test.tsx` does that - if
+ * a printing renames the subclass, the test reddens instead of the section
+ * quietly never drawing again.
+ */
+const STANCE_SUBCLASS = 'martial-artist';
+
 function StancesSection({
   character,
   onPatch,
@@ -721,8 +741,29 @@ function StancesSection({
   }));
   const unnamed = known.filter((k) => k.record === undefined);
   const holdsFocus = character.focus.marked > 0;
+  const isMartialArtist = character.subclassRefs.includes(STANCE_SUBCLASS);
 
-  if (all.length === 0 && known.length === 0 && !holdsFocus) return null;
+  /*
+   * WHOSE SHEET THIS IS, and why the gate is not simply the subclass.
+   *
+   * Drawn for a Martial Artist, because it is theirs. Drawn ALSO for any
+   * character already carrying a stance or holding Focus, whoever they are -
+   * and that half is the one that matters, because a hard gate on the subclass
+   * would make those refs invisible AND UNDROPPABLE. A sheet that arrived from
+   * another device, or one whose subclass was chosen differently, would keep
+   * writing `stanceRefs` to storage with no screen willing to show them. That
+   * is the same rule the unresolved-ref rows below are built on: nothing this
+   * app cannot use is hidden, because hidden is how a thing becomes impossible
+   * to remove.
+   *
+   * What the subclass DOES gate is the picker - see `Add a stance` at the
+   * bottom. Seeing what you carry is not the same permission as taking more.
+   *
+   * `all.length === 0` stays in the condition and is not redundant: a Martial
+   * Artist on SRD 1.0, which prints no stances at all, would otherwise be given
+   * an empty section with a button that opens onto nothing.
+   */
+  if ((all.length === 0 || !isMartialArtist) && known.length === 0 && !holdsFocus) return null;
 
   const toggle = (id: string): void => {
     const has = character.stanceRefs.includes(id);
@@ -879,7 +920,8 @@ function StancesSection({
           </button>
         </div>
       ) : (
-        all.length > 0 && (
+        all.length > 0 &&
+        isMartialArtist && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
