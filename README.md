@@ -3,9 +3,11 @@
 **Daggerheart Compatible.** A digital character sheet and GM toolkit.
 Local-first, offline, no account, no server, no telemetry.
 
-The app ships with the whole SRD already in it — 189 domain cards, 129
-adversaries, 19 environments, nine classes and every table — so nothing has to
-be loaded before it is usable. The first screen asks **who is at the table**:
+The app ships with the whole SRD already in it — 210 domain cards, 264
+adversaries, 47 environments, 13 classes and every table — so nothing has to
+be loaded before it is usable. The book it publishes is **SRD 2.0**, and the
+edition before it is still parsed and still checked, because that is the only
+proof the pipeline did not quietly change its mind about the older one. The first screen asks **who is at the table**:
 two questions for a player, three for a GM, and for somebody whose character
 already exists on another device, a door to bring it over rather than a
 question. It is skippable at every step, and a skip lands on the same summary
@@ -34,13 +36,13 @@ they try to *execute* the rules. Here the boundary is stated out loud.
 **It doesn't calculate** — it shows the text and you apply it:
 
 - class, subclass, ancestry and community features
-- the text of all 189 domain cards
+- the text of all 210 domain cards
 - adversary and environment features
 - countdowns: it displays and advances them by hand, it never infers a tick
 - conditions
 - anything your table does differently
 
-That is not laziness. Modelling 189 cards and their exceptions is a bigger
+That is not laziness. Modelling 210 cards and their exceptions is a bigger
 project than everything else combined, and every table with a house rule would
 end up fighting the app instead of using it.
 
@@ -85,7 +87,7 @@ and the loadout.
   tracks, twice, plus the GM's Fear — proposed and then applied on your word.
 - **Beastform** and an **animal companion**, where the class has them.
 
-### Cards — the 189 domain cards
+### Cards — the 210 domain cards
 
 Every domain card in the SRD, filterable and searchable, with the filter bar
 inside the grid's scroll rather than fixed above it. The loadout is five, and
@@ -120,7 +122,7 @@ this project — the Core Book's lists are not in this app), and the reference.
 - **The reference**: eight topics — improvising an adversary, setting a
   Difficulty, Fear, advancing a countdown, range and distance, GM moves and
   principles, adversary Experiences, and gold/equipment/loot — plus a
-  **full-text search across all 75 SRD sections**. Every word is read out of
+  **full-text search across all 74 SRD sections**. Every word is read out of
   the shipped dataset at render time, with the page number stamped beside the
   table it came from.
 - **The encounter builder**: battle points at `(3 × PCs) + 2`, every cost and
@@ -159,7 +161,7 @@ npm install
 npm run dev
 ```
 
-The committed dataset (`data/srd-1.0.json`) is all the app needs at runtime.
+The committed dataset (`data/srd-2.0.json`) is all the app needs at runtime.
 
 ### Rebuilding the dataset
 
@@ -167,14 +169,17 @@ Only needed when the SRD is revised.
 
 ```sh
 brew install poppler          # or: apt-get install poppler-utils
-# put Daggerheart-SRD-9-09-25.pdf in Manuali/  (it is not committed)
+# put DH_SRD_2_2026_08_25.pdf in Manuali/  (it is not committed)
 npm run build:srd
 ```
 
 The build refuses to emit a dataset that fails validation: wrong counts, a
 surviving Private Use Area glyph, a broken ligature, a dangling reference, a
 duplicate id. `npm run build:srd -- --check` validates and writes nothing, and
-fails if `data/srd-1.0.json` no longer matches the source.
+fails if `data/srd-2.0.json` no longer matches the source. Pointing it at the
+older book with `--check --pdf <SRD 1.0>` does the same for `data/srd-1.0.json`,
+which is committed for exactly that reason: it is the only thing that can say
+the parser still reads the edition it used to.
 
 CI reaches the same verdict by a different route: it rebuilds and then runs
 `git diff --exit-code -- data/`, which also catches a dataset that was edited
@@ -205,12 +210,34 @@ BUILD TIME (your machine, CI)         RUNTIME (the user's browser)
 ─────────────────────────────         ────────────────────────────
 tools/build-srd.ts                    nothing parses anything
      ↓
-SRD 1.0 (68 pp, 0.9 MB)
+SRD 2.0 (224 pp, 2.3 MB)              ← the book the app publishes
+SRD 1.0  (68 pp, 0.9 MB)              ← kept, and still checked
      ↓
+data/srd-2.0.json, committed
 data/srd-1.0.json, committed
      ↓
 precached by the service worker
 ```
+
+### What comes out of it
+
+Sixteen collections, and the app reads every one of them. The counts are the
+shipped file's own, not a promise about it:
+
+| | | | |
+|---|---|---|---|
+| domains 10 | domain cards 210 | classes 13 | subclasses 26 |
+| ancestries 24 | communities 15 | beastforms 22 | transformations 6 |
+| martial stances 16 | weapons 391 | armors 85 | loot 120 |
+| consumables 120 | adversaries 264 | environments 47 | rules 74 |
+
+Two of those are **shown and never applied**, and it is a decision rather than
+an omission. A transformation and a martial stance both grant effects the sheet
+would have to be *in* to be entitled to — and the book ties those states to the
+scene, to Severe damage, to the last Hit Point. Deciding when a character drops
+out of one would be the app interpreting the rules, which is the line the
+section above draws. So the records are carried, searchable and drawn in full,
+and they move no number. The engine is measured to prove it.
 
 If the build parser is wrong, CI says so. If a runtime parser were wrong,
 a player would find out at a table, mid-session, on a device you cannot
