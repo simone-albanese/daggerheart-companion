@@ -52,6 +52,109 @@ export type Reach = 'all' | 'usable';
 export const tierNote = (tier: Tier, level: number): string | null =>
   tier <= tierOf(level) ? null : `Tier ${tier} — usable from level ${tierLevel(tier)}`;
 
+// ---------------------------------------------------------------------------
+// What a filled slot says about what is in it
+// ---------------------------------------------------------------------------
+
+/*
+ * ONE LINE UNDER A SLOT, BUILT IN ONE PLACE.
+ *
+ * `tierNote` above is the oldest of these and for a while it was the only one,
+ * so both build screens wrote their slot's note as a ternary: the burden
+ * sentence, ELSE the tier sentence. Two costs came out of that shape and the
+ * second is the one that mattered.
+ *
+ * The cheap one: a ternary drops the tier line whenever the burden line fires,
+ * so a level 1 character holding a tier 4 off-hand beside a greatsword was told
+ * about the hands and never about the tier. Both were true; one was printed.
+ *
+ * The expensive one: the two screens wrote the ternary differently. `Edit.tsx`
+ * asked `secondary && primary?.burden === 2` and `Wizard.tsx` asked
+ * `twoHanded && primary` - so the wizard printed "there is no hand left for an
+ * off-hand weapon" over an EMPTY optional slot, every time the primary happened
+ * to be two-handed. Neither asked which class was holding the weapon, so both
+ * said it to a Warrior, whose Combat Training reads *"You ignore burden when
+ * equipping weapons."*
+ *
+ * So the sentence is composed here, once, from the slot's own contents, and the
+ * screens pass what they have. `ignoresBurden` is a parameter rather than a
+ * lookup because this module is filtering and phrasing - it takes no
+ * `DatasetIndex` and asks the dataset nothing - and because a boolean at the
+ * call site is the thing a test can sweep both ways in one line.
+ */
+
+/** Folio 55: *"Your character's maximum burden is 2 hands."* */
+export const MAX_BURDEN = 2;
+
+/** A slot, and everything the sentence under it depends on. */
+export interface WeaponInSlot {
+  /** Which hand is being drawn. */
+  slot: Weapon['slot'];
+  /** What is in it, or undefined for an empty slot. */
+  weapon: Weapon | undefined;
+  /** What is in the main hand - the other half of the burden question. */
+  primary: Weapon | undefined;
+  level: number;
+  /** Combat Training: this character equips without counting hands. */
+  ignoresBurden: boolean;
+}
+
+/**
+ * How many hands the two weapons take together, when that is over the book's
+ * limit. Null when it is not, and null for anyone the limit does not bind.
+ *
+ * ## It is counted, not inferred from `burden === 2`
+ *
+ * The old test was "is the primary two-handed", which misses the other way to
+ * be over: the pickers do not filter by slot (see `WeaponQuery.slot`, a default
+ * and not a fence), so a two-handed PRIMARY-slot weapon goes into the off-hand
+ * as happily as anything else. `1 + 2` is three hands and the old test said
+ * nothing at all. Adding the two burdens covers both, and says the true number
+ * in the case where it is four.
+ *
+ * ## It is drawn under the off-hand only
+ *
+ * The sentence names both weapons, so one printing of it says the whole thing;
+ * printing it under the primary as well would put the same sentence on the
+ * screen twice. The off-hand is where it goes because that is the slot the
+ * sentence is about - it is the optional one, and it is the one whose ✕ is the
+ * cheap way out if the table decides the limit stands.
+ *
+ * ## And it does not refuse anything
+ *
+ * Folio 55 states a limit; it does not say what happens when a sheet is over
+ * it. That is the table's call, so this is a count and a limit side by side
+ * with no verb between them - not "no hand left for this", which reads as the
+ * app declining to hold the weapon it is in fact holding.
+ */
+const handsNote = ({ slot, weapon, primary, ignoresBurden }: WeaponInSlot): string | null => {
+  if (slot !== 'secondary' || ignoresBurden) return null;
+  if (weapon === undefined || primary === undefined) return null;
+  const hands = primary.burden + weapon.burden;
+  return hands <= MAX_BURDEN
+    ? null
+    : `${primary.name} and ${weapon.name} are ${hands} hands — your maximum burden is ${MAX_BURDEN}`;
+};
+
+
+/**
+ * Everything true of the thing in this slot that the slot itself does not
+ * already show, in the one line `GearSlot` has for it. Null when there is
+ * nothing to say, and null for an empty slot - an empty slot has its own words.
+ *
+ * Joined with the same `·` `originStamp` uses, in order of how far the fact
+ * reaches: the hands are a fact about this character's whole loadout, the tier
+ * is a fact about this one item. Both are printed, because the ternary that
+ * used to choose between them was choosing which true thing to withhold.
+ */
+export function weaponNote(at: WeaponInSlot): string | null {
+  if (at.weapon === undefined) return null;
+  const lines = [handsNote(at), tierNote(at.weapon.tier, at.level)].filter(
+    (line): line is string => line !== null,
+  );
+  return lines.length === 0 ? null : lines.join(' · ');
+}
+
 /**
  * Which tiers a control is about to act on, said in words.
  *

@@ -37,6 +37,8 @@ import {
   itemQueryChanged,
   tierLevel,
   tierNote,
+  weaponNote,
+  MAX_BURDEN,
   weaponQuery,
   weaponQueryChanged,
   type ArmorQuery,
@@ -1217,5 +1219,173 @@ describe('the empty search and the search that finds nothing', () => {
       'Light-Frame Wheelchair',
     ]);
     expect(filterWeapons(weapons, { ...search('wheelchair'), slot: 'secondary' }, 1)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The one line under a filled slot
+// ---------------------------------------------------------------------------
+
+/**
+ * The sentence a slot prints about what is in it, counted against the whole
+ * armoury for the reason the filters are.
+ *
+ * This one is not a filter and it can still be wrong invisibly, in the harder
+ * direction: a note that does not appear looks exactly like a note that had
+ * nothing to say. Both screens had that defect and in opposite ways - the
+ * wizard printed the burden sentence over an EMPTY off-hand slot, and both
+ * printed it to a Warrior, whose Combat Training reads *"You ignore burden when
+ * equipping weapons."*
+ *
+ * MEASURED on `data/srd-2.0.json`, and the numbers pick the cases below:
+ *
+ *   primary slot, burden 1     139        primary slot, burden 2     152
+ *   secondary slot, burden 1   100        secondary slot, burden 2     0
+ *
+ * The zero is why the count matters rather than the old `primary.burden === 2`
+ * test. No weapon the book files as an off-hand takes two hands, so on this
+ * printing three hands can only be reached by a two-handed PRIMARY beside an
+ * off-hand, and four hands only by a primary-slot weapon sitting in the
+ * off-hand - which the pickers allow, because their slot chip is a default and
+ * not a fence.
+ */
+const weapon = (name: string): Weapon => {
+  const found = weapons.find((w) => w.name === name);
+  if (!found) throw new Error(`no weapon called ${name} in this build`);
+  return found;
+};
+
+describe('what a filled weapon slot says about what is in it', () => {
+  const LONGSWORD = weapon('Longsword'); // primary, two-handed, tier 1
+  const BROADSWORD = weapon('Broadsword'); // primary, one-handed, tier 1
+  const HATCHET = weapon('Hatchet'); // secondary, one-handed, tier 1
+  const LEGENDARY_HATCHET = weapon('Legendary Hatchet'); // secondary, tier 4
+
+  it('is standing on the weapons it says it is', () => {
+    expect([LONGSWORD.slot, LONGSWORD.burden, LONGSWORD.tier]).toEqual(['primary', 2, 1]);
+    expect([BROADSWORD.slot, BROADSWORD.burden, BROADSWORD.tier]).toEqual(['primary', 1, 1]);
+    expect([HATCHET.slot, HATCHET.burden, HATCHET.tier]).toEqual(['secondary', 1, 1]);
+    expect(LEGENDARY_HATCHET.tier).toBe(4);
+    expect(MAX_BURDEN).toBe(2);
+    // The measurement the header is built on, re-taken every run.
+    expect(weapons.filter((w) => w.slot === 'secondary' && w.burden === 2)).toEqual([]);
+    expect(weapons.filter((w) => w.slot === 'primary' && w.burden === 2)).toHaveLength(152);
+  });
+
+  it('says nothing about an empty slot', () => {
+    const empty = { weapon: undefined, primary: LONGSWORD, level: 1, ignoresBurden: false };
+    expect(weaponNote({ slot: 'secondary', ...empty })).toBeNull();
+    expect(weaponNote({ slot: 'primary', ...empty, primary: undefined })).toBeNull();
+  });
+
+  it('counts the hands rather than asking whether the primary is two-handed', () => {
+    const at = { slot: 'secondary', weapon: HATCHET, level: 1, ignoresBurden: false } as const;
+    expect(weaponNote({ ...at, primary: LONGSWORD })).toBe(
+      'Longsword and Hatchet are 3 hands — your maximum burden is 2',
+    );
+    // Exactly two hands is exactly the limit, and the limit is not exceeded.
+    expect(weaponNote({ ...at, primary: BROADSWORD })).toBeNull();
+    expect(weaponNote({ ...at, primary: undefined })).toBeNull();
+  });
+
+  it('reaches four hands the only way this printing can', () => {
+    // A primary-slot two-hander in the off-hand: no filter refuses it, and the
+    // old `primary.burden === 2` test could never have printed the real number.
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LONGSWORD,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe('Longsword and Longsword are 4 hands — your maximum burden is 2');
+  });
+
+  it('says nothing to a character who ignores burden', () => {
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: HATCHET,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('leaves the burden sentence off the main hand, where it would be said twice', () => {
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: LONGSWORD,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('prints both true things instead of choosing one', () => {
+    /*
+     * The ternary both screens used dropped the tier line whenever the burden
+     * line fired. A level 1 character holding a tier 4 off-hand beside a
+     * two-handed primary was told about the hands and never about the tier.
+     */
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LEGENDARY_HATCHET,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe(
+      'Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2 · ' +
+        `Tier 4 — usable from level ${tierLevel(4)}`,
+    );
+    // And at a level that reaches tier 4, only the hands are left to say.
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LEGENDARY_HATCHET,
+        primary: LONGSWORD,
+        level: 10,
+        ignoresBurden: false,
+      }),
+    ).toBe('Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2');
+  });
+
+  it('fires on exactly the pairs that are over the limit, across the whole armoury', () => {
+    /*
+     * 391 x 391 is 152,881 pairs, walked rather than sampled, against plain
+     * arithmetic written here - so the assertion cannot pass by re-running the
+     * implementation's own test.
+     */
+    let over = 0;
+    let said = 0;
+    for (const p of weapons) {
+      for (const w of weapons) {
+        const shouldSay = p.burden + w.burden > 2;
+        const note = weaponNote({
+          slot: 'secondary',
+          weapon: w,
+          primary: p,
+          level: 10,
+          ignoresBurden: false,
+        });
+        const saysHands = note !== null && note.includes('hands');
+        expect(saysHands, `${p.name} + ${w.name}`).toBe(shouldSay);
+        if (shouldSay) over += 1;
+        if (saysHands) said += 1;
+      }
+    }
+    // Printed rather than only compared, so "we covered everything" is a number.
+    expect(over).toBe(said);
+    expect(over).toBe(
+      weapons.filter((w) => w.burden === 2).length * weapons.length +
+        weapons.filter((w) => w.burden === 1).length * weapons.filter((w) => w.burden === 2).length,
+    );
+    expect(over).toBe(152 * 391 + 239 * 152);
   });
 });

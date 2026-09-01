@@ -26,6 +26,7 @@ import {
   type Trait,
 } from '../../../shared/types.ts';
 import { deriveStats, newCharacter, syncCounters } from '../../engine/character.ts';
+import { ignoresBurden } from '../../engine/burden.ts';
 import { CHARACTER_NAMES, judgeName } from '../../store/names.ts';
 import { cryptoRng } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
@@ -60,7 +61,7 @@ import {
   type StepId,
   type Warning,
 } from './creation.ts';
-import { tierNote } from './gear.ts';
+import { tierNote, weaponNote } from './gear.ts';
 import {
   ArmorPicker,
   armorSummary,
@@ -1343,7 +1344,14 @@ export function StepEquipment({
   const primary = draft.primary === null ? undefined : index.weapons.get(draft.primary);
   const secondary = draft.secondary === null ? undefined : index.weapons.get(draft.secondary);
   const armor = draft.armor === null ? undefined : index.armors.get(draft.armor);
-  const twoHanded = primary?.burden === 2;
+  /*
+   * The one question the burden sentence turns on, asked of the same assembled
+   * sheet the pickers get their numbers from - so the wizard and `Edit.tsx` are
+   * reading one predicate and cannot end up disagreeing about whose hands are
+   * being counted. `burden.ts` says why that sheet is the right caller and why
+   * there is no class-shaped shortcut past it.
+   */
+  const ignoring = ignoresBurden(sheet, index);
 
   if (dataset.weapons.length === 0) return <DatasetEmpty what="weapons or armor" />;
 
@@ -1358,7 +1366,13 @@ export function StepEquipment({
             label="Primary weapon"
             title={primary?.name ?? null}
             meta={primary && weaponSummary(primary, stats)}
-            note={primary && tierNote(primary.tier, sheet.level)}
+            note={weaponNote({
+              slot: 'primary',
+              weapon: primary,
+              primary,
+              level: sheet.level,
+              ignoresBurden: ignoring,
+            })}
             empty={`Search ${dataset.weapons.length} weapons`}
             onOpen={() => setOpen('primary')}
           />
@@ -1366,11 +1380,23 @@ export function StepEquipment({
             label="Secondary weapon"
             title={secondary?.name ?? null}
             meta={secondary && weaponSummary(secondary, stats)}
-            note={
-              twoHanded && primary
-                ? `${primary.name} is two-handed — there is no hand left for an off-hand weapon`
-                : secondary && tierNote(secondary.tier, sheet.level)
-            }
+            /*
+             * ONLY WHEN THERE IS SOMETHING IN THIS HAND.
+             *
+             * This fired on `twoHanded && primary`, which never looked at the
+             * off-hand at all: an empty optional slot carried "there is no hand
+             * left for an off-hand weapon" for as long as the primary was
+             * two-handed, which is a warning about a weapon nobody has picked.
+             * And it was said to everybody, including the one class the book
+             * writes the exception for. `weaponNote` answers null for both.
+             */
+            note={weaponNote({
+              slot: 'secondary',
+              weapon: secondary,
+              primary,
+              level: sheet.level,
+              ignoresBurden: ignoring,
+            })}
             empty="Optional"
             onOpen={() => setOpen('secondary')}
             onClear={() => set({ secondary: null })}

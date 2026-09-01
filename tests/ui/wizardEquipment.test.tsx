@@ -153,6 +153,24 @@ function slot(label: string): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
+/**
+ * The line under a slot: whatever `GearSlot` prints beneath the row, and
+ * nothing from the neighbouring slots. Read as one string because the
+ * composer joins its lines with `·` into one element.
+ */
+function noteOf(label: string): string {
+  const heading = [...container.querySelectorAll('span')].find(
+    (s) => (s.textContent ?? '').trim() === label,
+  );
+  expect(heading, `no slot labelled ${label}`).toBeDefined();
+  const box = heading!.parentElement!;
+  return [...box.children]
+    .filter((el) => el.tagName === 'SPAN' && el !== heading)
+    .map((el) => (el.textContent ?? '').trim())
+    .join(' ')
+    .trim();
+}
+
 /** Open a picker from its slot and take the named weapon out of it. */
 function equip(label: string, weapon: string): void {
   press(slot(label));
@@ -202,5 +220,49 @@ describe('a two-handed primary, and the off-hand the wizard used to empty', () =
 
     equip('Primary weapon', 'Longsword');
     expect(draft).toMatchObject({ primary: 'longsword', secondary: 'round-shield' });
+  });
+});
+
+describe('the sentence about hands, and who it is true of', () => {
+  const OVER = 'GREATSWORD AND SMALL DAGGER ARE 3 HANDS — YOUR MAXIMUM BURDEN IS 2';
+
+  it('says nothing over an empty off-hand, however the main hand is filled', () => {
+    /*
+     * THE DEFECT. The note fired on `twoHanded && primary` and never looked at
+     * the off-hand, so this slot - optional, empty, nothing chosen - carried
+     * "there is no hand left for an off-hand weapon" as a permanent warning
+     * about a weapon nobody had picked.
+     */
+    mount({ primary: 'greatsword' });
+    expect(noteOf('Secondary weapon')).toBe('');
+    expect(container.textContent).not.toContain('HANDS');
+  });
+
+  it('says it once the off-hand is actually holding something', () => {
+    mount({ primary: 'greatsword', secondary: 'small-dagger' });
+    expect(noteOf('Secondary weapon')).toBe(OVER);
+    // Under the off-hand, and not under the hand that is not the subject.
+    expect(noteOf('Primary weapon')).toBe('');
+  });
+
+  it('says nothing at all to a character who ignores burden', () => {
+    mount({ primary: 'greatsword', secondary: 'small-dagger' }, IGNORER);
+    expect(noteOf('Secondary weapon')).toBe('');
+    expect(container.textContent).not.toContain('MAXIMUM BURDEN');
+  });
+
+  it('is not fooled by the class id either way', () => {
+    // `PLAIN` is the one called `warrior`, and it does not carry the feature.
+    mount({ primary: 'greatsword', secondary: 'small-dagger' }, PLAIN);
+    expect(noteOf('Secondary weapon')).toBe(OVER);
+  });
+
+  it('appears and disappears as the main hand changes, without a remount', () => {
+    mount({ primary: 'longsword', secondary: 'small-dagger' });
+    expect(noteOf('Secondary weapon')).toBe('');
+    equip('Primary weapon', 'Greatsword');
+    expect(noteOf('Secondary weapon')).toBe(OVER);
+    equip('Primary weapon', 'Longsword');
+    expect(noteOf('Secondary weapon')).toBe('');
   });
 });
