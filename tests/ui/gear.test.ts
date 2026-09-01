@@ -1551,49 +1551,54 @@ describe('the tier a character may equip', () => {
  * where that claim is checked against the shipped dataset instead of being
  * asserted in a comment.
  *
- * ## This test is half-armed on this branch, deliberately
+ * ## The two sentences are in two different chapters, and that was measured
  *
- * The Equipment chapter is not in `data/srd-2.0.json` here - `dataset.rules`
- * carries no `equipment` section - so there is nothing to read the sentences
- * off yet, and inventing them in a fixture would prove that this file can
- * write a string. The shape below is therefore a fork: with no chapter, it
- * pins the literal and says so; with the chapter, `MAX_BURDEN` stops being a
- * bare `2` in a test and becomes the number inside the book's own sentence,
- * and the tier sentence must be present for `canEquip` to be entitled to
- * refuse anything.
+ * This was written on a branch where neither chapter had been ingested yet, so
+ * it guessed that both sentences lived in `equipment` and said out loud that it
+ * was guessing. On the composed tree the guess was half wrong and the guard
+ * caught it: the tier refusal is in `equipment`, but the burden line is under a
+ * `## BURDEN` heading inside `weapons`, in BOTH shipped books. The lookup below
+ * names them separately for that reason, and neither test reads the other's
+ * chapter.
  *
- * That second half goes live the moment the chapter lands, without an edit
- * here. If it lands with different wording, this reddens - which is the point:
- * a refusal in the UI whose justification is no longer in the book is exactly
- * the defect this whole change is repairing, in the other direction.
+ * The fork for a build with no chapter at all is kept: it pins the literal and
+ * says so. With the chapters, `MAX_BURDEN` stops being a bare `2` in a test and
+ * becomes the number inside the book's own sentence, and the tier sentence must
+ * be present for `canEquip` to be entitled to refuse anything. If a printing
+ * lands with different wording, this reddens - which is the point: a refusal in
+ * the UI whose justification is no longer in the book is exactly the defect this
+ * whole change is repairing, in the other direction.
  */
 describe('the two sentences the screens are built on', () => {
   /** Typographic apostrophes in the book must not fail a match. */
   const flat = (t: string): string => t.replace(/[‘’]/g, "'");
   const equipment = dataset.rules.find((r) => r.id === 'equipment');
+  /* The burden line is printed under `## BURDEN` inside the weapons chapter,
+     not in the equipment one - measured on both books, not assumed. */
+  const weapons = dataset.rules.find((r) => r.id === 'weapons');
 
   it('pins the burden number to the book when the book is here, and to a literal when it is not', () => {
-    if (equipment === undefined) {
-      // No Equipment chapter in this build. The literal is the only anchor
-      // there is, and this branch is the reason it is still allowed to be one.
+    if (weapons === undefined) {
+      // No weapons chapter in this build. The literal is the only anchor there
+      // is, and this branch is the reason it is still allowed to be one.
       expect(MAX_BURDEN).toBe(2);
       expect(dataset.rules.some((r) => /burden/i.test(r.body))).toBe(false);
       return;
     }
-    const said = /maximum burden is (\d+) hands?/i.exec(flat(equipment.body));
+    const said = /maximum burden is (\d+) hands?/i.exec(flat(weapons.body));
     expect(said, 'the chapter no longer prints the burden limit').not.toBeNull();
     expect(MAX_BURDEN).toBe(Number(said![1]));
   });
 
   it('finds no consequence printed for going over the burden limit', () => {
-    if (equipment === undefined) return;
+    if (weapons === undefined) return;
     /*
      * The negative half, and the one that licenses `handsNote` to be a
      * sentence rather than a fence. If a printing ever adds "you can't equip"
      * or "you cannot carry" to the burden line, this reddens and the note has
      * to become a refusal like the tier line did.
      */
-    const around = /[^.]*maximum burden[^.]*\./i.exec(flat(equipment.body));
+    const around = /[^.]*maximum burden[^.]*\./i.exec(flat(weapons.body));
     expect(around, 'the chapter no longer prints the burden limit').not.toBeNull();
     expect(around![0]).not.toMatch(/can't|cannot|may not/i);
   });
