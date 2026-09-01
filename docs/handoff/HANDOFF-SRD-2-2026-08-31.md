@@ -10,7 +10,7 @@ I commit si citano **per oggetto, mai per SHA**: il ramo si ribasa e gli hash mu
 
 Ramo `srd-2`, spinto fino a *«Bring the handoff up to a branch whose wave has
 landed»*; **tre commit nuovi dopo quello**.
-**PR #66 APERTA, NON UNITA.** 39 commit, 149 file, +22.236 / −1.421.
+**PR #66 APERTA, NON UNITA.** 42 commit, 153 file, +22.378 / −1.422.
 
 **Questi numeri sono misurati a *«Pin the tier head's bold guard, and stop the
 docblock claiming what it cannot»*, e il commit di questo documento ne aggiunge
@@ -20,7 +20,7 @@ scriveva la frase la rendeva falsa. Un numero qui va riletto, mai ricopiato.
 
 ```
 npx tsc --noEmit                              0 errori
-npx vitest run                                186 file / 4617 test
+npx vitest run                                186 file / 4618 test
 npm run build:srd -- --check                  data/srd-2.0.json matches the source.
 npm run build:srd -- --check --pdf <SRD 1>    data/srd-1.0.json matches the source.
 npm run build:registry -- --check             1368 id, 9 conservati, zero numeri spostati
@@ -127,6 +127,58 @@ dal caso raggiungibile (una riga *chiara* che legge `TIER 2`). Il caso *display*
 invece **non è testabile**, ed è un ramo irraggiungibile: il taglio della coda
 toglie ogni riga display prima che `tierOf` la veda. Il docblock che sosteneva
 il contrario è stato corretto.
+
+### E una QUINTA fase: un critico, contro l'app in esecuzione
+
+L'ondata è chiusa: **5 agenti, 5 risultati, 0 errori.** L'ultimo non ha
+ri-verificato le corsie — ha composto le due, guidato l'app su un personaggio
+salvato di schema 7, e chiesto cosa vede un giocatore.
+
+**Ha confermato la composizione**: `git merge-file` sulle due versioni di
+`character.ts` fonde **senza un conflitto**, e l'albero naive (solo out5) è
+verde **e cieco** — `everySite()` non percorreva `stances`. È il commit che
+nessuna corsia ha fatto.
+
+**Ha trovato tre buchi della stessa famiglia, tutti riparati qui:**
+`focus` e `stanceRefs` senza guardia in `readCharacterRecord`, e
+`transformationRef` — lasciato scoperto dall'ondata PRECEDENTE — più
+`boundCounters` che non limitava `focus`. La misura che pesa: `stanceRefs:
+"favored"` non si limitava a entrare, **abbatteva la schermata Build**
+(`character.stanceRefs.map is not a function`, «BUILD COULD NOT OPEN»),
+lasciando un personaggio che da lì non si poteva più né modificare né
+cancellare. Tre campi, tre ondate, una forma sola: **la guardia è un ELENCO, e
+il campo che resta fuori è sempre il più nuovo.**
+
+**Ha riprodotto tutte le misure in pixel** della corsia stances a 393×852 —
+83.5, 354.47, 1750.75, i tocchi 44.00×44.00 — cifra per cifra.
+
+---
+
+## 1-bis. TRE COSE CHE DECIDE IL PROPRIETARIO, prima di unire
+
+Nessuna è un difetto. Tutte cambiano cosa vede un giocatore.
+
+1. **L'app spedisce un contatore di Focus e NESSUNA regola che dica come si
+   riempie.** La colonna sinistra del folio 13 — `STANCES`, `FOCUS`, `SHIFTING
+   INTO STANCES`, `DROPPING OUT OF STANCES`, **325 parole / 1.771 caratteri** —
+   non entra in nessuna collezione. Misurato sulle 69 regole spedite, con la
+   parola intera e non a tentoni: `stance`/`stances` **0**, «maximum of 6
+   Focus» **0**, «Clear your Focus» **0**, «active stance» **0**. L'unica strada
+   al Focus che un giocatore trova è il d4 della stance *Invigorating*.
+   **È il buco di raggiungibilità più grande del ramo.**
+2. **Il selettore non ha un cancello di tier.** Offre *Honed* (tier 4) a un
+   personaggio di tier 3, e lo prende. Coerente con «mostrata, mai applicata» e
+   con la sezione Transformation, ma il libro dice «your tier or lower».
+3. **Un'armatura di tier 3 può lasciare il portatore con zero caselle
+   d'armatura.** L5 bardo, Presenza −2, `granminsters-finery` → `armorScore 0`
+   e `armorSlots.max = 0`. Nessuna armatura ha `baseScore 0`: quello stato era
+   irraggiungibile prima di quest'ondata. È ciò che la frase dice, e il registro
+   stampa `Magnificent −2` accanto — ma arriva nel momento in cui si unisce.
+
+**E un fatto sul deploy:** `main` è a `SCHEMA_VERSION` **5** e `CODEC_VERSION`
+**2**. Un giocatore già installato salta **5 → 8** in una sola unione. La catena
+è provata dalle fixture v3…v7, tutte migrate con `deriveStats` identico byte a
+byte, ma è un salto e non un passo.
 
 ---
 
@@ -315,6 +367,15 @@ E una quinta, che non era mia ma va detta perché è la stessa forma: la corsia
 `pricing` ha **corretto sé stessa** fra la prima e la seconda consegna, su
 numeri che aveva scritto lei. Una consegna non è una fonte più affidabile di un
 documento: si rilegge.
+
+5. **Ho misurato con una ricerca sciatta e ho creduto al risultato.** Per
+   controllare se le regole del Focus fossero nel dataset ho cercato
+   `/stance|focus/i` e ho ottenuto 14 regole. Zero di quelle 14 parla di stance:
+   la parola era dentro **circumstance**, e «focus» era l'inglese comune. Con la
+   parola intera il conto è **0**. Il critico aveva scritto esattamente questa
+   trappola nel suo rapporto — l'avevo letta, e ci sono cascato lo stesso dieci
+   minuti dopo. Una ricerca che non distingue la parola dalla sottostringa non è
+   una misura.
 
 **La verifica ha ripagato il suo costo.** Due numeri sbagliati su una scheda vera
 (§1), trovati non rileggendo le corsie ma **costruendo una scansione diversa** e
