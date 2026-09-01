@@ -14,7 +14,16 @@
  * counts below were read off the printed advancement table and are the plain
  * mechanical numbers, not book text.
  */
-import type { AdvancementKind, Character, LevelUpChoice, Tier, Trait } from '../../shared/types.ts';
+import type {
+  AdvancementKind,
+  Character,
+  DomainCard,
+  DomainId,
+  LevelUpChoice,
+  Ref,
+  Tier,
+  Trait,
+} from '../../shared/types.ts';
 import { MAX_HP, MAX_LEVEL, MAX_STRESS, TIER_LEVELS, tierOf } from './character.ts';
 import { COMPANION_START } from './companion.ts';
 
@@ -252,6 +261,48 @@ export interface LevelUpPlan {
   picks: Array<{ optionId: string; optionTier: Tier; detail: Record<string, unknown> }>;
   /** The card taken at step four, which is not an advancement. */
   newCardRef: string | null;
+  /**
+   * Step four's second sentence: one card given up for one card taken.
+   *
+   * *"You can also exchange one domain card you've previously acquired for a
+   * different domain card of the same level or lower."* Folio 53. Separate from
+   * `newCardRef` because they are two different offers in the same step - a
+   * level grants the new card whether or not anything is exchanged - and
+   * because only this one has a rule attached that something has to enforce.
+   */
+  exchange: CardExchange | null;
+}
+
+/** One card given up for one card taken, at step four. */
+export interface CardExchange {
+  /** A card the character already owns, in the loadout or the vault. */
+  fromRef: Ref;
+  /** A card they do not, at the level of `fromRef` or lower. */
+  toRef: Ref;
+}
+
+/** The `optionId` an exchange records. No `AdvancementOption` has this id. */
+export const CARD_EXCHANGE_OPTION = 'card-exchange';
+
+/**
+ * The two dataset facts the exchange rule needs, and nothing else.
+ *
+ * Two fields rather than a `DatasetIndex` and a `DerivedStats`, because those
+ * are what the caller HAS and this is what the rule NEEDS - and a validator
+ * that takes the whole index is a validator the next rule can quietly start
+ * reading anything out of.
+ *
+ * `domains` comes from `deriveStats` and is not recomputed here. A second
+ * derivation of "which domains can this character reach" would be a second
+ * answer to a question `cardAvailability` and every card list already ask, and
+ * the day a multiclass or a subclass feature changes that answer, one of the
+ * two would keep the old one.
+ */
+export interface PlanContext {
+  /** Every card this build can name, for the level comparison. */
+  cards: ReadonlyMap<Ref, DomainCard>;
+  /** The domains the sheet this plan PRODUCES can reach, from `deriveStats`. */
+  domains: readonly DomainId[];
 }
 
 export interface Validation {
@@ -260,7 +311,34 @@ export interface Validation {
   warnings: string[];
 }
 
-export function validatePlan(c: Character, plan: LevelUpPlan): Validation {
+/**
+ * Check a plan, and - when an exchange is in it - check it against the cards.
+ *
+ * ## Why there is a third parameter at all
+ *
+ * This module has no dataset, on purpose: everything it enforces is a number
+ * the rules state, and a card's LEVEL is not one of those - it is a fact about
+ * a printing. The precedent for a dataset question is `applyLevelUp`'s granted
+ * card, where `src/ui/build/cardAllowance.ts` decides and the plan carries the
+ * answer.
+ *
+ * The exchange cannot take that shape. "Of the same level or lower" is a rule
+ * of character construction rather than a ruling the table makes, so a plan
+ * that carried its own answer would be a plan that could lie - and the caller
+ * that built it is the same screen that would be lying. So the levels are
+ * looked up here, out of the index the caller already holds, and the plan
+ * carries only the two refs.
+ *
+ * `context` is optional so that the two callers with no dataset - the simulator
+ * and the sample builder - keep compiling, and an exchange without one is
+ * REFUSED rather than waved through. A missing lookup is the one case where
+ * "cannot check" and "is fine" must not be the same answer.
+ */
+export function validatePlan(
+  c: Character,
+  plan: LevelUpPlan,
+  context?: PlanContext,
+): Validation {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -366,7 +444,96 @@ export function validatePlan(c: Character, plan: LevelUpPlan): Validation {
     warnings.push('Step four: take a new domain card at your level or lower.');
   }
 
+  errors.push(...exchangeErrors(c, plan, context));
+
   return { ok: errors.length === 0, errors, warnings };
+}
+
+/**
+ * The one rule step four's second sentence carries, enforced rather than said.
+ *
+ * *"You can also exchange one domain card you've previously acquired for a
+ * different domain card of the same level or lower."* Folio 53. Four clauses,
+ * and each is a refusal because each is a rule of construction rather than a
+ * ruling a table makes:
+ *
+ *   "previously acquired"  -> the card given up is checked against the sheet as
+ *                             it was BEFORE this level. A card taken at step
+ *                             four of the same level-up is not previously
+ *                             acquired, and `applyLevelUp` banks the new one
+ *                             after this check has read the old sheet.
+ *   "a different"          -> the two refs cannot be equal, and the card taken
+ *                             cannot be one already owned or one already
+ *                             spoken for elsewhere in this plan - the vault is
+ *                             a list, and pushing a ref twice is how a
+ *                             character comes to own two copies of a card.
+ *   "of the same level or  -> the levels are compared. This is the clause the
+ *    lower"                   lane exists for, and it is why an index is asked
+ *                             for rather than a number carried on the plan.
+ *   (unstated)             -> the card taken has to be one this character could
+ *                             have taken at step four anyway: a domain they
+ *                             have access to. The sentence does not repeat the
+ *                             first half's "from one of your class's domains",
+ *                             and reading its silence as permission would let a
+ *                             wizard exchange into Valor. It is the second
+ *                             sentence of one step, not a second step, so the
+ *                             first sentence's domain clause still applies -
+ *                             and the level cap does not, because this sentence
+ *                             replaces it with its own.
+ *
+ * A card either side of the exchange that this build cannot name is a refusal
+ * and not a shrug: without both levels there is no comparison to make, and
+ * "cannot check" must not read the same as "is fine".
+ */
+function exchangeErrors(
+  c: Character,
+  plan: LevelUpPlan,
+  context?: PlanContext,
+): string[] {
+  const swap = plan.exchange;
+  if (swap === null) return [];
+  const errors: string[] = [];
+
+  const owned = new Set<Ref>([...c.loadout, ...c.vault]);
+  if (!owned.has(swap.fromRef)) {
+    errors.push(`You can only exchange a domain card you have already acquired, and ${swap.fromRef} is not one of yours.`);
+  }
+  if (swap.toRef === swap.fromRef) {
+    errors.push('An exchange takes a different card than the one it gives up.');
+  } else if (owned.has(swap.toRef)) {
+    errors.push(`${swap.toRef} is already in your loadout or vault.`);
+  } else if (
+    swap.toRef === plan.newCardRef ||
+    plan.picks.some(
+      (p) => p.detail['cardRef'] === swap.toRef || p.detail['grantCardRef'] === swap.toRef,
+    )
+  ) {
+    errors.push(`${swap.toRef} is already being taken elsewhere in this level.`);
+  }
+
+  if (context === undefined) {
+    errors.push('This build cannot check the level of an exchanged card, so the exchange is refused.');
+    return errors;
+  }
+  const from = context.cards.get(swap.fromRef);
+  const to = context.cards.get(swap.toRef);
+  for (const [ref, card] of [
+    [swap.fromRef, from],
+    [swap.toRef, to],
+  ] as const) {
+    if (card === undefined) errors.push(`This build cannot name ${ref}, so it cannot check its level.`);
+  }
+  if (from === undefined || to === undefined) return errors;
+
+  if (!context.domains.includes(to.domain)) {
+    errors.push(`${swap.toRef} is not in a domain you have access to.`);
+  }
+  if (to.level > from.level) {
+    errors.push(
+      `${to.name} is level ${to.level}, and an exchange takes a card of the same level or lower - ${from.name} is level ${from.level}.`,
+    );
+  }
+  return errors;
 }
 
 /** Apply a validated plan. Callers should refuse to call this when !ok. */
@@ -520,6 +687,43 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
   }
 
   if (plan.newCardRef) next = { ...next, vault: [...next.vault, plan.newCardRef] };
+
+  /*
+   * The exchange, last, and IN PLACE.
+   *
+   * Last because `validatePlan` reads "previously acquired" off the sheet as it
+   * was, so applying it before the level's own grants would be checking one
+   * sheet and changing another.
+   *
+   * In place - loadout for loadout, vault for vault - rather than always into
+   * the vault the way `newCardRef` goes. Two reasons, and the first is the
+   * rules': `MAX_LOADOUT` is five, and a swap that took a card OUT of the
+   * loadout and put its replacement in the vault would leave a player one card
+   * down for a step the book describes as an exchange. The count is invariant
+   * this way, so no overflow is possible and none has to be handled. The second
+   * is that it is what the word means.
+   *
+   * `filter` on both lists rather than on the one it was found in: a ref in
+   * both is not a state this app writes, and removing it from only one would
+   * leave a sheet still owning the card it just gave up.
+   */
+  const swap = plan.exchange;
+  if (swap !== null) {
+    const inLoadout = next.loadout.includes(swap.fromRef);
+    next = {
+      ...next,
+      loadout: next.loadout.flatMap((r) => (r === swap.fromRef ? [swap.toRef] : [r])),
+      vault: inLoadout
+        ? next.vault.filter((r) => r !== swap.fromRef)
+        : next.vault.flatMap((r) => (r === swap.fromRef ? [swap.toRef] : [r])),
+    };
+    history.push({
+      level: plan.toLevel,
+      slot: 0,
+      kind: 'cardExchange',
+      detail: { optionId: CARD_EXCHANGE_OPTION, fromRef: swap.fromRef, toRef: swap.toRef },
+    });
+  }
 
   return { ...next, levelUpHistory: history, updatedAt: new Date().toISOString() };
 }

@@ -247,6 +247,16 @@ describe('refusing a file it does not understand', () => {
     expect(damaged({ focus: 'not a counter' })).toThrow(/no readable Focus track/);
     expect(damaged({ focus: { marked: 3 } })).toThrow(/no readable Focus track/);
     expect(damaged({ focus: null })).toThrow(/no readable Focus track/);
+    /*
+     * Schema 9's field, and the third wave in a row to arrive unguarded. The
+     * same probe measured it saying the same thing: `{ favor: 'not a counter' }`
+     * was accepted and the string was stored in a field typed `Counter`.
+     * `tests/favor.test.tsx` is where the abuse is run side by side with `hp`'s,
+     * which is the comparison that says a list is complete rather than long.
+     */
+    expect(damaged({ favor: 'not a counter' })).toThrow(/no readable Favor track/);
+    expect(damaged({ favor: { marked: 3 } })).toThrow(/no readable Favor track/);
+    expect(damaged({ favor: null })).toThrow(/no readable Favor track/);
     expect(damaged({ stanceRefs: 'favored' })).toThrow(/damaged "stanceRefs" list/);
     expect(damaged({ stanceRefs: [7] })).toThrow(/damaged "stanceRefs" list/);
     // Left unchecked by the wave before this one, and found by the same probe.
@@ -255,7 +265,7 @@ describe('refusing a file it does not understand', () => {
     expect(damaged({})).not.toThrow();
     // Absent is terse, not damaged: a v8 file edited to drop the track opens on
     // the blank sheet's, not on `undefined`.
-    expect(damaged({ focus: undefined, stanceRefs: undefined })).not.toThrow();
+    expect(damaged({ focus: undefined, stanceRefs: undefined, favor: undefined })).not.toThrow();
 
     // Nullable on the character, so null is a value and not damage.
     expect(damaged({ companion: null, beastform: null, activeArmor: null })).not.toThrow();

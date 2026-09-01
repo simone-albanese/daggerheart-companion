@@ -16,7 +16,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAX_FOCUS } from '../../shared/types.ts';
+import { MAX_FAVOR, MAX_FOCUS } from '../../shared/types.ts';
 import type { Character } from '../../shared/types.ts';
 import { decideImport, duplicateFor } from '../../src/store/merge.ts';
 import { indexDataset } from '../../src/engine/character.ts';
@@ -171,6 +171,37 @@ describe('the store, against a real database', () => {
       marked: MAX_FOCUS,
       max: MAX_FOCUS,
     });
+  });
+
+  it('holds the Favor ceiling on the way in, because the next field is where this goes missing', async () => {
+    /*
+     * The same record, one track over, and it is here rather than folded into
+     * the test above because the defect the test above records is that a NEW
+     * field is what this list forgets. `focus` reached `boundCounters` one bump
+     * after its ceiling reached `COUNTER_CEILINGS`; the only way that costs
+     * nothing next time is if the next field's own line goes in with it.
+     *
+     * The file path is why this matters beyond the codec: `.dhchar` and
+     * `.dhbackup` never touch `readCounter`, so bounding the wire alone leaves
+     * every imported file wide open - and `Track.tsx` draws one DOM node per
+     * point of a maximum.
+     */
+    const huge = makeCharacter({
+      name: 'Also huge',
+      favor: { marked: 1048576, max: 1048576 },
+    });
+    const report = await store.useApp.getState().importCharacters([huge]);
+    expect(report.imported[0]!.favor).toEqual({ marked: MAX_FAVOR, max: MAX_FAVOR });
+    expect(store.useApp.getState().characters[0]!.favor).toEqual({
+      marked: MAX_FAVOR,
+      max: MAX_FAVOR,
+    });
+    // Control: a legal track is not clamped, so what the ceiling throws away is
+    // the impossible number and not the sheet.
+    const real = await store
+      .useApp.getState()
+      .importCharacters([makeCharacter({ name: 'Real', favor: { marked: 4, max: MAX_FAVOR } })]);
+    expect(real.imported[0]!.favor).toEqual({ marked: 4, max: MAX_FAVOR });
   });
 
 

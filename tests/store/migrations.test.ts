@@ -151,6 +151,7 @@ describe('the committed fixtures', () => {
       'the dataset grew a transformations collection and four widened fields; no schema-5 character field changed',
       'a character can hold one transformation card, starting with none',
       'a character can know martial stances and hold Focus, starting with none of either',
+      'a character can hold Favor, and an existing one starts holding none',
     ]);
     expect(migrated.record['consecutiveShortRests']).toBe(0);
     expect(migrated.record['schemaVersion']).toBe(SCHEMA_VERSION);

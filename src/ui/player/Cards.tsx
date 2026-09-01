@@ -26,7 +26,7 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { foldQuery } from '../shared/srdIndex.ts';
 import { DOMAINS_FOR_DISPLAY, type DomainCardType, type DomainId } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
-import { canAddToLoadout, cardAvailability, vaultCard } from '../../engine/loadout.ts';
+import { canAddToLoadout, cardAvailability, releaseCard, vaultCard } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
@@ -64,6 +64,17 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * controls in a grid of 189 is worse than none.
    */
   const [armed, setArmed] = useState<string | null>(null);
+  /*
+   * The card whose ✕ has been pressed once.
+   *
+   * A second state and not a mode on `armed`, because the two prime different
+   * things: `armed` is "this recall will cost Hit Points, press again", and
+   * this is "this card will stop being yours, press again". A card can be a
+   * candidate for neither, either or - if they shared a slot - the wrong one.
+   * They are cleared against each other where they are set, so only one prompt
+   * is ever live.
+   */
+  const [releasing, setReleasing] = useState<string | null>(null);
   /*
    * Whether the four folded filters are open, in the compact arrangement only.
    * Deliberately not remembered: it is a state of one visit to this screen,
@@ -212,6 +223,10 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   const acquire = (cardId: string): void => {
     const card = dataset.domainCards.find((c) => c.id === cardId);
     if (!card) return;
+    // Any other action on any card answers a live ✕ prompt with "no". A primed
+    // control that survives an unrelated tap is a control that fires later, on
+    // a screen the player has stopped reading.
+    setReleasing(null);
     if (character.loadout.includes(cardId)) {
       update((c) => vaultCard(c, cardId));
       return;
@@ -250,6 +265,47 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
     // Acquiring a card the character does not own yet goes to the vault:
     // getting it into the loadout is a separate, costed decision.
     update((c) => ({ ...c, vault: [...c.vault, cardId] }));
+  };
+
+  /**
+   * Give a card back, on the second press.
+   *
+   * ## Why it arms at all, when nothing else in this footer does
+   *
+   * Because it is the only control here that REDUCES what the character owns.
+   * TAKE adds, RECALL and IN LOADOUT move a card between two lists you already
+   * hold; every one of them is undone by one more tap on the same row. This is
+   * not: once a card is off both lists the row's footer becomes TAKE if the
+   * card is still eligible - and the reason text with no control at all if it
+   * is not. A card out of a domain the character has lost, or above their
+   * current cap, cannot be taken back from this screen. That is the case the
+   * arming is for, and it is exactly the case a player cannot see coming.
+   *
+   * ## Why the prompt is not on the button that is about to act
+   *
+   * `armed` puts its question ON the control - the label becomes MARK 2 HP? -
+   * and it can, because that control is `flex: none` at the LEFT edge of a
+   * `space-between` strip: its own left edge cannot move. The ✕ is at the right
+   * edge and this footer is a fixed-height band with no room for a second line,
+   * so a question written into the ✕ would widen it and slide it left between
+   * the two presses. The second press would land where the first one did and
+   * hit something else.
+   *
+   * So the ✕ never changes size. It changes colour, and the question is written
+   * in the readout to its left - the one place in this strip whose width is
+   * already free to move, because `space-between` pins the last child to the
+   * padding edge and absorbs every width change in the gaps before it. Measured
+   * the other way round on the Play screen's own arming strip: 17px of extra
+   * label there reflowed the two touch targets apart between the presses.
+   */
+  const release = (cardId: string): void => {
+    if (releasing !== cardId) {
+      setReleasing(cardId);
+      setArmed(null);
+      return;
+    }
+    setReleasing(null);
+    update((c) => releaseCard(c, cardId));
   };
 
   /*
@@ -589,6 +645,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
             row.owned && !row.inLoadout ? canAddToLoadout(character, row.card) : null;
           const needsHp = swap !== null && swap.allowed && !swap.affordable;
           const primed = armed === row.card.id;
+          const primedRelease = releasing === row.card.id;
           return (
             <DomainCardView
               key={row.card.id}
@@ -648,14 +705,60 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
                       className="t-meta"
                       style={{
                         flex: 'none',
-                        color: needsHp ? 'var(--damage)' : 'var(--dim)',
+                        color: primedRelease
+                          ? 'var(--damage)'
+                          : needsHp
+                            ? 'var(--damage)'
+                            : 'var(--dim)',
                         textAlign: 'right',
                       }}
                     >
-                      {needsHp
-                        ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS`
-                        : `COST ${row.card.recallCost}`}
+                      {primedRelease
+                        ? 'PRESS ✕ AGAIN'
+                        : needsHp
+                          ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS`
+                          : `COST ${row.card.recallCost}`}
                     </span>
+                    {row.owned && (
+                      /*
+                       * The way back out, and the only control on this card
+                       * that reduces what the character owns.
+                       *
+                       * Last child of a `space-between` strip on purpose: that
+                       * pins it to the padding edge, so the readout beside it
+                       * can change from "COST 2" to "PRESS ✕ AGAIN" without
+                       * moving the target the second press has to hit. Its own
+                       * width never changes - one glyph, both states - and the
+                       * arming shows as colour plus that readout, which is
+                       * text a screen reader gets through the label below
+                       * rather than through a colour it cannot see.
+                       *
+                       * `minWidth: var(--control)` on `CardAction`, and the
+                       * strip's own height is `max(34px, var(--control))` -
+                       * both resolve to 34 on a mouse and to `--tap` (44)
+                       * under `any-pointer: coarse` or at 1179px and below. So it
+                       * is a 44 x 44 target wherever there is a finger,
+                       * the same floor as the TEXT button on every card row in
+                       * `LevelUp.tsx`, and it sits in the same band as the
+                       * action it undoes rather than in a menu two taps away.
+                       *
+                       * Only for a card the character owns. On an unowned card
+                       * there is nothing to give back, and a ✕ that does
+                       * nothing beside a TAKE that does something is a control
+                       * a player has to learn by pressing.
+                       */
+                      <CardAction
+                        tone={primedRelease ? 'warn' : 'held'}
+                        onClick={() => release(row.card.id)}
+                        label={
+                          primedRelease
+                            ? `Confirm: give ${row.card.name} back, so it is no longer yours`
+                            : `Give ${row.card.name} back - it stops being one of your cards`
+                        }
+                      >
+                        <span aria-hidden="true">✕</span>
+                      </CardAction>
+                    )}
                   </>
                 )
               }
@@ -734,6 +837,17 @@ function CardAction({
       style={{
         flex: 'none',
         minHeight: 'var(--control)',
+        /*
+         * A floor, not a width. Every label this renders - IN LOADOUT, RECALL,
+         * TAKE, MARK 2 HP? - is far wider than it and is unmoved; the one child
+         * it binds is the ✕, which is a single glyph and would otherwise be a
+         * 29px target inside a 44px strip. `--control` is the token that
+         * already answers "how wide is a control here" for every chip on this
+         * screen, and it resolves to `--tap` under `any-pointer: coarse` and at
+         * 1179px and below - so the mouse layout is unchanged to the pixel and
+         * every touchscreen gets 44.
+         */
+        minWidth: 'var(--control)',
         padding: '0 10px',
         background: tone === 'warn' ? 'var(--fear-wash)' : 'var(--raised)',
         border: `1px solid ${tone === 'go' ? 'var(--line)' : ink}`,

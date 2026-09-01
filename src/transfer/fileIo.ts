@@ -518,6 +518,42 @@ export function readCharacterRecord(
      * which is what every reader of `.marked` would otherwise meet.
      */
     focus: value['focus'] === undefined ? base.focus : readCounter(value['focus'], 'Focus', where),
+    /*
+     * SCHEMA 9'S FIELD, WHICH ARRIVED UNGUARDED FOR THE THIRD WAVE RUNNING.
+     *
+     * Measured before this line existed, with the identical abuse the four
+     * tracks above get: `{ favor: 'not a counter' }` was ACCEPTED and the
+     * string was stored in a field typed `Counter`, as were `{ marked: 3 }` and
+     * `null`, while the same three of `hp` were refused with "has no readable
+     * HP track". `focus` was measured saying exactly that one bump ago, and
+     * `transformationRef` the bump before. The guard is a list, and a list is
+     * easy to add to and easy to forget.
+     *
+     * `checkShapes` is deliberately NOT the place, and that is a measurement
+     * rather than an omission: it runs BEFORE this line, so a `favor` entry
+     * there would answer the same damage with a different sentence than `hp`
+     * answers it with - and "responds the same way as `hp`" is the property
+     * this field was checked against.
+     *
+     * Absent falls back to the blank sheet rather than throwing, which is where
+     * this differs from `hp` and matches `focus`: the rule stated on
+     * `checkShapes` is that anything present has to have the right shape and
+     * anything absent is just terse. A v9 file hand-edited to drop the track
+     * opens on the blank sheet's track instead of on `undefined`, which is what
+     * every reader of `.marked` would otherwise meet.
+     *
+     * That fallback is an EMPTY track, and it is worth naming because it used
+     * to be three. `base` is `newCharacter()` with no index, so there is no
+     * class to read and `grantsFavor` says no - which means a terse file now
+     * gets the same answer here that the 8 -> 9 converter and the format-8
+     * decoder already gave it: a file with no Favor track was written by
+     * something that never had one. Three doors, one answer, where the blank
+     * sheet's unconditional three used to make this one disagree with the other
+     * two. `tests/favor.test.tsx` pins the literal rather than comparing
+     * against `newCharacter().favor`, which would agree with the seed whatever
+     * the seed became.
+     */
+    favor: value['favor'] === undefined ? base.favor : readCounter(value['favor'], 'Favor', where),
     stanceRefs: strings('stanceRefs') ?? [],
     loadout: strings('loadout') ?? [],
     vault: strings('vault') ?? [],

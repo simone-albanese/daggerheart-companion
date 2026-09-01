@@ -48,6 +48,7 @@ import { deriveStats, indexDataset, newCharacter } from '../src/engine/character
 import { characterRefs } from '../src/engine/holdings.ts';
 import {
   CODEC_VERSION,
+  NARROW_CODEC_VERSIONS,
   READABLE_CODEC_VERSIONS,
   decodeCharacter,
   encodeCharacter,
@@ -281,6 +282,15 @@ describe('holding one moves no number on the sheet', () => {
 // 3. It travels
 // ---------------------------------------------------------------------------
 
+/**
+ * The format a payload declares, read the way the format documents it: a low
+ * nibble of 0x0f is the escape that says the version is byte 1, anything else
+ * IS the version. Written out rather than imported, so a test about the wire
+ * does not ask the encoder what it wrote.
+ */
+const declaredFormat = (payload: Uint8Array): number =>
+  (payload[0]! & 0x0f) === 0x0f ? payload[1]! : payload[0]! & 0x0f;
+
 describe('the wire', () => {
   it('keeps format 4 readable, and never makes 3 readable', () => {
     /*
@@ -297,17 +307,30 @@ describe('the wire', () => {
      * reader will find it.
      */
     const readable = new Set<number>(READABLE_CODEC_VERSIONS);
+    const nibble = new Set<number>(NARROW_CODEC_VERSIONS);
     expect(readable.has(4)).toBe(true);
-    for (const bit of [0, 1, 2, 3]) {
-      expect(readable.has(CODEC_VERSION ^ (1 << bit)), `flipping bit ${bit}`).toBe(false);
-    }
     expect(readable.has(3)).toBe(false);
+    /*
+     * The arithmetic, asked of 4 rather than of `CODEC_VERSION`. It used to be
+     * asked of the constant, which was fine while the version lived in the
+     * nibble and is a category error now: this build writes 9, whose number is
+     * in a byte of its own behind the 0x0f escape, so `9 ^ 1` is 8 - a real
+     * format, at a different offset - and the flip that matters there is a flip
+     * of the version BYTE. `tests/transfer/codec.test.ts` owns that property in
+     * full. What THIS file is entitled to pin is the card's own format: 4 is
+     * one bit from 5, 6, 0 and 12, none of them readable, so a format-4 QR in
+     * somebody's photo roll is still a format-4 QR after a knock.
+     */
+    for (const bit of [0, 1, 2, 3]) {
+      // The narrow set, because a nibble can only ever name a narrow format.
+      expect(nibble.has(4 ^ (1 << bit)), `flipping bit ${bit} of 4`).toBe(false);
+    }
   });
 
   it('carries the card, and back', async () => {
     const reg = registryWithVampire();
     const payload = await encodeCharacter(sheet({ transformationRef: 'vampire' }), reg);
-    expect(payload[0]! & 0x0f).toBe(CODEC_VERSION);
+    expect(declaredFormat(payload)).toBe(CODEC_VERSION);
     const { character, warnings } = await decodeCharacter(payload, reg);
     expect(character.transformationRef).toBe('vampire');
     expect(warnings).toEqual([]);

@@ -407,3 +407,95 @@ describe('multiclassing into the School of Knowledge', () => {
     expect(text()).toContain('Prepared gives you an additional domain card');
   });
 });
+
+describe('step four’s second sentence, on the screen', () => {
+  /**
+   * The half no engine test can see.
+   *
+   * `validatePlan` refuses an exchange that breaks the level rule, and a screen
+   * that offered one anyway would have told the player the rule is optional and
+   * then disabled Apply for a reason two hundred pixels away. So the list has
+   * to be bounded where the list is drawn - and this is what says it is.
+   */
+  const tradeRow = (): HTMLElement | null =>
+    [...container.querySelectorAll('div')].find((d) =>
+      (d.textContent ?? '').includes('Trade one in'),
+    ) ?? null;
+
+  /*
+   * The unfolded second list, and the DEEPEST div holding it.
+   *
+   * `querySelectorAll` is document order, so ancestors come before descendants
+   * and the last match in a single subtree is the innermost. Taking the first
+   * one instead would hand back the whole panel - which contains step four's
+   * own list as well, and would make "the exchange offered a level 4 card" true
+   * of every screen that offers one anywhere.
+   */
+  const takeList = (): HTMLElement | null =>
+    [...container.querySelectorAll('div')]
+      .filter((d) => (d.textContent ?? '').includes('Take instead of'))
+      .at(-1) ?? null;
+
+  /** Every card row currently on the screen, as `LV<n>` and a name. */
+  const cardRows = (): Array<{ name: string; level: number }> =>
+    [...container.querySelectorAll('button')]
+      .map((b) => b.textContent ?? '')
+      .flatMap((t) => {
+        const m = /^(.*?)LV(\d+) · /.exec(t);
+        return m === null ? [] : [{ name: m[1]!.trim(), level: Number(m[2]) }];
+      });
+
+  it('offers the exchange inside step four, and prints the sentence it enforces', () => {
+    mount({ ...playedCharacter(), level: 3 });
+    expect(tradeRow(), 'no exchange offered at step four').not.toBeNull();
+    // Printed verbatim: a rule the app enforces silently is a rule the player
+    // cannot check.
+    expect(text()).toContain(
+      'exchange one domain card you’ve previously acquired for a different domain card of the same level or lower',
+    );
+    // And it says which half of step four it is not.
+    expect(text()).toContain('AND IT IS NOT THE CARD ABOVE');
+  });
+
+  it('draws no second list until something has been chosen to give up', () => {
+    mount({ ...playedCharacter(), level: 3 });
+    expect(text()).not.toContain('Take instead of');
+  });
+
+  it('bounds the second list by the level of the card given up', () => {
+    const c = playedCharacter();
+    mount({ ...c, level: 3 });
+
+    // The character's own cards are the left-hand list, so one of them is
+    // pressable here and none of them is in the step-four list above.
+    const owned = new Set([...c.loadout, ...c.vault]);
+    const ownedCards = dataset.domainCards.filter((card) => owned.has(card.id));
+    const lowest = [...ownedCards].sort((a, b) => a.level - b.level)[0]!;
+    const row = [...container.querySelectorAll('button')].find((b) =>
+      (b.textContent ?? '').startsWith(lowest.name),
+    );
+    expect(row, `no row for ${lowest.name}, which this character owns`).toBeDefined();
+    act(() => {
+      row!.click();
+    });
+
+    expect(text()).toContain(`Take instead of ${lowest.name} — level ${lowest.level} or lower`);
+    // TEETH. Every card row on the screen is now either the step-four list
+    // (capped at the character's level) or the exchange list (capped at
+    // `lowest.level`), and the dataset has cards above both - so a screen that
+    // ignored the ceiling would show one.
+    const above = cardRows().filter((r) => r.level > lowest.level);
+    const offered = new Set(above.map((r) => r.name));
+    const exchangeList = takeList()!.textContent ?? '';
+    for (const name of offered) {
+      expect(
+        exchangeList.includes(`${name}LV`),
+        `${name} is above level ${lowest.level} and was offered for the exchange`,
+      ).toBe(false);
+    }
+    // Control: the dataset really does hold cards this character could take at
+    // step four that are above `lowest.level`, so the loop had something to
+    // find.
+    expect(above.length, 'nothing above the ceiling was on screen at all').toBeGreaterThan(0);
+  });
+});
