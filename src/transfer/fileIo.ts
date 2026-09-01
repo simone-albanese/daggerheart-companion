@@ -334,7 +334,19 @@ function checkShapes(value: Record<string, unknown>, where: string): void {
   }
   const marks = value['traitMarks'];
   if (marks !== undefined && !isRecord(marks)) wrong('traitMarks', 'an object');
-  for (const key of ['classRef', 'communityRef', 'multiclassRef', 'multiclassDomain'] as const) {
+  /*
+   * `transformationRef` is in this list because it was NOT, and it is the third
+   * field of this wave's family to have arrived unchecked - measured:
+   * `{ transformationRef: 42 }` was accepted, as was `{}`. It is a `Ref | null`
+   * exactly like the four beside it.
+   */
+  for (const key of [
+    'classRef',
+    'communityRef',
+    'multiclassRef',
+    'multiclassDomain',
+    'transformationRef',
+  ] as const) {
     const v = value[key];
     if (v !== undefined && v !== null && typeof v !== 'string') wrong(key, 'a reference or null');
   }

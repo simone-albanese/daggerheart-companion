@@ -16,6 +16,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_FOCUS } from '../../shared/types.ts';
 import type { Character } from '../../shared/types.ts';
 import { decideImport, duplicateFor } from '../../src/store/merge.ts';
 import { indexDataset } from '../../src/engine/character.ts';
@@ -144,6 +145,32 @@ describe('the store, against a real database', () => {
     expect(report.imported.map((c) => c.name)).toEqual(['New']);
     expect(report.conflicts).toEqual([]);
     expect(store.useApp.getState().characters.map((c) => c.name)).toEqual(['New']);
+  });
+
+  it('holds the Focus ceiling on the way in, like every other track', async () => {
+    /*
+     * `boundCounters` clamps hp, stress, hope, armorSlots and the companion's
+     * stress against `COUNTER_CEILINGS`. It did NOT clamp `focus`, although
+     * that ceiling has been in `COUNTER_CEILINGS` since schema 8 - so the
+     * constant existed and nothing on this path read it. Measured in the
+     * running app before this line: a record carrying
+     * `focus: { marked: 1048576, max: 1048576 }` drew `1048576/1048576` in the
+     * Martial Stances section.
+     *
+     * The ceiling is the RULES', not the dataset's, which is exactly why this
+     * clamp is allowed where the surrounding function refuses to clamp maxima
+     * it cannot vouch for - see `normalizeIncoming`'s own note.
+     */
+    const huge = makeCharacter({
+      name: 'Huge',
+      focus: { marked: 1048576, max: 1048576 },
+    });
+    const report = await store.useApp.getState().importCharacters([huge]);
+    expect(report.imported[0]!.focus).toEqual({ marked: MAX_FOCUS, max: MAX_FOCUS });
+    expect(store.useApp.getState().characters[0]!.focus).toEqual({
+      marked: MAX_FOCUS,
+      max: MAX_FOCUS,
+    });
   });
 
 

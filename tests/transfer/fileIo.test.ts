@@ -249,6 +249,9 @@ describe('refusing a file it does not understand', () => {
     expect(damaged({ focus: null })).toThrow(/no readable Focus track/);
     expect(damaged({ stanceRefs: 'favored' })).toThrow(/damaged "stanceRefs" list/);
     expect(damaged({ stanceRefs: [7] })).toThrow(/damaged "stanceRefs" list/);
+    // Left unchecked by the wave before this one, and found by the same probe.
+    expect(damaged({ transformationRef: 42 })).toThrow(/damaged "transformationRef" field/);
+    expect(damaged({ transformationRef: {} })).toThrow(/damaged "transformationRef" field/);
     expect(damaged({})).not.toThrow();
     // Absent is terse, not damaged: a v8 file edited to drop the track opens on
     // the blank sheet's, not on `undefined`.
