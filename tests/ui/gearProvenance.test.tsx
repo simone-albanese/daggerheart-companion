@@ -483,6 +483,53 @@ describe('the control is drawn only where it can do something', () => {
     expect(shown(countOf())).toBe(shown(before) - gone);
     expect(container.textContent).not.toContain('WESTERN CAMPAIGNS');
   });
+
+  it('is still on screen after Base, so the door swings both ways', () => {
+    // THE WIRING, not the filter. `ModuleFilter` is handed
+    // `s.dataset.weapons` - the WHOLE collection - and its own prop docblock
+    // says why. Hand it the rows the filters left standing instead, which is
+    // the tidier-looking wiring and the one a later edit reaches for, and
+    // `moduleSplit` goes false the instant Base is chosen: every surviving row
+    // has no module, so `some(module !== undefined)` fails, the control
+    // unmounts, and `All` can never be reached again. The list is then stuck
+    // on base content with nothing on screen saying it is narrowed.
+    //
+    // Every other test in this file stays green through that, because they all
+    // call the filter functions directly and those are pure. This one has to
+    // render.
+    draw(fenced(), weaponsPicker());
+    const rules = (): HTMLElement | undefined => groupNamed('Rules');
+    expect(rules()).toBeDefined();
+    act(() => {
+      [...rules()!.querySelectorAll('button')][1]!.click();
+    });
+    expect(rules()).toBeDefined();
+    expect([...rules()!.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      'All',
+      'Base',
+    ]);
+    act(() => {
+      [...rules()!.querySelectorAll('button')][0]!.click();
+    });
+    // The way back is not merely present, it works: the module rows return.
+    expect(container.textContent).toContain('WESTERN CAMPAIGNS');
+  });
+
+  it('swings both ways on the armor picker too, which is a second call site', () => {
+    // The same wiring, written out a second time 180 lines further down, and
+    // a rewiring would not necessarily touch both. One test per call site.
+    draw(fenced(), armorPicker());
+    const rules = (): HTMLElement | undefined => groupNamed('Rules');
+    expect(rules()).toBeDefined();
+    act(() => {
+      [...rules()!.querySelectorAll('button')][1]!.click();
+    });
+    expect(rules()).toBeDefined();
+    act(() => {
+      [...rules()!.querySelectorAll('button')][0]!.click();
+    });
+    expect(container.textContent).toContain('EVERYDAY HERO STARTING EQUIPMENT');
+  });
 });
 
 describe('the row says where it came from', () => {
