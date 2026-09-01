@@ -34,13 +34,25 @@ to amend it at any time and without notice: it names whatever is at that
 address today, which is not necessarily the licence this release was published
 under. The version this release is published under is:
 
-    Darrington Press Community Gaming License
-    dated 30 July 2025 (the document carries "Last Updated 7/29/2025" and
-    "7/30/2025" on its first page)
-    https://darringtonpress.com/wp-content/uploads/2025/07/DPCGL-July-30th-2025.pdf
-    retrieved 2026-08-16
+    Darrington Press Community Gaming License, version 2.0
+    published 26 August 2026 (the document itself carries "Last Updated
+    8/05/2026" on its first page; the publisher's index and the filename both
+    say 26 August 2026, and they disagree by three weeks. The publication date
+    is cited here and the printed one recorded, because a reader checking this
+    against the PDF must find both.)
+    https://darringtonpress.com/wp-content/uploads/2026/08/DPCGL_2.0_AUG_26_2026.pdf
+    retrieved 2026-09-01
     SHA-256 of that PDF:
-      9d435c4ee64ab1485fe7cc6a164daff7f4e2bad0a12bc9e1660e0e9393d4aa04
+      f7f62d775a43eecc4ad8f438a233a6aaf92f50396cb412c5ea91c0a988be6eca
+
+    WHY THIS EDITION AND NOT THE PREVIOUS ONE. The 30 July 2025 text listed
+    Public Game Content as "Daggerheart System Reference Document 1.0
+    (including Domain icons) and Candela Obscura" and did not name SRD 2.0.
+    This app ships SRD 2.0. Version 2.0 of the licence, in the same Section
+    1.6, names "Daggerheart System Reference Document 2.0 (including Domain
+    icons) and Candela Obscura", and adds that SRD 1.0 "remains Public Game
+    Content for existing and legacy DRP Games". Its Section 4 attribution
+    template is word-for-word the previous one with the version changed.
 
     Index of versions, and the current one:
     https://darringtonpress.com/license/
@@ -49,14 +61,14 @@ The same file said of the fonts that "each licence text sits beside the files
 it covers", and it did - while the two licences that cover this project itself
 sat nowhere the build could reach. Both now ship:
 
-    src/legal/dpcgl-2025-07-30.txt   the text of the PDF above, extracted
+    src/legal/dpcgl-2026-08-26.txt   the text of the PDF above, extracted
                                      mechanically with `pdftotext -layout`.
                                      A transcription, not the authority: the
                                      PDF is. Compiled into the bundle, so it is
                                      readable in Settings > About with no
                                      network.
     dist/LICENSE.txt                 this file, emitted into every build.
-    dist/legal/DPCGL-2025-07-30.txt  the text above, emitted into every build.
+    dist/legal/DPCGL-2026-08-26.txt  the text above, emitted into every build.
 
 The two files under dist/ are for whoever holds a copy of the software; the
 copies compiled into the bundle are for whoever is using it offline.

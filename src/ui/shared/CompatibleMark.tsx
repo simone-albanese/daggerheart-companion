@@ -150,7 +150,7 @@ export function CompatibleIcon({ size = 20 }: { size?: number }): React.JSX.Elem
  * §1.7's own verbs, which is why they are the ones used.
  *
  * The licence URL closes §4.1(d), which the first line satisfied only by naming
- * the licence. The full text ships at `src/legal/dpcgl-2025-07-30.txt` and
+ * the licence. The full text ships at `src/legal/dpcgl-2026-08-26.txt` and
  * Settings › About prints it, so the app is not relying on a network it
  * promises never to need.
  */

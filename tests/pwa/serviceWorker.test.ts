@@ -669,12 +669,12 @@ describe('service worker, against what the build actually emitted', () => {
    * which puts them somewhere this worker has an opinion about - and its
    * default opinion was the wrong one, because every in-scope *navigation*
    * resolves to the app document. Under that rule a browser pointed at
-   * `legal/DPCGL-2025-07-30.txt` would be handed a character sheet, which is
+   * `legal/DPCGL-2026-08-26.txt` would be handed a character sheet, which is
    * the app substituting itself for a legal document at the one address that
    * promises otherwise.
    */
   describe('the licence texts in the build output', () => {
-    const paths = ['LICENSE.txt', 'legal/DPCGL-2025-07-30.txt'];
+    const paths = ['LICENSE.txt', 'legal/DPCGL-2026-08-26.txt'];
 
     it('are in dist, byte for byte from the files they are copies of', () => {
       const app = world(dist);
@@ -685,8 +685,8 @@ describe('service worker, against what the build actually emitted', () => {
       expect(app.files.get(`${BASE}LICENSE.txt`)!.toString('utf8')).toBe(
         readFileSync(join(REPO, 'LICENSE'), 'utf8'),
       );
-      expect(app.files.get(`${BASE}legal/DPCGL-2025-07-30.txt`)!.toString('utf8')).toBe(
-        readFileSync(join(REPO, 'src/legal/dpcgl-2025-07-30.txt'), 'utf8'),
+      expect(app.files.get(`${BASE}legal/DPCGL-2026-08-26.txt`)!.toString('utf8')).toBe(
+        readFileSync(join(REPO, 'src/legal/dpcgl-2026-08-26.txt'), 'utf8'),
       );
     });
 

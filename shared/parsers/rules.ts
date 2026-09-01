@@ -463,8 +463,17 @@ const SPECS: readonly Spec[] = [
   /*
    * The Witherwild campaign frame is read and dropped, not left unnamed.
    *
+   * THE REASON IS LICENSING, NOT TECHNICAL, and that sentence is the point of
+   * this one. Folio 1 of SRD 2.0 states that the document "including the
+   * Witherwild Campaign Frame, is considered Public Game Content", and DPCGL
+   * 2.0 §1.6 names SRD 2.0 as Public Game Content — so nothing here is beyond
+   * this parser's reach and a reader who finds only a citation will conclude
+   * the omission is a bug and try to "fix" it. It is not. The owner excluded
+   * it, the grounds are the owner's to revisit, and no measurement changes it.
+   *
    * Removed from the shipped dataset by the owner's decision of 2026-08-23
-   * (`docs/handoff/DECISIONI-2026-08-23.md` §4): eleven sections, 27,679
+   * (`docs/handoff/DECISIONI-2026-08-23.md` §4), reaffirmed 2026-09-01 when
+   * the licence question was reopened: eleven sections, 27,679
    * characters of body, 21.7% of the rules corpus. The pages stay inside
    * `RANGES` and this spec stays in the manifest so the removal is a stated
    * choice rather than a gap - a heading the parser cannot find still throws,

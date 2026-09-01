@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 function shipLicenceTexts(): Plugin {
   const emitted: Array<[string, string]> = [
     ['LICENSE.txt', './LICENSE'],
-    ['legal/DPCGL-2025-07-30.txt', './src/legal/dpcgl-2025-07-30.txt'],
+    ['legal/DPCGL-2026-08-26.txt', './src/legal/dpcgl-2026-08-26.txt'],
   ];
   return {
     name: 'dhc:ship-licence-texts',

@@ -610,7 +610,7 @@ describe('what the notice actually says, clause by clause of §4.1', () => {
    * notice that said nothing at all, which is the gap this describe closes.
    *
    * The licence text these read against is the copy the app ships,
-   * `src/legal/dpcgl-2025-07-30.txt`, and §4.1 is five clauses. Four were
+   * `src/legal/dpcgl-2026-08-26.txt`, and §4.1 is five clauses. Four were
    * satisfied from the start; (e) was added on 2026-08-24, and it was missing
    * because the first line is §4.3's own combined template **minus its last
    * sentence** rather than because anybody decided against it.
