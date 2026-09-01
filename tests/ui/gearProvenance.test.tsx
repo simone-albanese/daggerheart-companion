@@ -134,6 +134,35 @@ describe('originStamp says both axes in the book’s words', () => {
       'Core Set · Western Campaigns',
     );
   });
+
+  it('drops a product it cannot name, rather than a stray separator and a throw', () => {
+    // `PRODUCT_SET_LABELS` is closed because the book states the union, so a
+    // third product set reads back `undefined` - and the filter under `origin`
+    // asked `s !== null`, which lets `undefined` through and then calls it a
+    // `string`. NEITHER BOOK REACHES THIS, which is why it is written down
+    // rather than left to be noticed.
+    //
+    // Both halves are measured, and the milder one is NOT what it looks like:
+    // `join` renders `undefined` as empty, so the stamp does not print the
+    // word "undefined" - it prints a separator with nothing before it,
+    // ` · Western Campaigns`. The search box is the half with teeth. It
+    // lowercases every label it is handed, so an untouched picker looks
+    // perfectly well and throws on a letter that the name does not answer -
+    // which puts the failure nowhere near its cause.
+    const future = item('Sky Anchor', { set: 'boxed' as Item['set'] });
+    // The search box first, because it is the half that THROWS rather than
+    // merely misprinting, and it reads the very same function as the stamp.
+    //
+    // The needle must MISS the name and the text. `matches` is
+    // `search === '' || prose.some(...) || labels.some(...)`, so a needle that
+    // the name answers short-circuits before the labels are ever read - and
+    // the test then passes while proving nothing. Measured: with `search: 'a'`
+    // this line is green against the unguarded filter, because "Sky Anchor"
+    // contains an "a".
+    expect(() => filterItems([future], { ...itemQuery(), search: 'qq' })).not.toThrow();
+    expect(originStamp(future)).toBe('');
+    expect(originStamp({ ...future, module: WESTERN })).toBe(WESTERN);
+  });
 });
 
 // ---------------------------------------------------------------------------

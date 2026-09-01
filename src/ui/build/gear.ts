@@ -219,7 +219,10 @@ const PRODUCT_SET_LABELS: Record<ProductSet, string> = {
 /** Both axes, in the book's own words, in the order a row prints them. */
 const origin = (r: Pick<Sourced, 'set' | 'module'>): string[] =>
   [r.set === undefined ? null : PRODUCT_SET_LABELS[r.set], r.module ?? null].filter(
-    (s): s is string => s !== null,
+    // `typeof`, not `!== null`: `PRODUCT_SET_LABELS` is a closed union, so a
+    // product set outside it indexes to `undefined`, which `!== null` waves
+    // through and then declares a `string`. See `gearProvenance.test.tsx`.
+    (s): s is string => typeof s === 'string',
   );
 
 /**
