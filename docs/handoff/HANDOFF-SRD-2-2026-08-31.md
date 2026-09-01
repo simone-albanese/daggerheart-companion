@@ -8,19 +8,19 @@ I commit si citano **per oggetto, mai per SHA**: il ramo si ribasa e gli hash mu
 
 ## 0. Stato, misurato — 1 settembre 2026
 
-Ramo `srd-2`, spinto fino a *«Bring the handoff up to a branch whose wave has
-landed»*; **tre commit nuovi dopo quello**.
-**PR #66 APERTA, NON UNITA.** 42 commit, 153 file, +22.378 / −1.422.
+Ramo `srd-2`, **tutto spinto**; l'ultimo commit è *«Dim the stances a character
+cannot mark yet, and refuse them nothing»*.
+**PR #66 APERTA, NON UNITA.** 45 commit, 157 file, +22.815 / −1.445.
 
-**Questi numeri sono misurati a *«Pin the tier head's bold guard, and stop the
-docblock claiming what it cannot»*, e il commit di questo documento ne aggiunge
-uno.** È esattamente il difetto che la versione precedente di questa sezione aveva:
-diceva «27 commit, +18.116» quando erano già 28 e +18.165, perché il commit che
-scriveva la frase la rendeva falsa. Un numero qui va riletto, mai ricopiato.
+**Questi numeri sono misurati a quel commit, e il commit di questo documento ne
+aggiunge uno.** È esattamente il difetto che la prima versione di questa sezione
+aveva: diceva «27 commit, +18.116» quando erano già 28 e +18.165, perché il
+commit che scriveva la frase la rendeva falsa. Un numero qui va riletto, mai
+ricopiato.
 
 ```
 npx tsc --noEmit                              0 errori
-npx vitest run                                186 file / 4618 test
+npx vitest run                                186 file / 4621 test
 npm run build:srd -- --check                  data/srd-2.0.json matches the source.
 npm run build:srd -- --check --pdf <SRD 1>    data/srd-1.0.json matches the source.
 npm run build:registry -- --check             1368 id, 9 conservati, zero numeri spostati
@@ -41,7 +41,7 @@ non ha dato il via. **Spingere il ramo aggiorna la PR e NON è il deploy.**
 
 `data/srd-2.0.json`: domini 10, carte 210, classi 13, sottoclassi 26,
 beastform 22, stirpi 24, comunità 15, trasformazioni 6, **stance 16**, armi 391,
-armature 85, bottino 120, consumabili 120, avversari 264, ambienti 47, regole 69.
+armature 85, bottino 120, consumabili 120, avversari 264, ambienti 47, regole **74**.
 Sedici collezioni di contenuto.
 
 **`SCHEMA_VERSION` 8, `CODEC_VERSION` 8**, `READABLE_CODEC_VERSIONS` [1, 2, 4, 8],
@@ -154,9 +154,10 @@ il campo che resta fuori è sempre il più nuovo.**
 
 ---
 
-## 1-bis. TRE COSE CHE DECIDE IL PROPRIETARIO, prima di unire
+## 1-bis. LE TRE COSE DEL PROPRIETARIO — DECISE E FATTE
 
-Nessuna è un difetto. Tutte cambiano cosa vede un giocatore.
+Nessuna era un difetto. Tutte cambiavano cosa vede un giocatore. Decise il 1
+settembre; le prime due sono costruite, la terza è una conferma.
 
 1. **L'app spedisce un contatore di Focus e NESSUNA regola che dica come si
    riempie.** La colonna sinistra del folio 13 — `STANCES`, `FOCUS`, `SHIFTING
@@ -165,15 +166,32 @@ Nessuna è un difetto. Tutte cambiano cosa vede un giocatore.
    parola intera e non a tentoni: `stance`/`stances` **0**, «maximum of 6
    Focus» **0**, «Clear your Focus» **0**, «active stance» **0**. L'unica strada
    al Focus che un giocatore trova è il d4 della stance *Invigorating*.
-   **È il buco di raggiungibilità più grande del ramo.**
+   **Era il buco di raggiungibilità più grande del ramo.**
+   → **DECISO: farle entrare prima di unire. FATTO.** `rules` passa da 69 a 74.
+   Serviva un meccanismo che non c'era: un'isola che **può mancare**. Ogni isola
+   fino a ieri è stampata da entrambi i libri, quindi `folios` non sapeva dire
+   «in questo no» e ogni intestazione era pretesa da tutti e due. Ora può
+   rispondere `null`, e chi può farlo deve dichiarare `provides` — le
+   intestazioni tolte dalla sequenza per quel libro, e solo quelle. **L'assenza
+   è interrogata**: un libro senza la testata `MARTIAL STANCES` che però stampa
+   un banner `STANCE FEATURES` muore per nome. `srd-1.0.json` non si muove di
+   una riga.
 2. **Il selettore non ha un cancello di tier.** Offre *Honed* (tier 4) a un
    personaggio di tier 3, e lo prende. Coerente con «mostrata, mai applicata» e
    con la sezione Transformation, ma il libro dice «your tier or lower».
+   → **DECISO: mostrarle tutte ma smorzate. FATTO.** Come il selettore
+   dell'equipaggiamento fa da sempre con l'attrezzatura fuori livello: presente,
+   a opacità 0.5, con la frase `TIER 4 · MARKABLE FROM LEVEL 8` sotto, e il
+   bottone **vivo**. Non disabilitata: il tier è aritmetica, e un GM che
+   concede qualcosa in anticipo non è uno stato che l'app possa rifiutare di
+   disegnare — e non costa nulla, perché nessuna stance muove un numero.
 3. **Un'armatura di tier 3 può lasciare il portatore con zero caselle
    d'armatura.** L5 bardo, Presenza −2, `granminsters-finery` → `armorScore 0`
    e `armorSlots.max = 0`. Nessuna armatura ha `baseScore 0`: quello stato era
    irraggiungibile prima di quest'ondata. È ciò che la frase dice, e il registro
    stampa `Magnificent −2` accanto — ma arriva nel momento in cui si unisce.
+   → **DECISO: è giusto così, il libro dice questo.** Nessuna modifica. Un
+   tratto negativo ha una conseguenza vera, e il registro la mostra.
 
 **E un fatto sul deploy:** `main` è a `SCHEMA_VERSION` **5** e `CODEC_VERSION`
 **2**. Un giocatore già installato salta **5 → 8** in una sola unione. La catena
