@@ -92,6 +92,47 @@ function scene() {
   return { dataset, index: indexDataset(dataset), character };
 }
 
+/*
+ * The page a player carries to the table, and cannot tap to investigate.
+ *
+ * `SheetModel.missing` says of itself: "Refs this dataset could not resolve.
+ * Shown, never silently dropped." It listed only cards. An equipped weapon
+ * whose ref no longer resolved was dropped by a `.filter`, an unresolvable
+ * armor became `null`, and a held transformation was never read — so the sheet
+ * printed one weapon where the player has two and said nothing.
+ *
+ * Hypothetical until SRD 2.0 dropped nine weapons. 186 of 3333 modelled sheets
+ * hold one.
+ */
+describe('what the printed sheet cannot resolve', () => {
+  it('names a vanished weapon instead of quietly printing one fewer', () => {
+    const { character, dataset, index } = scene();
+    const sheet = buildSheet(
+      { ...character, activePrimaryWeapon: 'weapon-that-left-the-book' },
+      dataset,
+      index,
+    );
+    expect(sheet.missing).toContain('weapon-that-left-the-book');
+    expect(sheet.weapons).toHaveLength(0);
+  });
+
+  it('names an unresolvable armor and a held transformation too', () => {
+    const { character, dataset, index } = scene();
+    const sheet = buildSheet(
+      { ...character, activeArmor: 'armor-gone', transformationRef: 'werewolf-gone' },
+      dataset,
+      index,
+    );
+    expect(sheet.armor).toBeNull();
+    expect(sheet.missing).toEqual(expect.arrayContaining(['armor-gone', 'werewolf-gone']));
+  });
+
+  it('stays quiet when everything resolves, so the banner means something', () => {
+    const { character, dataset, index } = scene();
+    expect(buildSheet(character, dataset, index).missing).toEqual([]);
+  });
+});
+
 describe('the print model', () => {
   it('prints weapon damage with Proficiency already multiplied in', () => {
     const { character, dataset, index } = scene();

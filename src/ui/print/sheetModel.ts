@@ -451,7 +451,35 @@ export function buildSheet(
     loadout: resolveCards(character.loadout, index),
     loadoutLimit: stats.loadoutLimit,
     vaultCount: character.vault.length,
-    missing: [...character.loadout, ...character.vault].filter((r) => !index.cards.has(r)),
+    /*
+     * THE GEAR BELONGS HERE TOO, and it did not.
+     *
+     * This field's own docblock says "Refs this dataset could not resolve.
+     * Shown, never silently dropped" — and it listed only cards. An equipped
+     * weapon whose ref no longer resolves was dropped by the `.filter` four
+     * lines above, an unresolvable armor became `null`, and a held
+     * transformation was never read at all. The printed page then showed one
+     * weapon where the player has two, with nothing saying so.
+     *
+     * That is the same silence the screens were fixed for this wave, on the
+     * one surface a player takes to the table and cannot tap to investigate.
+     * It stopped being hypothetical when SRD 2.0 dropped nine weapons: 186 of
+     * 3333 modelled sheets hold one.
+     */
+    missing: [
+      ...[...character.loadout, ...character.vault].filter((r) => !index.cards.has(r)),
+      ...([character.activePrimaryWeapon, character.activeSecondaryWeapon] as const)
+        .filter((r): r is string => r !== null && r !== '')
+        .filter((r) => !index.weapons.has(r)),
+      ...(character.activeArmor !== null && character.activeArmor !== '' && !index.armors.has(character.activeArmor)
+        ? [character.activeArmor]
+        : []),
+      ...(character.transformationRef !== null &&
+      character.transformationRef !== '' &&
+      !index.collections.transformations.has(character.transformationRef)
+        ? [character.transformationRef]
+        : []),
+    ],
 
     experiences: character.experiences,
     experienceLines: Math.max(EXPERIENCE_LINES, character.experiences.length),
