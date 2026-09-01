@@ -365,6 +365,54 @@ describe('the wire', () => {
     expect(again.character.transformationRef).toBe(unresolvedRef(CARD_ID));
   });
 
+  /*
+   * THE COLLECTION CHECK ITSELF, which the test above does not reach.
+   *
+   * That one hands the receiver an id its registry does not hold at all, so
+   * `keyOf` answers null and the guard is never consulted. Measured: delete
+   * `parsed.collection === collection` from `readIn`, or
+   * `parsed.collection !== collection` from `fixIn`, and the whole suite stays
+   * green - 185 files, 4557 tests, both times. These two are what go red.
+   *
+   * The traffic is real rather than hypothetical. A parked id is opaque: it is
+   * a number and nothing on the sheet says which collection it was minted in.
+   * It is forwarded untouched from device to device, and the registry that
+   * finally resolves it may be one where that number means something else.
+   * SRD 2.0 prints `vampire` twice - a Transformation and an adversary - which
+   * is the collision the bands exist to survive.
+   */
+  it('parks an id that resolves in ANOTHER collection instead of reading it as this one', async () => {
+    const reg = registryWithVampire();
+    // Encoding a parked ref is how such a payload is built without hand-writing
+    // bytes: the format forwards the number untouched, checksum and all.
+    const forwarded = sheet({
+      transformationRef: unresolvedRef(ADVERSARY_ID),
+      unresolvedRefs: [ADVERSARY_ID],
+    });
+    const { character, unresolved } = await decodeCharacter(
+      await encodeCharacter(forwarded, reg),
+      reg,
+    );
+    // `reg` DOES know this id - as `adversaries|vampire`. The slot is a
+    // transformation, so parked is the only honest answer.
+    expect(character.transformationRef).toBe(unresolvedRef(ADVERSARY_ID));
+    expect(character.transformationRef).not.toBe('vampire');
+    expect(unresolved).toEqual([ADVERSARY_ID]);
+  });
+
+  it('does not resolve a parked id against a slug that lives in another collection', () => {
+    // The same guard on the other door: `resolvePlaceholders`, which is what
+    // runs when a sheet reaches a device that has since gained the content.
+    const parked = sheet({
+      transformationRef: unresolvedRef(ADVERSARY_ID),
+      unresolvedRefs: [ADVERSARY_ID],
+    });
+    const { character, resolved } = resolvePlaceholders(parked, registryWithVampire());
+    expect(character.transformationRef).toBe(unresolvedRef(ADVERSARY_ID));
+    expect(character.transformationRef).not.toBe('vampire');
+    expect(resolved).toEqual([]);
+  });
+
   it('names the card again on a device that has it', async () => {
     const receiver = registryWithVampire({ card: false });
     const parked = sheet({ transformationRef: unresolvedRef(CARD_ID), unresolvedRefs: [CARD_ID] });
