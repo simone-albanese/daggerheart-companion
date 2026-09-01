@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The wizard's equipment step, on the day it stopped applying a rule.
+ * The two build screens, the burden limit, and the class the book excuses.
  *
  * A tester reported three things about this step and the sheet beside it, and
  * all three were true. One cause: the burden limit was applied by code that
@@ -20,11 +20,18 @@
  * build screens were answering one question two ways, and the wizard's answer
  * was the one that could not be undone.
  *
+ * ## Both screens, in one file, on purpose
+ *
+ * The defect is that the wizard and the sheet answered one question two ways.
+ * Split across two files each half can be repaired to a different sentence and
+ * both files stay green, which is how the pair got here; the last describe
+ * below renders the SAME character on both and compares the strings.
+ *
  * ## Why this mounts the step and not the whole wizard
  *
- * Both defects are in the wiring between a picker's `onPick` and the draft, and
- * that wiring is inside `StepEquipment`. Driving the whole `Wizard` here would
- * add eleven presses of Next to every case and exercise nothing extra;
+ * The wizard's half lives in the wiring between a picker's `onPick` and the
+ * draft, inside `StepEquipment`. Driving the whole `Wizard` here would add
+ * eleven presses of Next to every case and exercise nothing extra;
  * `wizardCreate.test.tsx` is the file that walks the whole flow. The step is
  * exported for this, the way `StepCards` and `StepExperiences` already are.
  *
@@ -39,13 +46,21 @@
 import { act, createElement, useState, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { CharClass, Dataset } from '@shared/types.ts';
-import { indexDataset } from '@engine/character.ts';
+import type { CharClass, Character, Dataset, Ref } from '@shared/types.ts';
+import { deriveStats, indexDataset } from '@engine/character.ts';
 import { IGNORES_BURDEN_FEATURE } from '@engine/burden.ts';
 import { useApp } from '../../src/store/state.ts';
 import { emptyDraft, type Draft } from '../../src/ui/build/creation.ts';
+import { Edit } from '../../src/ui/build/Edit.tsx';
 import { StepEquipment } from '../../src/ui/build/Wizard.tsx';
-import { feature, makeArmor, makeClass, makeDataset, makeWeapon } from '../fixtures/factories.ts';
+import {
+  feature,
+  makeArmor,
+  makeCharacter,
+  makeClass,
+  makeDataset,
+  makeWeapon,
+} from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -130,6 +145,27 @@ function Harness({ start, klass }: { start: Partial<Draft>; klass: CharClass }):
 function mount(start: Partial<Draft>, klass: CharClass = PLAIN): void {
   act(() => {
     root.render(createElement(Harness, { start, klass }));
+  });
+}
+
+/**
+ * The same two weapons on the finished sheet, so the pair of screens can be
+ * compared rather than each trusted on its own.
+ */
+function mountSheet(
+  held: { primary: Ref | null; secondary: Ref | null },
+  klass: CharClass = PLAIN,
+): void {
+  const character: Character = makeCharacter({
+    classRef: klass.id,
+    activePrimaryWeapon: held.primary,
+    activeSecondaryWeapon: held.secondary,
+  });
+  useApp.setState({ characters: [character], activeId: character.id });
+  act(() => {
+    root.render(
+      createElement(Edit, { stats: deriveStats(character, dataset, index), onLevelUp: () => {} }),
+    );
   });
 }
 
@@ -264,5 +300,65 @@ describe('the sentence about hands, and who it is true of', () => {
     expect(noteOf('Secondary weapon')).toBe(OVER);
     equip('Primary weapon', 'Longsword');
     expect(noteOf('Secondary weapon')).toBe('');
+  });
+});
+
+describe('the sheet, saying the same thing about the same character', () => {
+  const OVER = 'GREATSWORD AND SMALL DAGGER ARE 3 HANDS — YOUR MAXIMUM BURDEN IS 2';
+
+  it('stops telling a Warrior there is no hand left for what they are holding', () => {
+    /*
+     * THE FALSE SENTENCE. `${primary.name} is two-handed — no hand left for
+     * this` was the general rule with the book's own exception left out, and it
+     * was printed hardest at the one class the exception belongs to.
+     */
+    mountSheet({ primary: 'greatsword', secondary: 'small-dagger' }, IGNORER);
+    expect(noteOf('Secondary weapon')).toBe('');
+    expect(container.textContent).not.toContain('MAXIMUM BURDEN');
+    expect(container.textContent).not.toContain('NO HAND LEFT');
+  });
+
+  it('still says it to everybody the rule does bind', () => {
+    mountSheet({ primary: 'greatsword', secondary: 'small-dagger' }, PLAIN);
+    expect(noteOf('Secondary weapon')).toBe(OVER);
+  });
+
+  it('says nothing over an off-hand nobody has filled', () => {
+    mountSheet({ primary: 'greatsword', secondary: null }, PLAIN);
+    expect(noteOf('Secondary weapon')).toBe('');
+  });
+
+  it('does not enforce it - the off-hand stays live and stays clearable', () => {
+    mountSheet({ primary: 'greatsword', secondary: 'small-dagger' }, PLAIN);
+    expect(slot('Secondary weapon').disabled).toBe(false);
+    expect(
+      buttons().some((b) => b.getAttribute('aria-label') === 'Clear Secondary weapon'),
+    ).toBe(true);
+  });
+
+  it('agrees with the wizard, string for string, on every case here', () => {
+    /*
+     * The assertion the split into two files could not make. Each screen builds
+     * its own inputs - the wizard from a draft and an assembled sheet, the
+     * sheet from a stored character - and the point of the repair is that the
+     * two arrive at one sentence.
+     */
+    const cases: Array<[Ref | null, Ref | null, CharClass]> = [
+      ['greatsword', 'small-dagger', PLAIN],
+      ['greatsword', 'small-dagger', IGNORER],
+      ['longsword', 'small-dagger', PLAIN],
+      ['greatsword', null, PLAIN],
+      ['greatsword', 'greatsword', PLAIN],
+      [null, 'small-dagger', PLAIN],
+    ];
+    for (const [primary, secondary, klass] of cases) {
+      mount({ primary, secondary }, klass);
+      const fromWizard = [noteOf('Primary weapon'), noteOf('Secondary weapon')];
+      mountSheet({ primary, secondary }, klass);
+      const fromSheet = [noteOf('Primary weapon'), noteOf('Secondary weapon')];
+      expect(fromSheet, `${String(primary)} + ${String(secondary)} as ${klass.id}`).toEqual(
+        fromWizard,
+      );
+    }
   });
 });

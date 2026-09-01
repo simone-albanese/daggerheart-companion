@@ -15,12 +15,13 @@ import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../share
 import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
+import { ignoresBurden } from '../../engine/burden.ts';
 import { unresolvedWeapons } from '../../engine/holdings.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
-import { tierNote } from './gear.ts';
+import { tierNote, weaponNote } from './gear.ts';
 import {
   ArmorPicker,
   armorSummary,
@@ -81,6 +82,15 @@ export function Edit({
    * ref the sheet is still holding.
    */
   const missing = unresolvedWeapons(character, index);
+  /*
+   * Folio 28, Combat Training: *"You ignore burden when equipping weapons."*
+   * The line under the off-hand read `${primary.name} is two-handed — no hand
+   * left for this` for anybody at all, which is the general rule stated as if
+   * the book had not written an exception to it - and stated hardest at the one
+   * class the exception belongs to. Same predicate as the wizard, so the two
+   * screens cannot end up saying different things about one character.
+   */
+  const ignoring = ignoresBurden(character, index);
   const lineage = [
     ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
     (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
@@ -217,7 +227,13 @@ export function Edit({
                   label="Primary weapon"
                   title={primary?.name ?? null}
                   meta={primary && weaponSummary(primary, stats)}
-                  note={primary && tierNote(primary.tier, character.level)}
+                  note={weaponNote({
+                    slot: 'primary',
+                    weapon: primary,
+                    primary,
+                    level: character.level,
+                    ignoresBurden: ignoring,
+                  })}
                   empty={`Search ${dataset.weapons.length} weapons`}
                   unresolved={
                     missing.primary === null
@@ -231,14 +247,22 @@ export function Edit({
                   label="Secondary weapon"
                   title={secondary?.name ?? null}
                   meta={secondary && weaponSummary(secondary, stats)}
-                  note={
-                    // Said, not enforced. A sheet that quietly unequipped the
-                    // off-hand when a greatsword arrived would be the app
-                    // making a call the table gets to make.
-                    secondary && primary?.burden === 2
-                      ? `${primary.name} is two-handed — no hand left for this`
-                      : secondary && tierNote(secondary.tier, character.level)
-                  }
+                  /*
+                   * Still said, not enforced - a sheet that quietly unequipped
+                   * the off-hand when a greatsword arrived would be the app
+                   * making a call the table gets to make. What changed is that
+                   * the thing being said is now true: `no hand left for this`
+                   * was the general rule with the book's own exception left
+                   * out, and it was a refusal in the mouth of a screen that
+                   * refuses nothing.
+                   */
+                  note={weaponNote({
+                    slot: 'secondary',
+                    weapon: secondary,
+                    primary,
+                    level: character.level,
+                    ignoresBurden: ignoring,
+                  })}
                   empty="Optional"
                   unresolved={
                     missing.secondary === null
