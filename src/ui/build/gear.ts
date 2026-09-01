@@ -138,18 +138,53 @@ const handsNote = ({ slot, weapon, primary, ignoresBurden }: WeaponInSlot): stri
 
 
 /**
+ * Which hand the book files this weapon under, when it is not the hand it is
+ * sitting in. Null when they agree.
+ *
+ * ## The slot chip is a default, and nothing downstream of it is a fence
+ *
+ * `weaponQuery(slot)` opens each picker pre-set to the hand being filled, and
+ * `ModuleChoice` explains why that is a default rather than a hide: it is one
+ * tap from "Any", and a list that refused to show the rest would be the same
+ * lie by omission this module refuses everywhere. But no `onPick` on either
+ * build screen ever compared `weapon.slot` with the slot it was filling, so
+ * every one of the 291 primary-slot weapons - Greatsword included - goes into
+ * the off-hand the moment that chip is tapped over to Any, and neither screen
+ * said one word about it afterwards. The row that put it there is gone; the
+ * slot it landed in shows a name, a damage die and nothing else.
+ *
+ * ## Said, not refused, and that is the owner's call rather than an oversight
+ *
+ * Filtering the pick would be this file deciding a table's question, and it is
+ * the same question the burden line above declines to decide. So the picker is
+ * left alone - `filterWeapons` is unchanged, the chip still opens where it
+ * always did - and the slot carries a sentence instead.
+ *
+ * ## It has nothing to do with burden
+ *
+ * Combat Training lifts a hand count; it says nothing about which hand a
+ * weapon belongs in. So this line is drawn for a Warrior too, and it is the
+ * half of the off-hand's note that survives the exception.
+ */
+const bookSlotNote = ({ slot, weapon }: WeaponInSlot): string | null =>
+  weapon === undefined || weapon.slot === slot
+    ? null
+    : `The book lists ${weapon.name} as a ${weapon.slot} weapon`;
+
+/**
  * Everything true of the thing in this slot that the slot itself does not
  * already show, in the one line `GearSlot` has for it. Null when there is
  * nothing to say, and null for an empty slot - an empty slot has its own words.
  *
  * Joined with the same `·` `originStamp` uses, in order of how far the fact
- * reaches: the hands are a fact about this character's whole loadout, the tier
- * is a fact about this one item. Both are printed, because the ternary that
- * used to choose between them was choosing which true thing to withhold.
+ * reaches: the hands are about this character's whole loadout, the book's slot
+ * and the tier are about this one item. All of them are printed, because the
+ * ternary that used to choose between two of them was choosing which true thing
+ * to withhold.
  */
 export function weaponNote(at: WeaponInSlot): string | null {
   if (at.weapon === undefined) return null;
-  const lines = [handsNote(at), tierNote(at.weapon.tier, at.level)].filter(
+  const lines = [handsNote(at), bookSlotNote(at), tierNote(at.weapon.tier, at.level)].filter(
     (line): line is string => line !== null,
   );
   return lines.length === 0 ? null : lines.join(' · ');

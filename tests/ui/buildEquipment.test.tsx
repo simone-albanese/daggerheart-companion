@@ -207,6 +207,22 @@ function noteOf(label: string): string {
     .trim();
 }
 
+/**
+ * Tap the open picker's Slot chip over to "Any" - the one gesture that puts a
+ * main-hand weapon in front of somebody filling the off-hand.
+ */
+function widenSlotFilter(): void {
+  const group = [...container.querySelectorAll('[role="group"]')].find(
+    (g) => g.getAttribute('aria-label') === 'Slot',
+  );
+  expect(group, 'the picker draws no Slot control').toBeDefined();
+  press(
+    [...group!.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Any') as
+      | HTMLButtonElement
+      | undefined,
+  );
+}
+
 /** Open a picker from its slot and take the named weapon out of it. */
 function equip(label: string, weapon: string): void {
   press(slot(label));
@@ -360,5 +376,61 @@ describe('the sheet, saying the same thing about the same character', () => {
         fromWizard,
       );
     }
+  });
+});
+
+describe('a weapon in the hand the book did not file it under', () => {
+  it('is a state the picker really reaches, in two taps', () => {
+    /*
+     * The premise, proved rather than assumed. `weaponQuery(slot)` opens the
+     * off-hand picker pre-set to off-hand weapons, and that chip is a DEFAULT:
+     * one tap on Any and the whole armoury is on the list, Greatsword included.
+     * No `onPick` compares `weapon.slot` with the slot it is filling, so the
+     * pick goes through - and until now nothing anywhere said so afterwards.
+     */
+    mount({ primary: 'longsword' });
+    press(slot('Secondary weapon'));
+    expect(named('Greatsword'), 'the picker opened on the whole armoury').toBeUndefined();
+
+    widenSlotFilter();
+    press(named('Greatsword'));
+
+    expect(draft.secondary, 'the pick was refused after all').toBe('greatsword');
+    expect(noteOf('Secondary weapon')).toContain('THE BOOK LISTS GREATSWORD AS A PRIMARY WEAPON');
+  });
+
+  it('says it in the other direction too', () => {
+    mount({ primary: 'small-dagger' });
+    expect(noteOf('Primary weapon')).toBe('THE BOOK LISTS SMALL DAGGER AS A SECONDARY WEAPON');
+  });
+
+  it('says nothing when the hand and the book agree', () => {
+    mount({ primary: 'greatsword', secondary: 'small-dagger' });
+    expect(noteOf('Primary weapon')).toBe('');
+    expect(noteOf('Secondary weapon')).not.toContain('THE BOOK LISTS');
+  });
+
+  it('says both true things at once when a main-hand weapon is also over the limit', () => {
+    mount({ primary: 'greatsword', secondary: 'greatsword' });
+    expect(noteOf('Secondary weapon')).toBe(
+      'GREATSWORD AND GREATSWORD ARE 4 HANDS — YOUR MAXIMUM BURDEN IS 2 · ' +
+        'THE BOOK LISTS GREATSWORD AS A PRIMARY WEAPON',
+    );
+  });
+
+  it('still says which hand the book meant to a character who ignores burden', () => {
+    mount({ primary: 'greatsword', secondary: 'greatsword' }, IGNORER);
+    expect(noteOf('Secondary weapon')).toBe('THE BOOK LISTS GREATSWORD AS A PRIMARY WEAPON');
+  });
+
+  it('says the same on the sheet, which never had the sentence either', () => {
+    // Both hands wrong, and the pair is over the limit at 1 + 2 - which the
+    // old `primary.burden === 2` test could not have seen either.
+    mountSheet({ primary: 'small-dagger', secondary: 'greatsword' });
+    expect(noteOf('Primary weapon')).toBe('THE BOOK LISTS SMALL DAGGER AS A SECONDARY WEAPON');
+    expect(noteOf('Secondary weapon')).toBe(
+      'SMALL DAGGER AND GREATSWORD ARE 3 HANDS — YOUR MAXIMUM BURDEN IS 2 · ' +
+        'THE BOOK LISTS GREATSWORD AS A PRIMARY WEAPON',
+    );
   });
 });

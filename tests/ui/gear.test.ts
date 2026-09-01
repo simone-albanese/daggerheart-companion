@@ -1299,7 +1299,66 @@ describe('what a filled weapon slot says about what is in it', () => {
         level: 1,
         ignoresBurden: false,
       }),
-    ).toBe('Longsword and Longsword are 4 hands — your maximum burden is 2');
+    ).toBe(
+      'Longsword and Longsword are 4 hands — your maximum burden is 2 · ' +
+        'The book lists Longsword as a primary weapon',
+    );
+  });
+
+  it('names the hand the book files a weapon under, when it is in the other one', () => {
+    /*
+     * No `onPick` on either build screen compares `weapon.slot` with the slot
+     * it is filling, and the picker's Slot chip is one tap from "Any" - so all
+     * 291 primary-slot weapons can sit in the off-hand and all 100 off-hand
+     * weapons in the main hand. The owner's call is that this is said and not
+     * refused, so the sentence is the whole of the repair.
+     */
+    expect(weapons.filter((w) => w.slot === 'primary')).toHaveLength(291);
+    expect(weapons.filter((w) => w.slot === 'secondary')).toHaveLength(100);
+
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: BROADSWORD,
+        primary: BROADSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe('The book lists Broadsword as a primary weapon');
+    // Both directions, from the one comparison.
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: HATCHET,
+        primary: HATCHET,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe('The book lists Hatchet as a secondary weapon');
+    // And silence when the two agree, which is every default pick.
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: BROADSWORD,
+        primary: BROADSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps saying which hand the book meant, even to someone who ignores burden', () => {
+    // Combat Training lifts a hand COUNT. It says nothing about which hand a
+    // weapon belongs in, so this half of the note survives the exception.
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LONGSWORD,
+        primary: LONGSWORD,
+        level: 10,
+        ignoresBurden: true,
+      }),
+    ).toBe('The book lists Longsword as a primary weapon');
   });
 
   it('says nothing to a character who ignores burden', () => {
@@ -1354,6 +1413,17 @@ describe('what a filled weapon slot says about what is in it', () => {
         ignoresBurden: false,
       }),
     ).toBe('Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2');
+  });
+
+  it('names the wrong hand for every weapon it is wrong for, and no other', () => {
+    // 391 weapons in each hand, walked, against plain array code.
+    for (const w of weapons) {
+      for (const slot of ['primary', 'secondary'] as const) {
+        const note = weaponNote({ slot, weapon: w, primary: w, level: 10, ignoresBurden: true });
+        const said = note !== null && note.includes('The book lists');
+        expect(said, `${w.name} in the ${slot} slot`).toBe(w.slot !== slot);
+      }
+    }
   });
 
   it('fires on exactly the pairs that are over the limit, across the whole armoury', () => {
