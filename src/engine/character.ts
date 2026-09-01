@@ -406,6 +406,21 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   const proficiency = baseProficiency(c.level) + advancementCount(c, 'proficiency');
 
   /*
+   * The Spellcast trait, worked out HERE and used twice.
+   *
+   * It used to be computed at the bottom, next to the returned object, and it
+   * has moved up because the register now needs it: Mage Robes' *Enchanted* is
+   * "a bonus to your damage thresholds equal to your Spellcast trait", and Mage
+   * Robes is tier 1 starting armour. Moved rather than copied - the same const
+   * is handed to `collectModifiers` and returned in `spellcastTrait` below - so
+   * the number the armour reads and the number the roll uses cannot disagree.
+   */
+  const subclasses = c.subclassRefs
+    .map((r) => ix.subclasses.get(r))
+    .filter((s): s is Subclass => s !== undefined);
+  const spellcastTrait = subclasses.find((s) => s.spellcastTrait !== null)?.spellcastTrait ?? null;
+
+  /*
    * What the sheet's own contents add, before anything below reads a total.
    *
    * FIRST, because Proficiency is a term in one of the rows - Galapa's *Shell*
@@ -413,8 +428,14 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * would mean working Proficiency out twice. Nothing here interprets a
    * feature's text; `modifiers.ts` holds a hand-authored register keyed on ref
    * and a test walks the dataset against it in both directions.
+   *
+   * Tier and the Spellcast trait ride along for the same reason Proficiency
+   * does: three more rows say "equal to your <that>", and this function is
+   * where all three are already known. A sheet with no Spellcast trait passes
+   * `null` and the rows that read it are simply not emitted - see `Amount` in
+   * `modifiers.ts` for why that is not a zero.
    */
-  const modifiers = collectModifiers(c, ix, proficiency);
+  const modifiers = collectModifiers(c, ix, proficiency, { tier, spellcastTrait });
 
   // A ref this dataset does not hold is not the same fact as an empty slot, and
   // taking the same branch for both is how a Guardian in improved chainmail
@@ -563,11 +584,6 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   );
   // A scar permanently crosses out a Hope slot.
   const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
-
-  const subclasses = c.subclassRefs
-    .map((r) => ix.subclasses.get(r))
-    .filter((s): s is Subclass => s !== undefined);
-  const spellcastTrait = subclasses.find((s) => s.spellcastTrait !== null)?.spellcastTrait ?? null;
 
   const domains: DomainId[] = [...(klass?.domains ?? [])];
   if (c.multiclassDomain && !domains.includes(c.multiclassDomain)) {
