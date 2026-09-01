@@ -1018,6 +1018,36 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(row.getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('dims a stance above this tier and says when it opens, without refusing it', () => {
+    /*
+     * Folio 13: "Mark a new stance from your tier or below each time you gain a
+     * level." A level 1 character is tier 1, so `Honed` (tier 4) is not theirs
+     * to mark yet - and the picker used to offer it with nothing said.
+     *
+     * Three separate promises here, and each is a decision:
+     *   - it is SHOWN, because hiding it tells a player it does not exist;
+     *   - it is DIMMED and carries the sentence, so the rule is on the glass
+     *     rather than in the book they do not have open;
+     *   - it is NOT DISABLED, because the tier is arithmetic and a GM who hands
+     *     something over early is not a state this app may refuse to draw.
+     * `GearPicker` made all three the same way for out-of-level gear.
+     */
+    mount(sheet({ classRef: 'test-class', level: 1 }), withStances);
+    press(named2('Add a stance'));
+
+    const honed = named2('Honed');
+    expect(honed, 'a tier 4 stance is still on the list').toBeDefined();
+    expect(honed!.disabled, 'shown, not refused').toBe(false);
+    expect(honed!.style.opacity, 'dimmed').toBe('0.5');
+    expect(honed!.textContent).toContain('TIER 4');
+    expect(honed!.textContent).toContain('MARKABLE FROM LEVEL');
+
+    // A stance at this character's own tier carries none of it.
+    const favored = named2('Favored');
+    expect(favored!.style.opacity).toBe('1');
+    expect(favored!.textContent).not.toContain('MARKABLE FROM LEVEL');
+  });
+
   it('writes the refs and nothing else, and draws the rules it wrote', async () => {
     const before = sheet({ classRef: 'test-class' });
     mount(before, withStances);

@@ -12,6 +12,7 @@
  */
 import { useState } from 'react';
 import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
+import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
 import { unresolvedWeapons } from '../../engine/holdings.ts';
@@ -732,6 +733,12 @@ function StancesSection({
     });
   };
 
+  /*
+   * The tier this character has reached, from the level alone - the same
+   * `tierOf` the gear picker reads, so the two screens cannot disagree about
+   * what tier 3 means.
+   */
+  const characterTier = tierOf(character.level);
   const byTier = [1, 2, 3, 4].map((tier) => ({
     tier,
     rows: all.filter((s) => s.tier === tier),
@@ -817,6 +824,30 @@ function StancesSection({
                   <Choice
                     key={s.id}
                     selected={character.stanceRefs.includes(s.id)}
+                    /*
+                     * ABOVE THIS CHARACTER'S TIER: dimmed and explained, never
+                     * blocked, and the two halves are a decision each.
+                     *
+                     * Folio 13: "Mark a new stance from your tier or below each
+                     * time you gain a level." So a tier above this one is not
+                     * yet the player's to mark, and a picker that said nothing
+                     * would be letting them take it without ever printing the
+                     * rule they were breaking.
+                     *
+                     * It is not DISABLED, which is `GearPicker`'s decision for
+                     * out-of-level gear and the same argument: the tier is
+                     * arithmetic, and a GM who hands a player something early
+                     * is not a state this app may refuse to represent. Hiding
+                     * it would be worse still - `gear.ts` calls that lying by
+                     * omission, and the sheet already says SHOWN, NEVER
+                     * APPLIED, so nothing here moves a number either way.
+                     */
+                    dim={s.tier > characterTier}
+                    reason={
+                      s.tier > characterTier
+                        ? `Tier ${s.tier} — markable from level ${TIER_LEVELS[s.tier][0] ?? 1}`
+                        : undefined
+                    }
                     /*
                      * A second tap on a stance already known removes it, which
                      * is what `aria-pressed` already promises. The picker stays
