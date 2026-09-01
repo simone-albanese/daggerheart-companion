@@ -8,47 +8,80 @@ I commit si citano **per oggetto, mai per SHA**: il ramo si ribasa e gli hash mu
 
 ## 0. Stato, misurato — 1 settembre 2026
 
-Ramo `srd-2`, spinto. **PR #66 APERTA, NON UNITA.** 27 commit, 144 file, +18.116 / −1.369.
+Ramo `srd-2`, spinto fino a *«Hand over a branch that is ready, a wave that is in
+flight, and two things I got wrong»*; **otto commit nuovi non ancora spinti**.
+**PR #66 APERTA, NON UNITA.** 36 commit, 149 file, +22.006 / −1.419.
+
+**Questi numeri sono misurati a *«Sweep the collection that arrived after the
+sweep was widened»*, e il commit di questo documento ne aggiunge uno.** È esattamente il difetto che la versione precedente di questa
+sezione aveva: diceva «27 commit, +18.116» quando erano già 28 e +18.165, perché
+il commit che scriveva la frase la rendeva falsa. Un numero qui va riletto, mai
+ricopiato.
 
 ```
 npx tsc --noEmit                              0 errori
-npx vitest run                                184 file / 4533 test
+npx vitest run                                186 file / 4615 test
 npm run build:srd -- --check                  data/srd-2.0.json matches the source.
 npm run build:srd -- --check --pdf <SRD 1>    data/srd-1.0.json matches the source.
-npm run build:registry -- --check             1352 ids, 9 conservati, zero numeri spostati
-npx vite build                                esce 0
-CI sulla PR                                   verde, 2m35s, run 33463548440
+npm run build:registry -- --check             1368 id, 9 conservati, zero numeri spostati
+CI sulla PR                                   l'ultima verde è la run 33473015636
+                                              (la consegna precedente citava 33463548440:
+                                              una run diversa). Va rilanciata: gli otto
+                                              commit non sono ancora spinti.
 ```
 
-**UNIRE È IL DEPLOY**: `deploy.yml` parte su ogni push a `main`. Il proprietario ha chiesto
-esplicitamente di **fermarsi prima di unire** e non ha ancora dato il via.
+Il PDF dell'SRD 1 è `Manuali/Daggerheart-SRD-9-09-25.pdf` — non c'è nessun file
+con «srd» e «1» nel nome, e cercarlo così non trova nulla.
+
+**UNIRE È IL DEPLOY**: `deploy.yml` parte su ogni push a `main`. Il proprietario
+non ha dato il via. **Spingere il ramo aggiorna la PR e NON è il deploy.**
 
 ### Cosa pubblica l'app
 
-`data/srd-2.0.json`: domini 10, carte 210, classi 13, sottoclassi 26, beastform 22, stirpi 24,
-comunità 15, **trasformazioni 6**, armi 391, armature 85, bottino 120, consumabili 120,
-avversari 264, ambienti 47, regole 69. `SCHEMA_VERSION` 7, `CODEC_VERSION` 4, registro v2.
+`data/srd-2.0.json`: domini 10, carte 210, classi 13, sottoclassi 26,
+beastform 22, stirpi 24, comunità 15, trasformazioni 6, **stance 16**, armi 391,
+armature 85, bottino 120, consumabili 120, avversari 264, ambienti 47, regole 69.
+Sedici collezioni di contenuto.
 
-`data/srd-1.0.json` **resta committato e resta controllato**: è l'unica prova che il vecchio parse
-non si è rotto. Nullarne il `datasetPath` toglie quel cancello — misurato: con `null`,
-`--check --pdf <SRD 1>` esce 0 **con il file cancellato dal disco**.
+**`SCHEMA_VERSION` 8, `CODEC_VERSION` 8**, `READABLE_CODEC_VERSIONS` [1, 2, 4, 8],
+registro v2, 1368 id.
+
+> Attenzione a come si leggono quelle due costanti. `grep CODEC_VERSION` trova
+> per prima una frase in un docblock che dice `CODEC_VERSION = 3`: è prosa, non
+> il valore. Leggerle a runtime, o cercare `^export const`.
+
+`data/srd-1.0.json` **resta committato e resta controllato**. Con le stance
+guadagna una chiave `stances: []` e nient'altro: **nessun record si è mosso**, e
+`--check --pdf <SRD 1>` continua a dire che corrisponde alla sorgente.
 
 ---
 
-## 1. ONDATA IN VOLO al momento di scrivere
+## 1. L'ondata è ATTERRATA e integrata
 
-Due corsie lanciate e non ancora rientrate: **Martial Stances** e **i dieci prezzi** (§4).
+`wf_dc7af188-94f`, corsie **pricing** e **stances**, entrambe consegnate,
+integrate, verdi e committate. Non c'è nulla in volo.
 
-```
-run id     wf_dc7af188-94f
-journal    ~/.claude/projects/-Users-simonealbanese-Documents-Daggerheart-Companion/
-           10931c5a-4c3c-45a2-8973-0e1761c339d4/subagents/workflows/wf_dc7af188-94f/journal.jsonl
-consegne   /private/tmp/claude-501/-Users-.../10931c5a-.../scratchpad/out5/<corsia>/
-```
+**Come si è capito che era viva**, perché la prossima volta conterà: i
+transcript degli agenti **ritardano di minuti** — quello di `pricing` era fermo
+alle 07:20:15 mentre la corsia consegnava alle 07:26:28. Il segnale onesto è
+**il mtime della cartella della corsia**, non il transcript e non il journal
+(che conteneva due righe `started` e nessun `result` dall'inizio alla fine).
 
-**I risultati stanno nel journal, non nel repository.** Una riga `{"type":"result"}` per agente.
-Se la sessione è cambiata, leggi quel file **prima** di concludere che l'ondata non ha prodotto
-nulla. Le consegne si applicano copiando `out5/<corsia>/` sull'albero ai percorsi relativi.
+**Due trappole, entrambe scattate:**
+
+1. **Una corsia consegna più di una volta.** `pricing` ha consegnato alle
+   07:26:28 e di nuovo alle 07:32:21. La prima consegna è stata integrata, ed
+   era quella sbagliata: la seconda aveva **ri-contato sé stessa** (238 → 265
+   siti, «un arretrato di undici» → tredici bonus statici) e **cancellato** una
+   frase che diceva che lo sweep leggeva otto collezioni su quindici **da un
+   anno** — il primo commit del repository è del 15 agosto 2026 e quel file è
+   nato il 23: nove giorni. Verificare che una consegna sia **ferma** prima di
+   integrarla.
+2. **Una corsia può ri-copiarsi dall'albero di riferimento.** `stances` si è
+   ri-sincronizzata alle 07:52 e si è portata dentro i cinque commit già fatti
+   in questa sessione, quindi la sua consegna **conteneva già** quel lavoro. Un
+   merge a tre vie non è servito, ma solo perché è stato **misurato** prima:
+   28 file consegnati, 28 percorsi differenti fra corsia e HEAD, zero collisioni.
 
 ---
 
@@ -70,8 +103,8 @@ Prese il 31 agosto e il 1 settembre 2026.
    (`shared/parsers/rules.ts`): il folio 1 del libro dice che Witherwild **È** Public Game Content,
    quindi senza quella frase il prossimo lettore lo legge come un difetto e prova a «ripararlo».
 9. **`--Forest Sprites` si pubblica come stampato.** È un refuso del libro (folio 220), reso fedele.
-10. **Martial Stances: sviluppare adesso.** In volo, §1.
-11. **I dieci bonus: prezzarli prima di unire.** In volo, §1.
+10. **Martial Stances: sviluppare adesso.** FATTO — 16 stance, §1.
+11. **I dieci bonus: prezzarli prima di unire.** FATTO per sei, §4.
 12. **Il `Revolver` resta quattro record** (uno per livello), non uno con la scala dentro.
 
 ---
@@ -96,22 +129,31 @@ file dicono 26 agosto: **tre settimane di scarto, registrate entrambe** in `LICE
 
 ## 4. Debito DICHIARATO, non nascosto
 
-- **Dieci bonus statici veri che il motore non calcola**, in `UNPRICED_AMOUNT`
-  (`tests/engine/modifiers.test.ts`). `Amount` è `number | 'proficiency'` e non può dire «pari al
-  tratto Spellcast» o «pari alla Presenza». **Uno è `mage-robes`, armatura iniziale di livello 1.**
-  Mappa **separata** dalle situazionali di proposito: metterli fra quelle sarebbe la disonestà che
-  quel controllo esiste per impedire. *(La corsia in volo sta provando a chiuderli.)*
-- **`everySite()` legge 8 collezioni su 15**: `domainCards`, `beastforms` e `transformations` non
-  sono mai percorse. Ci sono altri bonus non calcolati lì dentro, alcuni **preesistenti all'SRD 2**.
-- **Supplemental Campaign Mechanics, folio 190 e 193-205**: undici sottosistemi, **82.876 caratteri**
-  che nulla legge — mentre l'app pubblica **92 pezzi d'equipaggiamento** timbrati con i nomi di
-  quelle campagne, e non c'è nessun posto dove leggere cosa siano.
-- **`srdIndex.ts` non indicizza né LIVELLO né MODULO per le armi.** Con la scala per livelli, 11
-  nomi coprono 44 record: cercare «Blessed Brass Knuckles» dà quattro righe identiche tranne il dado.
+- **Dieci bonus il cui importo era una parola: sei sono prezzati.** `Amount` è
+  passato da `number | 'proficiency'` a `number | DynamicAmount`, e
+  `collectModifiers` riceve tier e tratto Spellcast. **`mage-robes` è fra quelli
+  chiusi**, ed era il caso che pesava: armatura iniziale di livello 1.
+  Restano dichiarati e non prezzati: **5** in `UNPRICED_AMOUNT` (le quattro
+  coffinwood e `domainCard|eldritch-flesh`), **13** in `UNPRICED_LANE`, **32** in
+  `SITUATIONAL`.
+- **`everySite()` percorre 12 collezioni su 16** (erano 8 su 15). Non percorse:
+  `domains`, `adversaries`, `environments`, `rules`. 1102 siti.
+- **Il registro non conosce le stance.** `src/engine/modifiers.ts` non è stato
+  toccato dalla corsia: le stance si **mostrano e non si applicano**, come le
+  trasformazioni. Le due che stampano un bonus statico — `anchored` (+2 alle
+  soglie) e `aggressive` (−1 all'Evasione) — sono in `SITUATIONAL`, e la ragione
+  NON è la corsia mancante: è che sono legate all'**essere in** una stance, e
+  `shared/types.ts` rifiuta per iscritto un `activeStanceRef`.
+- **Supplemental Campaign Mechanics, folio 190 e 193-205**: undici sottosistemi,
+  **82.876 caratteri** che nulla legge — mentre l'app pubblica **92 pezzi
+  d'equipaggiamento** timbrati con i nomi di quelle campagne.
+- **`srdIndex.ts` non indicizza né LIVELLO né MODULO per le armi.** 11 nomi
+  coprono 44 record: cercare «Blessed Brass Knuckles» dà quattro righe identiche
+  tranne il dado.
 - **`shared/types.ts` chiama `Item.roll` un d100.** È 1..60, in entrambi i libri.
-- **Prosa stantia**: `HANDOFF.md` dice `SCHEMA_VERSION` 5 e `CODEC_VERSION` 2 — sono 7 e 4. 42
-  menzioni di `srd-1.0` in 21 file, molte con una misura fatta sull'SRD 1. **Rimisurare o marcare,
-  mai `sed`.**
+- **Prosa stantia altrove**: `HANDOFF.md` dice `SCHEMA_VERSION` 5 e
+  `CODEC_VERSION` 2 — sono 8 e 8. 42 menzioni di `srd-1.0` in 21 file.
+  **Rimisurare o marcare, mai `sed`.**
 
 ---
 
@@ -137,18 +179,34 @@ identiche campo per campo: «rinominata e riscalata» non ha un precedente nel l
 
 ---
 
-## 6. Buchi nella prova, misurati e non chiusi
+## 6. I quattro buchi nella prova sono CHIUSI
 
-Ognuno lascia verde l'intera suite. Un buco scritto è debito; uno taciuto è una trappola.
+Ognuno lasciava verde l'intera suite, e ognuno è stato **provato per mutazione**:
+il mutante uccide solo il suo test, e nient'altro nella suite si muove.
 
-- `codec.ts:951` e `:1478` — i due controlli di collezione, **l'intera difesa** della collisione
-  `vampire` in lettura. Toglierne uno decodifica l'id della carta come l'avversario.
-- `GearPicker.tsx:1249/1430` — dare al filtro le proprie righe già filtrate è una porta a senso
-  unico: tocchi `Base`, il controllo sparisce, non si torna ad `All`.
-- `gear.ts` `origin()` usa `(s): s is string => s !== null` dove il valore può essere `undefined`:
-  un `set` fuori unione fa cadere il selettore alla prima lettera digitata. `typeof s === 'string'`
-  chiude. Non raggiungibile da nessuno dei due libri.
-- `holdings.ts` `ref !== ''` e la porta «Nothing equipped» di Gioco non hanno test.
+- `codec.ts` — i due controlli di collezione, l'intera difesa della collisione
+  `vampire`. **Erano entrambi nudi**: togliendone uno, 185 file / 4557 test
+  restavano verdi. Ora un test per porta.
+  Il test che *sembrava* coprirli — «refuses to guess when the id in the slot
+  belongs to another collection» — **non li copre**: passa un id che il registro
+  non possiede affatto, quindi `keyOf` risponde `null` e il controllo non viene
+  mai consultato. Il nome prometteva la guardia, il corpo provava il ramo
+  «id assente».
+- `GearPicker.tsx` 1249/1430 — il controllo dei moduli riceve la collezione
+  intera. **Non era un difetto vivo**, era una porta senza serratura: ricablarlo
+  sulle righe già filtrate lo rende a senso unico. Due test, uno per call site.
+- `gear.ts` `origin()` — chiuso con `typeof s === 'string'`. **La consegna
+  descriveva male metà del difetto**: `join` rende `undefined` come stringa
+  vuota, quindi il timbro non stampa mai la parola «undefined» — stampa un
+  separatore a vuoto, ` · X`. La metà con i denti era la ricerca, che lancia.
+  **L'ago conta**: `matches` è `search === '' || prose.some(...) || labels.some(...)`,
+  quindi un ago che il nome soddisfa fa corto circuito e il test passa sul codice
+  rotto.
+- `holdings.ts` — quel file ha **due** `ref !== ''`, non uno. Quello in
+  `characterRefs` **era già coperto** (toglierlo fa fallire due test). Solo
+  quello in `unresolvedWeapons` era nudo, e costa caro: senza, uno slot **vuoto**
+  viene riportato come arma che questa build non sa nominare, e Gioco e Modifica
+  disegnano l'insegna sopra il nulla.
 
 ---
 
@@ -180,3 +238,29 @@ Ognuno lascia verde l'intera suite. Un buco scritto è debito; uno taciuto è un
    volta la **correzione di un revisore era sbagliata a sua volta**, perché aveva ri-implementato un
    ramo invece di strumentare il ciclo: la risposta vera era nove pagine per libro, non otto, e per
    due rami diversi. **Ri-implementare non è strumentare.**
+
+---
+
+## 9. Quello che ha sbagliato QUESTA sessione, misurato
+
+Tre errori miei, tutti scoperti dalla misura e non dal ragionamento. Sono qui
+perché la forma si ripete.
+
+1. **Ho integrato la prima consegna di una corsia ancora viva.** Avevo perfino
+   controllato che corsia e albero coincidessero — sei minuti prima che la
+   corsia riscrivesse il file. Un controllo di coincidenza non è un controllo di
+   **quiete**: la consegna va vista ferma, e la corsia zitta, prima di toccarla.
+2. **Il mio primo test passava sul codice rotto.** Cercavo il crash di
+   `origin()` con l'ago `'a'`, che «Sky Anchor» soddisfa: `matches` fa corto
+   circuito sulla prosa e non arriva mai alle etichette. Un test che non ha
+   **fallito prima** della riparazione non ha provato niente.
+3. **Ho detto la collezione giusta e il record sbagliato.** Avevo annunciato che
+   le stance sfuggite allo sweep fossero `anchored` e `favored`; misurando con le
+   `STATIC_SHAPES` vere sono `anchored` e `aggressive`. `favored` dice «equal to
+   a trait of your choice» sui **tiri di danno**, che il registro non modella.
+   Avevo indovinato la forma della regex invece di eseguirla.
+
+E una quarta, che non era mia ma va detta perché è la stessa forma: la corsia
+`pricing` ha **corretto sé stessa** fra la prima e la seconda consegna, su
+numeri che aveva scritto lei. Una consegna non è una fonte più affidabile di un
+documento: si rilegge.
