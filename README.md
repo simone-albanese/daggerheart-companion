@@ -3,17 +3,42 @@
 **Daggerheart Compatible.** A digital character sheet and GM toolkit.
 Local-first, offline, no account, no server, no telemetry.
 
-The app ships with the whole SRD already in it — 189 domain cards, 129
-adversaries, 19 environments, nine classes and every table — so nothing has to
-be loaded before it is usable. The first screen asks **who is at the table**:
-two questions for a player, three for a GM, and for somebody whose character
-already exists on another device, a door to bring it over rather than a
-question. It is skippable at every step, and a skip lands on the same summary
-card as answering, carrying the shipped defaults. Before that the app opened on
-the character wizard's class step — the same nine cards whether you were making
-a character, running the game, or arriving with a finished sheet in your pocket.
+The whole SRD is already inside it — **210 domain cards, 264 adversaries, 47
+environments, 13 classes** and every table — so nothing has to be downloaded,
+unlocked or imported before the app is usable. The book it publishes is
+**SRD 2.0**; the edition before it is still parsed and still checked, because
+that is the only thing that can prove the pipeline did not quietly change its
+mind about the older one.
+
+The first screen asks **who is at the table**: two questions for a player,
+three for a GM, and for somebody whose character already exists on another
+device, a door to bring it over rather than a question. It is skippable at
+every step, and a skip lands on the same summary card as answering, carrying
+the shipped defaults. Before that, the app opened on the character wizard's
+class step — the same list whether you were making a character, running the
+game, or arriving with a finished sheet in your pocket.
 
 ---
+
+## Contents
+
+**The app**
+&nbsp;&nbsp;[What it does, and what it deliberately doesn't](#what-it-does-and-what-it-deliberately-doesnt) · [The five screens](#the-five-screens-and-what-is-on-each) · [What the app ships](#what-the-app-ships) · [Moving a character between devices](#getting-a-character-onto-another-device) · [Why a character cannot be lost](#your-character-is-the-thing-that-must-not-be-lost)
+
+**The book, and building from it**
+&nbsp;&nbsp;[One parser, at build time](#one-parser-and-it-runs-at-build-time) · [Getting started](#getting-started) · [Rebuilding the dataset](#rebuilding-the-dataset) · [Layout of the repo](#layout-of-the-repo)
+
+**When something goes wrong**
+&nbsp;&nbsp;[Runbook: a blank rectangle](#runbook-the-app-opens-to-a-blank-rectangle)
+
+**Language and legal**
+&nbsp;&nbsp;[Language](#language) · [Legal](#legal)
+
+---
+
+# The app
+
+*What it does at a table, and what it refuses to do.*
 
 ## What it does, and what it deliberately doesn't
 
@@ -34,13 +59,13 @@ they try to *execute* the rules. Here the boundary is stated out loud.
 **It doesn't calculate** — it shows the text and you apply it:
 
 - class, subclass, ancestry and community features
-- the text of all 189 domain cards
+- the text of all 210 domain cards
 - adversary and environment features
 - countdowns: it displays and advances them by hand, it never infers a tick
 - conditions
 - anything your table does differently
 
-That is not laziness. Modelling 189 cards and their exceptions is a bigger
+That is not laziness. Modelling 210 cards and their exceptions is a bigger
 project than everything else combined, and every table with a house rule would
 end up fighting the app instead of using it.
 
@@ -51,8 +76,6 @@ anybody's sheet. The same is promised for features with a *declared* numeric
 effect — *"Tusks: +1d6 damage"* — and that half is not built: `rollDamage` takes
 a flat modifier and has no notion of an added die. `BACKLOG.md` P1-1 says so
 under what it leaves out.
-
----
 
 ## The five screens, and what is on each
 
@@ -85,7 +108,7 @@ and the loadout.
   tracks, twice, plus the GM's Fear — proposed and then applied on your word.
 - **Beastform** and an **animal companion**, where the class has them.
 
-### Cards — the 189 domain cards
+### Cards — the 210 domain cards
 
 Every domain card in the SRD, filterable and searchable, with the filter bar
 inside the grid's scroll rather than fixed above it. The loadout is five, and
@@ -120,7 +143,7 @@ this project — the Core Book's lists are not in this app), and the reference.
 - **The reference**: eight topics — improvising an adversary, setting a
   Difficulty, Fear, advancing a countdown, range and distance, GM moves and
   principles, adversary Experiences, and gold/equipment/loot — plus a
-  **full-text search across all 75 SRD sections**. Every word is read out of
+  **full-text search across all 74 SRD sections**. Every word is read out of
   the shipped dataset at render time, with the page number stamped beside the
   table it came from.
 - **The encounter builder**: battle points at `(3 × PCs) + 2`, every cost and
@@ -133,7 +156,25 @@ this project — the Core Book's lists are not in this app), and the reference.
 Export and import, printing, and the switches for the GM tools and the GM
 section as a whole.
 
----
+## What the app ships
+
+Sixteen collections, and the app reads every one of them. The counts are the
+shipped file's own, not a promise about it:
+
+| | | | |
+|---|---|---|---|
+| domains 10 | domain cards 210 | classes 13 | subclasses 26 |
+| ancestries 24 | communities 15 | beastforms 22 | transformations 6 |
+| martial stances 16 | weapons 391 | armors 85 | loot 120 |
+| consumables 120 | adversaries 264 | environments 47 | rules 74 |
+
+Two of those are **shown and never applied**, and it is a decision rather than
+an omission. A transformation and a martial stance both grant effects the sheet
+would have to be *in* to be entitled to — and the book ties those states to the
+scene, to Severe damage, to the last Hit Point. Deciding when a character drops
+out of one would be the app interpreting the rules, which is the line the
+section above draws. So the records are carried, searchable and drawn in full,
+and they move no number. The engine is measured to prove it.
 
 ## Getting a character onto another device
 
@@ -145,55 +186,35 @@ Three ways, and none of them needs a server or an account.
 | **Animated QR** | one phone paints a loop of QR codes, the other watches. No handshake, no pairing, no channel — the phone holding the camera never has to talk back, which is what makes it work between two devices that have never met |
 | **Print** | the character sheet onto paper |
 
----
+## Your character is the thing that must not be lost
 
-## Getting started
+Safari's ITP can evict IndexedDB after roughly seven days of inactivity, and
+`navigator.storage.persist()` is granted inconsistently. A group that plays
+every three weeks would lose a character between sessions.
 
-**Node 24**, which is what `.nvmrc` says and what CI and the deploy both read
-out of it. `nvm use` picks it up. Newer majors will very likely work — nothing
-here is close to the edge of the runtime — but 24 is the only one anything
-verifies, so it is the one number in this repo worth matching.
+So: persistence is requested at the right moment and with an explanation; the
+indicator says how long it has been since the last export, and gets loud at
+five days; and every launch checks that what the last session left behind is
+still there. When it is not, the app names the missing characters rather than
+counting them, and points at the screen that can restore them. Past seven idle
+days it also names the browser as the likely cause — and only then, because
+that is when there is evidence for it rather than a guess.
 
-```sh
-npm install
-npm run dev
-```
+**The automatic export has a precondition, and the app does not pretend
+otherwise.** Choose a folder once in Settings and a copy is written into it
+when you put the app down and when the page goes away. Until you do, nothing is
+exported automatically, and Settings says exactly that instead of implying a
+copy exists. Choosing a folder needs `showDirectoryPicker`; where the browser
+does not have it, the app says so and the export stays a button you press.
 
-The committed dataset (`data/srd-1.0.json`) is all the app needs at runtime.
-
-### Rebuilding the dataset
-
-Only needed when the SRD is revised.
-
-```sh
-brew install poppler          # or: apt-get install poppler-utils
-# put Daggerheart-SRD-9-09-25.pdf in Manuali/  (it is not committed)
-npm run build:srd
-```
-
-The build refuses to emit a dataset that fails validation: wrong counts, a
-surviving Private Use Area glyph, a broken ligature, a dangling reference, a
-duplicate id. `npm run build:srd -- --check` validates and writes nothing, and
-fails if `data/srd-1.0.json` no longer matches the source.
-
-CI reaches the same verdict by a different route: it rebuilds and then runs
-`git diff --exit-code -- data/`, which also catches a dataset that was edited
-by hand. Either way it only runs on a runner that has been given the PDF, and a
-stock one has not — the rest of CI builds against the committed JSON.
-
-### Toolchain note
-
-The repo carries no Node of its own. If you already manage Node per project —
-nvm, fnm, asdf, mise, Volta — they all read `.nvmrc` and there is nothing here
-for you to do.
-
-If you do not, and you would rather not move a system Node that other projects
-on the machine are relying on, unpack a release of that major into
-`.tools/node`; `. ./env.sh` puts it first on PATH for that shell. Either way,
-`env.sh` warns when the Node you end up with is a different major from the one
-CI runs, so the mismatch surfaces on the machine that has it.
+A character is months of someone's work; losing it is the one unforgivable bug
+in an app like this.
 
 ---
+
+# The book, and building from it
+
+*One parser, one committed dataset, and nothing parsed in a browser.*
 
 ## One parser, and it runs at build time
 
@@ -205,8 +226,10 @@ BUILD TIME (your machine, CI)         RUNTIME (the user's browser)
 ─────────────────────────────         ────────────────────────────
 tools/build-srd.ts                    nothing parses anything
      ↓
-SRD 1.0 (68 pp, 0.9 MB)
+SRD 2.0 (224 pp, 2.3 MB)              ← the book the app publishes
+SRD 1.0  (68 pp, 0.9 MB)              ← kept, and still checked
      ↓
+data/srd-2.0.json, committed
 data/srd-1.0.json, committed
      ↓
 precached by the service worker
@@ -240,7 +263,54 @@ sits, so `Difficulty` arrives as `Diffi` + `culty:`. The repair is geometric,
 not a word list — a spurious split has no advance at all, a real space has
 about a quarter of the glyph height.
 
----
+## Getting started
+
+**Node 24**, which is what `.nvmrc` says and what CI and the deploy both read
+out of it. `nvm use` picks it up. Newer majors will very likely work — nothing
+here is close to the edge of the runtime — but 24 is the only one anything
+verifies, so it is the one number in this repo worth matching.
+
+```sh
+npm install
+npm run dev
+```
+
+The committed dataset (`data/srd-2.0.json`) is all the app needs at runtime.
+
+### Rebuilding the dataset
+
+Only needed when the SRD is revised.
+
+```sh
+brew install poppler          # or: apt-get install poppler-utils
+# put DH_SRD_2_2026_08_25.pdf in Manuali/  (it is not committed)
+npm run build:srd
+```
+
+The build refuses to emit a dataset that fails validation: wrong counts, a
+surviving Private Use Area glyph, a broken ligature, a dangling reference, a
+duplicate id. `npm run build:srd -- --check` validates and writes nothing, and
+fails if `data/srd-2.0.json` no longer matches the source. Pointing it at the
+older book with `--check --pdf <SRD 1.0>` does the same for `data/srd-1.0.json`,
+which is committed for exactly that reason: it is the only thing that can say
+the parser still reads the edition it used to.
+
+CI reaches the same verdict by a different route: it rebuilds and then runs
+`git diff --exit-code -- data/`, which also catches a dataset that was edited
+by hand. Either way it only runs on a runner that has been given the PDF, and a
+stock one has not — the rest of CI builds against the committed JSON.
+
+### Toolchain note
+
+The repo carries no Node of its own. If you already manage Node per project —
+nvm, fnm, asdf, mise, Volta — they all read `.nvmrc` and there is nothing here
+for you to do.
+
+If you do not, and you would rather not move a system Node that other projects
+on the machine are relying on, unpack a release of that major into
+`.tools/node`; `. ./env.sh` puts it first on PATH for that shell. Either way,
+`env.sh` warns when the Node you end up with is a different major from the one
+CI runs, so the mismatch surfaces on the machine that has it.
 
 ## Layout of the repo
 
@@ -259,31 +329,9 @@ src/ui/         shell, player, build, gm, settings, print, and what they share
 
 ---
 
-## Your character is the thing that must not be lost
+# When something goes wrong
 
-Safari's ITP can evict IndexedDB after roughly seven days of inactivity, and
-`navigator.storage.persist()` is granted inconsistently. A group that plays
-every three weeks would lose a character between sessions.
-
-So: persistence is requested at the right moment and with an explanation; the
-indicator says how long it has been since the last export, and gets loud at
-five days; and every launch checks that what the last session left behind is
-still there. When it is not, the app names the missing characters rather than
-counting them, and points at the screen that can restore them. Past seven idle
-days it also names the browser as the likely cause — and only then, because
-that is when there is evidence for it rather than a guess.
-
-**The automatic export has a precondition, and the app does not pretend
-otherwise.** Choose a folder once in Settings and a copy is written into it
-when you put the app down and when the page goes away. Until you do, nothing is
-exported automatically, and Settings says exactly that instead of implying a
-copy exists. Choosing a folder needs `showDirectoryPicker`; where the browser
-does not have it, the app says so and the export stays a button you press.
-
-A character is months of someone's work; losing it is the one unforgivable bug
-in an app like this.
-
----
+*The failure no error boundary can report.*
 
 ## Runbook: the app opens to a blank rectangle
 
@@ -358,6 +406,10 @@ the app's own `db.ts` wrote, and fails if the hardcoded names drift.
 
 ---
 
+# Language and legal
+
+*Whose words these are.*
+
 ## Language
 
 English throughout — interface, data, errors, filenames, code, commits. The
@@ -366,8 +418,6 @@ Stress", a translated label beside it adds a beat of mental translation every
 time your eye passes over it, which is exactly what a sheet you read mid-scene
 cannot afford. `Architecture.md` is in Italian because it is the author's
 working document.
-
----
 
 ## Legal
 
