@@ -1,92 +1,96 @@
-# Handoff — il Focus e il Favor su Gioco: progettato, misurato, non costruito
+# Handoff — il Focus e il Favor: le otto domande, e cosa ne è uscito
 
-**LEGGI PRIMA LA §1 E PONI LE OTTO DOMANDE.** Il proprietario ha chiesto
-esplicitamente che una ripresa a contesto pulito **cominci chiedendo**, non
-costruendo. Nessuna riga di codice prima delle risposte.
+**Questo documento è cambiato di natura.** È nato la mattina del 1 settembre 2026 per dire
+*«non costruire prima di aver posto otto domande»*. Le domande sono state poste la sera
+stessa, decise dal proprietario, e il lavoro che ne è seguito è **unito e pubblicato**.
 
-Il progetto della §2 è misurato e regge; quello che manca sono decisioni, non
-indagini. I commit si citano **per oggetto, mai per SHA**.
+Quello che resta qui è il **verbale**: le otto risposte (§1), il progetto su cui poggiavano
+(§2), le regole macchina che mordono (§3), gli errori di quella sessione (§4), e cosa è
+stato costruito (§6). I commit si citano **per oggetto, mai per SHA**.
 
 ---
 
-## 0. Stato, misurato — 1 settembre 2026
-
-Tutto unito e **pubblicato**, verificato sul sito e non dedotto.
+## 0. Stato, misurato — 1 settembre 2026, notte
 
 ```
-main                        «Merge pull request #68 from simone-albanese/readme-srd-2»
-sw.js pubblicato            cc88c0d2c149cf961beb469e3886c589919dac38  (combacia)
+main                        «Merge pull request #72 from …/corsia-c-folii-equipment»
+sw.js pubblicato            0541bda25e8fa8dc173bac133d3f86a5df329c19  (combacia con main)
 npx tsc --noEmit            0 errori
-npx vitest run              186 file / 4624 test
+npx vitest run              192 file / 4776 test
 build:srd --check           entrambi i libri combaciano con la sorgente
-build:registry --check      1368 id, 9 conservati
+build:registry --check      1368 id
+SCHEMA_VERSION / CODEC      9 / 9
 ```
 
-Tre PR unite oggi: **#66** (l'SRD 2.0), **#67** (il cancello sulla sottoclasse),
-**#68** (il README). L'app pubblica SRD 2.0: `SCHEMA_VERSION` 8, `CODEC_VERSION`
-8, 16 collezioni, 74 regole, 16 stance.
+**Il deploy è verificato sul sito e non dedotto**, e non solo con lo SHA: i chunk serviti
+sono stati scaricati e ci sono state cercate dentro le cose nuove. Vedi §6 per dove
+guardare, perché **cercarle nel chunk sbagliato dà «assente» e fa concludere che il deploy
+sia rotto**.
 
-**UNIRE È IL DEPLOY.** `deploy.yml` parte su ogni push a `main`. Spingere un ramo
-non lo è. Il proprietario dà il via con la parola «vai».
+**UNIRE È IL DEPLOY.** `deploy.yml` parte su ogni push a `main`. Spingere un ramo non lo è.
 
 ---
 
-## 1. LE OTTO DOMANDE — porle tutte, prima di qualunque cosa
+## 1. LE OTTO DOMANDE — POSTE, DECISE, NON RIAPRIRLE
 
-Raggruppate; le prime tre bloccano il lavoro, le altre lo indirizzano.
+Il proprietario le ha decise il 1 settembre 2026. Chi riprende **non le ripone**.
 
 ### Bloccanti
 
-1. **Il seme del Favor in migrazione.** Il libro dice *«You start with 3
-   Favor»*, ma una migrazione non crea un personaggio: aggiorna uno che gioca
-   già. Seminare 3 a un Warlock a metà campagna è inventargli uno stato che non
-   ha guadagnato. Le due ondate precedenti hanno seminato **vuoto**
-   (`stanceRefs: []`, `focus: {0, MAX_FOCUS}`).
-   *Proposta:* `favor: {marked: 0, max: 6}` in migrazione, e il 3 solo per un
-   personaggio **nuovo**, dove la frase del libro parla davvero.
+1. **Il seme del Favor in migrazione → `{ marked: 0, max: 6 }`, e il 3 solo a una scheda
+   nuova.** Una migrazione aggiorna chi gioca già, e seminargli 3 è inventargli uno stato
+   che non ha guadagnato. Come `stanceRefs: []` e `focus` prima di lui.
+   **Precisato in costruzione, ed è una decisione in più:** il 3 va **solo a un Warlock**.
+   La prima implementazione lo dava a *ogni* scheda nuova — un Bardo compreso — con la
+   giustificazione, **falsa**, che `newCharacter` non conoscesse la classe: la conosce, la
+   risolve poche righe sopra il seme, e la riga di `hp` accanto la usa già.
 
-2. **Dove esattamente su Gioco.** `Vitals` disegna HP, Stress, Speranza, caselle
-   d'armatura. Il Focus e il Favor vanno **in quella fila** (una traccia in più
-   accanto alle altre) o in **una riga propria** sotto?
-   *Nota di ergonomia:* si spendono nel mezzo di un tiro, quindi devono stare
-   nell'arco del pollice, vicino al controllo del tiro. Vedi la memoria
-   `reason-about-screen-ergonomics`: serve un ragionamento esplicito su
-   arco-del-pollice, dimensione del bersaglio e leggere-contro-toccare, e la
-   misura va fatta in Chrome a 393×852, non dedotta.
+2. **Dove su Gioco → una riga propria sotto `Vitals`**, non dentro la fila delle quattro.
+   Metterle nella fila porterebbe Vitals da 4 a 6 card in un solo wrap, e il min-content di
+   una card è 44+44: il wrap preme e le quattro esistenti si stringono.
+   **La misura va fatta in Chrome a 393×852, non dedotta.**
 
-3. **Il Focus resta anche in Build?** Oggi è **solo** lì (sezione Martial
-   Stances, con lo stepper). Se compare su Gioco: resta in tutte e due, o si
-   toglie da Build? Due controlli sullo stesso numero su due schermi è una
-   scelta, non un incidente — la scheda di Build è dove si *conoscono* le
-   stance, Gioco è dove si *spende*.
+3. **Il Focus resta anche in Build → sì, in tutte e due.** Build è dove si *conoscono* le
+   stance, Gioco è dove si *spende*. Lo stato è uno solo nello store, quindi non c'è nulla
+   da tenere in accordo.
 
 ### Di indirizzo
 
-4. **Il Patron Die: solo pool, o anche armabile?** `dicePools.ts` è la casa
-   giusta (il suo docblock cita come esempio motivante proprio la scala
-   d6→d8-al-5). Ma `heldDice.ts` è il *vassoio* da cui un dado si arma dentro un
-   tiro. Il Patron Die si spende **prima** di un tiro d'azione e si somma al
-   totale: va armato come gli altri, o basta mostrarlo?
+4. **Il Patron Die → pool *e* armabile.** `dicePools.ts` lo dichiara (d6, d8 dal livello 5),
+   `heldDice.ts` lo arma dentro il tiro, e la spesa del Favor si aggancia all'armamento.
+   Nota: `heldDice.ts` sta in **`src/ui/player/`**, non nel motore. E la scala d6→d8-al-5 già
+   presente in `dicePools.ts` è quella del **Rally Die** — precedente esatto, non lo stesso dado.
 
-5. **«Gain a Favor instead of a Hope».** Su un successo con Speranza il Warlock
-   può prendere un Favor al posto della Speranza. Serve un controllo sul
-   risultato del Duality Roll che lo offra, o resta a mano? *L'app propone e non
-   applica* — offrirlo sarebbe coerente; non offrirlo è una traccia in meno.
+5. **«Gain a Favor instead of a Hope» → l'app lo offre** sul risultato del Duality Roll.
+   È coerente con la regola di casa: l'app propone e non applica. Tocca il percorso del
+   tiro, non solo `Vitals` — è il quinto costo, che l'elenco della §2 non contava.
 
-6. **La stance `invigorating`** dà un Focus su un 4 di un d4, dopo un attacco
-   riuscito. Offrire il tiro come si fa col danno, o lasciarlo a mano?
+6. **`invigorating` → a mano.** Nessun d4 proposto; lo stepper del Focus copre il caso.
 
 ### Pulizia
 
-7. **Il ramo `srd-2` e il suo worktree** hanno finito: uniti in `main`.
-   Rimuoverli libera anche ~1,9 GB. Procedo?
+7-8. **Rimandata quel giorno, eseguita a lavoro finito.** I rami uniti e gli scratchpad sono
+   stati ripuliti solo dopo che le tre PR erano unite e il deploy verificato.
 
-8. **Uno scratchpad orfano da 1,3 GB** di una sessione più vecchia
-   (`f24758f6-…`). Cancellarlo?
+### E una nona domanda, che è nata dalle prime otto
+
+**Due lavori chiedevano lo stesso, unico allargamento dell'header** — il campo `favor` e lo
+scambio di carta dello Step Four. `codec.ts` diceva: *«When 8 is spent there is no fifth value
+with it, and the next bump has to widen the header rather than pick a worse number quietly.»*
+Deciso: **una sola volta, e porta dentro entrambi**. Perciò il Focus/Favor ha perso il suo
+bump e si è ridotto a UI più motore dei dadi.
 
 ---
 
 ## 2. Il progetto, e la misura su cui poggia
+
+> **Letto il 1 settembre 2026, sera: questa sezione è il progetto COM'ERA, e si legge come
+> tale.** Dei quattro costi elencati in fondo, i primi due sono **fatti e pubblicati** — il
+> campo `Character.favor` con il suo bump, e le quattro liste di guardia — mentre il terzo
+> (`Vitals.tsx`) e il quarto (`dicePools.ts`) no. E l'elenco è **incompleto**: la risposta 5
+> della §1 aggiunge un quinto costo che qui non c'è, l'offerta sul risultato del Duality Roll.
+> Marcata e non riscritta: un verbale che si riscrive smette di essere un verbale.
+
 
 **Sono la stessa cosa due volte: due tracce con lo stesso tetto stampato, 6.**
 
@@ -162,6 +166,30 @@ Cancello: la classe `warlock`.
 - Il PDF dell'SRD 1 è `Manuali/Daggerheart-SRD-9-09-25.pdf`; l'SRD 2 è
   `DH_SRD_2_2026_08_25.pdf`. Nessun file ha «srd» e «1» insieme nel nome.
 
+**Aggiunte la sera del 1 settembre, tutte pagate in tempo perso:**
+
+- **Una fixture di misura con uno `schemaVersion` vecchio si vede azzerare i campi nuovi
+  dalla migrazione.** Ne ho scritta una con `stanceRefs: ['favored']` e schema 4, e la
+  migrazione ha seminato `[]` sopra: il caso non misurava niente e sembrava un difetto
+  dell'app. **Per misurare uno stato introdotto dopo un bump, la fixture deve dichiarare uno
+  schema oltre quel bump.**
+- **Il rig di misura esiste e non va ricostruito**, in
+  `~/.claude/projects/…/audit-harness/`. `resize_window` di `claude-in-chrome` **non scende
+  sotto un minimo di finestra** e ti lascia a 529×675 con `pointer: fine`, cioè non è la
+  misura dell'audit. Il rig dà 393×852, dpr 3, `pointer: coarse`.
+- **Un verificatore che cerca in un worktree diverso da quello che possiede il file produce
+  un'accusa, non una misura.** È successo: una passata ha dichiarato «citazione inventata»
+  una frase che esisteva davvero, nel ramo di un'altra corsia. Prima di chiamare inventata
+  una cosa, controlla di non essere nell'albero sbagliato.
+- **Un conflitto sui due `data/srd-*.json` non si risolve scegliendo un lato: si rigenera.**
+  Sono file di **una riga sola**, quindi due rami che ne toccano parti diverse toccano
+  comunque la stessa riga. `npm run build:srd` per entrambi i libri dà esattamente l'unione,
+  perché il generatore legge `SCHEMA_VERSION` dal codice. Le due risoluzioni ingenue sono
+  **entrambe rosse**, ed è misurato.
+- **`build:srd --check` non gira in CI** — senza `Manuali/` quello step è saltato in ogni
+  run. Un test che legge `data/*.json` e non ha bisogno del PDF vale più di tre che ce
+  l'hanno.
+
 ---
 
 ## 4. Cosa ha sbagliato questa sessione
@@ -195,3 +223,84 @@ definitiva.**
 - L'ondata `wf_dc7af188-94f` è chiusa: 5 agenti, 5 risultati, 0 errori. Journal
   e transcript sono in `~/.claude/projects/…/subagents/workflows/`, **fuori**
   dagli scratchpad, e sopravvivono a qualunque pulizia.
+
+---
+
+## 6. Cosa è stato costruito, e dove guardare
+
+Tre PR, unite in quest'ordine perché la prima tocca `shared/types.ts` e l'ultima il dataset.
+
+**Il formato nuovo.** L'header allargato — escape `0x0f` nel nibble basso del byte 0,
+versione nel byte 1, crc32 ai byte 2-5 — con `NARROW_CODEC_VERSIONS = [1, 2, 4, 8]` e
+`WIDE_CODEC_VERSIONS = [9]`. Dentro ci sono `Character.favor`, lo **scambio dello Step Four**
+del level-up (la metà che il libro concede al folio 53 e che l'app non faceva) e la **✕ sulle
+carte di dominio**, che prima non si potevano restituire: `acquire` aveva tre rami e nessuno
+riduceva la proprietà.
+
+**Il wizard dice invece di imporre.** Era la contraddizione più vecchia del progetto: il
+foglio si rifiutava di imporre con una motivazione scritta nel suo docblock, il wizard
+imponeva. Ora il wizard segue il foglio — via il blocco sullo slot secondario, via la
+cancellazione silenziosa dell'off-hand — e la frase che dice è **vera**, perché consulta
+`hasCombatTraining`: un Warrior ignora il burden, e per lui quella riga non compare affatto.
+
+**Il capitolo che l'app applicava senza spedirlo.** I folii 55-83 non entravano nel dataset:
+un'isola del parser chiudeva a `Equipment` e la successiva ripartiva da `GOLD`. Otto capitoli
+nuovi, `rules` da 69→77 e 74→82. E il libro, una volta dentro, ha **cambiato una decisione**:
+sull'ingombro si ferma al numero, sul tier spende un verbo — *«You can't equip weapons or
+armor with a higher tier than you»* — quindi l'app segue quella grammatica invece di
+sceglierne una propria. Il tier **rifiuta**, il burden **dice**.
+
+### Dove sono le stringhe nel bundle pubblicato
+
+**È la trappola in cui sono cascato verificando il deploy.** Le stringhe di `gear.ts` — la
+nota sulle mani, il `kept; you cannot equip it again until level`, il `The book lists` —
+finiscono nel chunk **`Fold-*.js`**, **non** in `Build-*.js`. Cercarle in `Build-*` dà
+«assente» e fa concludere che il deploy sia rotto. Nel chunk `Build-*` ci sono invece
+l'armamento delle stance (`tap again to confirm`, `no picker to put it back`); nel
+`levelUp-*` lo scambio; nel `srd-*` il dataset.
+
+E: **un hash di chunk diverso non è una prova di divergenza.** Il `Fold` locale e quello
+servito avevano hash diversi e stessa dimensione; differivano per **sette caratteri**, il
+solo nome del chunk d'ingresso dentro l'`import`, perché la build incorpora lo SHA del
+commit. I tree git combaciavano. Guarda i byte prima di gridare.
+
+### Il debito che questo lavoro lascia
+
+- **`favor` non ha ancora una schermata** al momento in cui questo documento è unito: il
+  campo è immagazzinato, migrato, guardato e trasportato, e nessuno lo mostra. È il lavoro
+  della §1 punti 2-5, e **non dovrà bumpare il formato**.
+- Le **otto sezioni nuove** del dataset non compaiono sotto nessun chip di ShowSheet: serve
+  un terzo ballottaggio dei momenti. Lo stato `UNRATIFIED` in `tests/gm/moments.test.ts` lo
+  tiene visibile invece di lasciarlo silenzioso.
+- La **seconda metà di Combat Training** (+livello al tiro di danno fisico) resta testo:
+  aprire il canale dei bonus al tiro renderebbe candidati i 79 testi del dataset che dicono
+  «damage roll», ed è una decisione di perimetro.
+- *«They can't equip armor while in danger or under pressure»* è **deliberatamente non
+  implementata**: è uno stato di gioco, e nessun campo di nessuna scheda dice se sei in
+  pericolo. Un test lo asserisce, così non è una dimenticanza che nessuno ha scritto.
+
+---
+
+## 7. Le tre segnalazioni che hanno fatto partire tutto
+
+Un tester ha segnalato tre cose. **Erano tutte e tre vere, e nessuna per il motivo che
+credeva** — il che è la ragione per cui vale la pena scriverle qui.
+
+1. *«Ho preso una carta per sbaglio e non posso toglierla.»* Vero in due posti diversi con
+   due cause diverse: su Gioco una carta di dominio presa era presa per sempre; nella
+   creazione l'arma e l'armatura si potevano solo *sostituire*, perché il gesto per
+   svuotarle esisteva ma era sepolto dentro il pannello di scelta.
+2. *«Le armi a due mani possono essere tenute a una mano.»* La meccanica è un'altra — il
+   Warrior **ignora l'ingombro**, non impugna diversamente — ma il difetto che vedeva era
+   reale e l'app gli stava impedendo una mossa legittima.
+3. *«Mi segnala errore perché ho preso una off-hand, ma non è così.»* Il messaggio si
+   accendeva senza mai guardare se un'arma secondaria ci fosse davvero.
+
+E tre difetti che il tester **non** ha segnalato, trovati misurando: l'app vietava a parole e
+contava nei numeri (uno scudo insieme a un'arma a due mani dava comunque i suoi punti
+armatura); la casella secondaria accettava qualunque arma, spadone compreso, senza dire
+niente; e la definizione di «ingombro» non era in nessuna schermata perché il capitolo non
+era mai stato ingerito.
+
+**La forma che si ripete, ed è la lezione:** una segnalazione può essere giusta nel sintomo
+e sbagliata nella causa. Va creduta sul sintomo e verificata sulla causa.
