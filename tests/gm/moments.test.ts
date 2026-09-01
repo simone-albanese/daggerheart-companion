@@ -22,9 +22,9 @@
  * for the same problem: everything mapped must resolve, everything shipped
  * must be accounted for, and nothing may be excused that no longer exists.
  *
- * ## The exclusion list is here, and that is the point of it
+ * ## The exclusion lists are here, and that is the point of them
  *
- * `MOMENTLESS` is not exported from `src/`. Eight sections belong to no moment
+ * `MOMENTLESS` is not exported from `src/`. Ten sections belong to no moment
  * and the list of them is what this guard is allowed to skip, so it belongs to
  * the guard - the same place `dicePools.test.ts` keeps `NOT_A_POOL`. Kept in
  * `src/` it would be an export with no caller, which this repo treats as a
@@ -33,6 +33,11 @@
  * It is a list and not a seventh moment, and that was decided by measurement:
  * `ShowSheet`'s chip grid is `repeat(3, 1fr)`, so a seventh chip makes it three
  * rows and costs 52px in a column that fits by 0.3px.
+ *
+ * `UNRATIFIED` is a SECOND list and deliberately not part of the first, because
+ * "the owner decided this belongs nowhere" and "nobody has asked the owner yet"
+ * are different states and only one of them is a decision. Its own docblock,
+ * below, says which eight are in it and what empties it.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -85,6 +90,42 @@ const readBallot = (name: string): BallotRow[] =>
 const ballot = [
   ...readBallot('BALLOT-MOMENTI-2026-08-26.json'),
   ...readBallot('BALLOT-MOMENTI-SRD-2-2026-09-01.json'),
+];
+
+/**
+ * The equipment chapter's eight sections, which NO BALLOT HAS SPOKEN ABOUT.
+ *
+ * They are not `MOMENTLESS`. `MOMENTLESS` says the owner looked at a section
+ * and decided it belongs under no chip; every one of its ten entries has a row
+ * in a ballot, with a `why` quoting the section and a stated confidence, and
+ * `leaves out exactly the sections the ballot left out` holds the list to
+ * exactly those rows. Putting these eight there would be writing down a
+ * decision nobody took - the same forgery as adding them to `SECTION_MOMENTS`,
+ * only harder to notice, because a wrong "none" looks like an absence rather
+ * than like a claim.
+ *
+ * So they are a third state, and the guards below treat it as one: the sections
+ * ship and are searchable, they are drawn under no moment chip, and the two
+ * assertions on this list say the state is temporary rather than comfortable -
+ * every id must be in the dataset, and none may appear in any ballot. A third
+ * ballot covering these eight empties this list and moves them into
+ * `SECTION_MOMENTS` or `MOMENTLESS`, and until then nothing here pretends the
+ * question has been answered.
+ *
+ * They arrived with `the equipment chapter` island in
+ * `shared/parsers/rules.ts`, which read folios 44-61 / 55-83 for the first
+ * time. Their moments are a live question for the owner, and `armor` and
+ * `consumables` are the two that most obviously have one.
+ */
+const UNRATIFIED: readonly string[] = [
+  'equipment',
+  'weapons',
+  'primary-weapon-tables',
+  'secondary-weapon-tables',
+  'combat-wheelchair',
+  'armor',
+  'loot',
+  'consumables',
 ];
 
 const sections = baseDataset.rules;
@@ -142,7 +183,7 @@ describe('the membership stays true to the dataset', () => {
      * nothing would say so: it would look like a section nobody had written a
      * moment for, which is indistinguishable from one nobody noticed.
      */
-    const excused = new Set(MOMENTLESS);
+    const excused = new Set([...MOMENTLESS, ...UNRATIFIED]);
     const unaccounted = sections
       .map((section) => section.id)
       .filter((id) => SECTION_MOMENTS[id] === undefined && !excused.has(id));
@@ -150,6 +191,15 @@ describe('the membership stays true to the dataset', () => {
       unaccounted,
       'these ship in the dataset, belong to no moment, and are not on the exclusion list',
     ).toEqual([]);
+  });
+
+  it('has put nothing on the unratified list that a ballot has already answered', () => {
+    // The half that makes the third state temporary. The day a ballot covers
+    // one of these, this fails and names it, and the fix is to move the row
+    // into `SECTION_MOMENTS` or `MOMENTLESS` where its decision belongs.
+    const voted = new Set(ballot.map((row) => row.id));
+    expect(UNRATIFIED.filter((id) => voted.has(id))).toEqual([]);
+    expect(UNRATIFIED.filter((id) => !ids.has(id))).toEqual([]);
   });
 
   it('excuses nothing that has gone', () => {
@@ -165,9 +215,14 @@ describe('the membership stays true to the dataset', () => {
     expect(unknown).toEqual([]);
   });
 
-  it('accounts for all seventy-four, and the count is what the exclusion list rests on', () => {
-    expect(sections, 'the shipped rules sections').toHaveLength(74);
-    expect(Object.keys(SECTION_MOMENTS).length + MOMENTLESS.length).toBe(sections.length);
+  it('accounts for all eighty-two, and the counts are what the two lists rest on', () => {
+    expect(sections, 'the shipped rules sections').toHaveLength(82);
+    expect(
+      Object.keys(SECTION_MOMENTS).length + MOMENTLESS.length + UNRATIFIED.length,
+    ).toBe(sections.length);
+    // Stated apart from the sum, so that moving a section between the two lists
+    // cannot keep this green by cancelling out.
+    expect(UNRATIFIED, 'sections no ballot has reached yet').toHaveLength(8);
   });
 });
 
@@ -175,7 +230,7 @@ describe('the membership agrees with the other judgement of the same sections', 
   it('never points a question at a section with no moment', () => {
     /*
      * The catalogue and the ballot are two judgements about the same
-     * sixty-nine sections, made months apart. A question filed under DAMAGE
+     * sections, made months apart. A question filed under DAMAGE
      * whose section belongs to no moment would mean one of the two is wrong,
      * and the chip would draw the question over a section the same chip
      * refuses to list.

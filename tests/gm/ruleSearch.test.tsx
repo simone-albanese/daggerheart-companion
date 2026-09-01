@@ -417,6 +417,10 @@ describe('searchRules, over the shipped SRD', () => {
     const together = searchRules(rules, 'very close');
     expect(together.map((h) => h.id)).toEqual([
       'maps-range-and-movement',
+      // The throw rule: "You can throw an equipped weapon at a target within
+      // Very Close range". It arrived with the equipment chapter's island and
+      // is the only line in `weapons` that carries both words.
+      'weapons',
       'optional-gm-mechanics',
       'example-adversary-features',
     ]);
@@ -830,7 +834,17 @@ describe('which line a hit quotes', () => {
       // No duplicates, and every hit is a section of the dataset.
       expect(new Set(hits.map((h) => h.id)).size).toBe(hits.length);
     }
-    expect(searchRules(rules, 'fear')).toHaveLength(20);
+    /*
+     * Twenty-two, and TWO of them answer through a product name rather than
+     * through the mechanic: `loot` and `consumables` each end on "The following
+     * table includes the items from the Hope & Fear Expansion Set", which is
+     * the book's own sentence and is left as the book's. The assertion above
+     * still holds for them - the word is genuinely in the haystack - and the
+     * number is written down here so that the day somebody decides a GM
+     * searching `fear` should not be shown a table caption, this says how many
+     * hits that decision is about.
+     */
+    expect(searchRules(rules, 'fear')).toHaveLength(22);
   });
 });
 
@@ -1471,12 +1485,16 @@ describe('the results', () => {
      * quietly in a docblock, which is how this file lost figures before.
      */
     const single = rules.filter((r) => ruleSection(rules, r.id)!.blocks.length === 1);
-    expect(rules).toHaveLength(74);
-    // 34 of 69 before folio 13's rules arrived; all five of those are single-block.
-    expect(single).toHaveLength(39);
+    expect(rules).toHaveLength(82);
+    // 34 of 69 before folio 13's rules arrived; all five of those are
+    // single-block, and three of the equipment chapter's eight are: `equipment`
+    // and the two weapon-table openers, which the book sets as prose under one
+    // head. `weapons`, `combat-wheelchair`, `armor`, `loot` and `consumables`
+    // all carry subheads of their own.
+    expect(single).toHaveLength(42);
     // Not vacuous the other way either: most sections do have subheads to land
     // on, which is what makes the landing worth having at all.
-    expect(rules.length - single.length).toBe(35);
+    expect(rules.length - single.length).toBe(40);
 
     const section = single.find((r) => r.id === 'stress')!;
     const hit = searchRules(rules, 'stress mark clear').find((h) => h.id === section.id)!;
@@ -1779,10 +1797,12 @@ describe('the results', () => {
       }
     }
     // Folio 13's five sections add seven body lines and NO heading: each is a
-    // single block, so none of them carries a subheading of its own.
-    expect(headings).toBe(158);
-    expect(body).toBe(627);
-    expect(headings + body).toBe(785);
+    // single block, so none of them carries a subheading of its own. The
+    // equipment chapter's eight add 21 headings, which is where the jump from
+    // 158 comes from - five of the eight carry the book's own subheads.
+    expect(headings).toBe(179);
+    expect(body).toBe(682);
+    expect(headings + body).toBe(861);
     expect(fallback).toBe(0);
   });
 

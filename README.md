@@ -166,7 +166,7 @@ shipped file's own, not a promise about it:
 | domains 10 | domain cards 210 | classes 13 | subclasses 26 |
 | ancestries 24 | communities 15 | beastforms 22 | transformations 6 |
 | martial stances 16 | weapons 391 | armors 85 | loot 120 |
-| consumables 120 | adversaries 264 | environments 47 | rules 74 |
+| consumables 120 | adversaries 264 | environments 47 | rules 82 |
 
 Two of those are **shown and never applied**, and it is a decision rather than
 an omission. A transformation and a martial stance both grant effects the sheet

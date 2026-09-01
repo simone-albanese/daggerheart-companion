@@ -16,11 +16,17 @@
  *    because of its face and size. The manifest below names every heading
  *    that opens a section, in book order, so a layout change fails loudly
  *    instead of silently merging two topics.
- * 3. The rules are not one chapter. They are eight islands scattered through
+ * 3. The rules are not one chapter. They are TEN islands scattered through
  *    the book - two pages out of the class chapter, one out of the
  *    environments chapter - and the reference tables inside them are the only
  *    material in this directory that has to be selected by GEOMETRY rather
  *    than by text, because a table's cells are only a table by where they sit.
+ *
+ *    Ten entries, nine islands on SRD 1.0: `the Martial Stances rules` answers
+ *    `null` for a book that does not print folio 13. This line said "eight"
+ *    until it was counted rather than read - it had been true of SRD 1.0 and
+ *    was left behind twice, once when folio 13's island arrived and once when
+ *    the equipment chapter's did.
  *
  * ## Nothing here is a coordinate carried in the source
  *
@@ -99,25 +105,39 @@ function localRuns(page: BookPage): TextRun[] {
  * description of what the median is a median OF - and it has now been got wrong
  * twice, in opposite directions, by people who did not instrument this loop.
  *
- * Measured by printing the abstention from inside the loop, on both books:
- * NINE pages each. SRD 1.0 folios 3, 4, 6, 35, 62, 63, 67, 102, 103; SRD 2.0
- * folios 3, 4, 6, 46, 84, 85, 89, 158, 159. They are the full-width
- * single-column pages - covers, chapter openers, rosters - which is the
- * reassuring shape: what abstains is what has no two columns to find a gutter
- * between.
+ * Measured by printing the abstention from inside THIS loop - not from a
+ * re-implementation of it, which is how it was got wrong the first two times -
+ * on both books. Twenty-six pages abstain in SRD 1.0 and thirty-seven in SRD
+ * 2.0, and they fall into two groups that are not the same abstention:
  *
- * The two abstentions are NOT the same abstention, and that is the part both
- * wrong versions flattened. Seven per book fall out of the gap test with
- * `best = 0`: there is no gap in the middle 40% because there is one column.
- * Folios 67 and 89 - the benchmark tables - never reach it, dropping out at
- * `runs.length < 6` because almost nothing on them is set at 9pt or larger.
+ * - `best = 0` at the gap test: no gap in the middle 40%, because there is one
+ *   column. The full-width pages - covers, chapter openers, rosters - plus
+ *   every equipment folio whose 8pt table grid leaves fewer than two columns of
+ *   9pt text. SRD 1.0: 3, 4, 6, 35, 45-58, 60, 62, 63, 102, 103. SRD 2.0: 3, 4,
+ *   6, 46, 56, 57, 59, 60, 62-64, 66, 70-72, 75, 77, 80, 82, 84, 85, 158, 159.
+ * - `runs.length < 6`, never reaching the gap test at all, because almost
+ *   nothing on the page is set at 9pt or larger: the two benchmark tables
+ *   (folios 67 / 89) and the pure weapon, armor, loot and consumable table
+ *   pages. SRD 1.0: 59, 61, 67. SRD 2.0: 58, 61, 65, 67-69, 73, 74, 76, 78,
+ *   79, 81, 83, 89.
+ *
  * A reader checking this by re-implementing the gap test alone will conclude
- * those two vote. They do not.
+ * the second group votes. It does not.
+ *
+ * ## The equipment chapter added one voter per book, and moved neither median
+ *
+ * `the equipment chapter` put 18 folios into SRD 1.0's stream and 29 into SRD
+ * 2.0's. Seventeen and twenty-eight of them abstain, so each book gained
+ * exactly ONE voter - its chapter-opening prose page, folio 44 and folio 55 -
+ * and the counts went 15 -> 16 even in SRD 1.0 and 16 -> 17 odd in SRD 2.0.
+ * Both medians are the same numbers afterwards, 299 for even folios and 313.5
+ * for odd ones, measured on both books before and after.
  *
  * Only the classification matters, not the value: no run is wide enough to
  * straddle the gutter, so any x strictly inside it sorts the columns the same
  * way. That is what makes this an exact replacement for the 294/920 it
- * replaces rather than a re-tuning.
+ * replaces rather than a re-tuning - and it is why twenty-nine folios can join
+ * the stream while every section that existed before comes out byte-identical.
  */
 function gutterGrid(pages: readonly BookPage[]): [number, number] {
   const votes: [number[], number[]] = [[], []];
@@ -237,9 +257,11 @@ interface Island {
  *   island                     SRD 1.0    SRD 2.0
  *   Introduction                   3-3        3-3
  *   Character Creation             4-6        4-6
+ *   Martial Stances                  -      13-13
  *   Beastform preamble           12-12      15-15
  *   Ranger Companion             18-19      21-22
  *   Core Mechanics               35-43      46-54
+ *   Equipment                    44-61      55-83
  *   Gold + the GM chapter        62-73      84-95
  *   Using Environments         102-103    158-159
  *   Additional GM Guidance     112-118    183-189
@@ -326,6 +348,45 @@ const ISLANDS: readonly Island[] = [
   },
   {
     /*
+     * The equipment chapter, whose prose reached nothing until this entry
+     * existed. The island above it stops one folio BEFORE `Equipment` and the
+     * island below it starts at the `GOLD` banner, so folios 44-61 of SRD 1.0
+     * and 55-83 of SRD 2.0 fell between two ends that were each correct on
+     * their own. Measured on the committed datasets before this entry: zero of
+     * the 69 sections of SRD 1.0 and zero of the 74 of SRD 2.0 contain the word
+     * `burden`, or `consumable`, or the armor chapter's `Armor Slot` prose.
+     *
+     * ## The far end is the next island's own measurement, not a second one
+     *
+     * `bannerFolio(p, 'GOLD') - 1` and not the contents entry that follows,
+     * because the two would disagree by a page and the disagreement would be
+     * silent. The contents says `RUNNING AN ADVENTURE` opens on folio 85 in SRD
+     * 2.0 (63 in SRD 1.0), but GOLD is printed at the head of the third column
+     * of folio 84 (62), under the tail of the consumables table. A range ending
+     * at 84 hands that page to this island AND to the next one.
+     *
+     * SILENT is the operative word, and it was measured rather than feared:
+     * with the `- 1` deleted the build still succeeds, still validates, still
+     * reports 82 sections, and `gold` comes back at 1,791 characters instead of
+     * 890 - its own text twice over, with a `## GOLD` heading welded in where
+     * the second copy starts. Every assertion in the repository stayed green
+     * under that mutant until `tests/tools/equipmentProse.test.ts` grew the
+     * one that now catches it, over every section of both books.
+     *
+     * Ending one folio before the banner the next island opens on is the only
+     * form in which the seam cannot drift: one measurement, both sides of the
+     * cut.
+     *
+     * The near end is `folioOf` and not `sectionRange`, for the mirror reason -
+     * `sectionRange` deliberately overlaps the next section by a page, which is
+     * right for a chapter that shares a page with the next one and wrong here,
+     * where the seam is already exact.
+     */
+    what: 'the equipment chapter',
+    folios: (e, p) => ({ from: folioOf(e, 'Equipment'), to: bannerFolio(p, 'GOLD') - 1 }),
+  },
+  {
+    /*
      * Gold closes the equipment chapter and has no contents entry of its own;
      * the GM chapter runs from there to the adversary roster, which is where
      * `parseAdversaries`'s material starts and this one's stops.
@@ -367,10 +428,42 @@ const ISLANDS: readonly Island[] = [
  * A section, keyed by the heading text that opens it - exactly as the book
  * sets it. `drop` marks front matter and the stat-block index, which the
  * dataset already models elsewhere.
+ *
+ * ## Why `start` may be a list
+ *
+ * For the one heading the two books do not spell the same way, and for that
+ * one only. SRD 1.0 sets the consumables head as `Consumables` at 17.3pt, a
+ * sibling of `LOOT`; SRD 2.0 sets it as `CONSUMABLES` at 12.0pt, a rank below
+ * `LOOT` on the same page.
+ *
+ * ## Why a list and not a case-insensitive compare
+ *
+ * NOT because case-folding would break something else. It was checked and it
+ * would not: of the 90 `start` entries below, exactly one pair of spellings
+ * differs only by case, and it is this pair. The two `INTRODUCTION` entries are
+ * already the same string in the same case, and sequential matching is what
+ * keeps them apart.
+ *
+ * It is refused because of what `start` IS. Every one of those 90 entries
+ * records what the book prints, letter for letter, and matching them exactly is
+ * the whole of "a layout change fails loudly instead of silently merging two
+ * topics". Folding case would weaken all 90 to serve one, and would accept a
+ * heading the book had stopped setting that way. A list weakens exactly the
+ * entry that needs it and leaves the other 89 exact - and it says out loud that
+ * two books disagree here, which a fold would hide.
+ *
+ * This is `folioOf`'s rule at a different layer, and it obeys the same one:
+ * oldest book first, so a later revision's rename never shadows the name a
+ * current one still prints. Every OTHER heading in the chapter is identical in
+ * both books, which is what makes one list the whole of the exception.
  */
 type Spec =
-  | { start: string; id: string; title: string; drop?: undefined }
-  | { start: string; drop: true };
+  | { start: string | readonly string[]; id: string; title: string; drop?: undefined }
+  | { start: string | readonly string[]; drop: true };
+
+/** The heading texts that open a spec: one, or the books' two spellings. */
+const opensWith = (spec: Spec): readonly string[] =>
+  typeof spec.start === 'string' ? [spec.start] : spec.start;
 
 /**
  * Every heading that opens a section, in the order the stream produces them.
@@ -471,6 +564,71 @@ const SPECS: readonly Spec[] = [
   { id: 'additional-rules', title: 'Additional Rules', start: 'ADDITIONAL RULES' },
   { id: 'leveling-up', title: 'Leveling Up', start: 'LEVELING UP' },
   { id: 'multiclassing', title: 'Multiclassing', start: 'MULTICLASSING' },
+
+  /*
+   * The equipment chapter. Folios 44-61 / 55-83, whose prose shares its pages
+   * with four other COLLECTIONS' records - `weapons`, `armors`, `loot` and
+   * `consumables`, read by two other parsers, `equipment.ts` and `loot.ts`.
+   * (Not the only chapter that does - folios 8-31 of SRD 2.0 carry the 13
+   * classes, 26 subclasses, 22 beastforms and 16 stances - but the densest:
+   * 315 weapons, 69 armors, 120 loot and 111 consumables are printed on these
+   * 29 pages, 615 records against eight sections of prose.)
+   *
+   * ## What keeps the tables out is the book's own type size, not a rectangle
+   *
+   * `pageUnits` reads runs at 9pt and above; the SRD sets every table cell on
+   * these folios at 8pt. So the weapon, armor, loot and consumable rows are
+   * gone before this manifest sees a thing, and the eight sections below are
+   * the chapter's prose alone. Counted on the folios themselves: SRD 2.0's 29
+   * pages carry 4,016 lines of which 3,809 are under 9pt (94.8%), SRD 1.0's 18
+   * carry 1,921 of which 1,737 are (90.4%).
+   *
+   * ## The furniture that survives the size filter, and the two drops that end it
+   *
+   * What is left above 8pt on a table page is its heading furniture - `TIER 1
+   * (LEVEL 1)`, `Physical Weapons`, `Magic Weapons` - a heading with nothing
+   * under it, four to eight times over. Two `drop` specs cut those runs, and
+   * both start one heading LATER than the obvious place, because the banner
+   * itself carries a sentence of rules that the obvious drop would swallow:
+   * `PRIMARY WEAPON TABLES` and `SECONDARY WEAPON TABLES` each open with the
+   * sentence saying a player picks one Tier 1 weapon of that category at
+   * character creation. Dropping from `TIER 1 (LEVEL 1)` keeps both sentences
+   * and loses only `All magic weapons require a Spellcast trait`: a 9.3pt slab
+   * italic printed under each magic-weapon table, four times in the chapter of
+   * either book (folios 45, 47, 49, 51 / 56, 59, 62, 64), and already stated in
+   * full by the `DAMAGE TYPE` paragraph of `weapons` above. SRD 2.0 prints a
+   * fifth on folio 191, which is outside every island in this file.
+   *
+   * `Physical Weapons` and `Magic Weapons` never reach a spec: they fall inside
+   * a drop's run, like every `TIER n` after the first.
+   */
+  { id: 'equipment', title: 'Equipment', start: 'EQUIPMENT' },
+  { id: 'weapons', title: 'Weapons', start: 'WEAPONS' },
+  { id: 'primary-weapon-tables', title: 'Primary Weapon Tables', start: 'PRIMARY WEAPON TABLES' },
+  { start: 'TIER 1 (LEVEL 1)', drop: true },
+  {
+    id: 'secondary-weapon-tables',
+    title: 'Secondary Weapon Tables',
+    start: 'SECONDARY WEAPON TABLES',
+  },
+  { start: 'TIER 1 (LEVEL 1)', drop: true },
+  /*
+   * Mixed case, in both books, and it is the book's own setting rather than a
+   * typo to normalise. Counted off the 17.3pt Eveleth bands: eight of SRD 1.0's
+   * display heads are set in mixed case and nine of SRD 2.0's, and THREE of
+   * them are already matched in caseful form by the manifest above -
+   * `Core Gameplay Loop`, `The Spotlight`, `Turn Order & Action Economy`.
+   *
+   * Its `By Mark Thompson` credit is 9.3pt italic, so it is body text and stays
+   * inside the section. That is where a credit belongs, and it is the reason
+   * this section is not merged into `armor` or `weapons`: the wheelchair
+   * ruleset is another author's contribution and the book names him on it.
+   */
+  { id: 'combat-wheelchair', title: 'Combat Wheelchair', start: 'Combat Wheelchair' },
+  { id: 'armor', title: 'Armor', start: 'ARMOR' },
+  { start: 'ARMOR TABLES', drop: true },
+  { id: 'loot', title: 'Loot', start: 'LOOT' },
+  { id: 'consumables', title: 'Consumables', start: ['Consumables', 'CONSUMABLES'] },
 
   { id: 'gold', title: 'Gold', start: 'GOLD' },
 
@@ -804,6 +962,25 @@ const SPLIT_ABOVE: readonly string[] = [
   'USING ENVIRONMENTS',
   'ADAPTING ENVIRONMENTS',
   'BENCHMARK STATISTICS FOR ENVIRONMENTS BY TIER',
+  /*
+   * The two equipment pages that stack a full-width table under two columns of
+   * prose. Both were measured on both books, and each one costs a sentence of
+   * the book if the split is missing:
+   *
+   * - `Light Frame Models` (folio 54 / 70, y 466 / 464, alone on its band) is
+   *   the label of a full-width table - its own header runs x 61-536 across a
+   *   page whose gutter is near 294. Without the split it sorts into the left
+   *   column's pool and is emitted before `EVASION`, three headings ahead of
+   *   the paragraph it labels; the paragraph itself spans the gutter, so it
+   *   survives in place and is left orphaned under `CHOOSING YOUR MODEL`.
+   * - `ARMOR TABLES` (folio 56 / 72, y 255 / 253, alone on its band) is worse
+   *   than untidy. The armor prose above it is two columns, and the right one
+   *   carries `REDUCING INCOMING DAMAGE`; without the split that heading lands
+   *   BETWEEN `TIER 2 (LEVELS 2-4)` and `TIER 3 (LEVELS 5-7)`, inside the run
+   *   of table furniture the manifest below drops - so the drop would eat it.
+   */
+  'Light Frame Models',
+  'ARMOR TABLES',
 ];
 /** Points of whitespace that separate two cells of a table. */
 const MIN_CELL_GUTTER = 6;
@@ -885,7 +1062,10 @@ export function parseRules(pages: BookPage[]): RulesSection[] {
     if (inRange.length === 0) throw new ParseError(`no pages for ${island.what}`, `folios ${from}-${to}`);
     return [{ island, pages: inRange }];
   });
-  const specs = absentStarts.size === 0 ? SPECS : SPECS.filter((s) => !absentStarts.has(s.start));
+  const specs =
+    absentStarts.size === 0
+      ? SPECS
+      : SPECS.filter((s) => !opensWith(s).some((t) => absentStarts.has(t)));
   const streamPages = islands.flatMap((i) => i.pages);
 
   const grid = gutterGrid(streamPages);
@@ -923,7 +1103,7 @@ export function parseRules(pages: BookPage[]): RulesSection[] {
 
   for (const unit of stream) {
     const next = specs[spec];
-    if (next && unit.heading && unit.text === next.start) {
+    if (next && unit.heading && opensWith(next).includes(unit.text)) {
       close();
       current = next;
       spec += 1;
@@ -935,7 +1115,7 @@ export function parseRules(pages: BookPage[]): RulesSection[] {
   close();
 
   if (spec !== specs.length) {
-    throw new ParseError('section heading never found', specs[spec]!.start);
+    throw new ParseError('section heading never found', opensWith(specs[spec]!).join(' / '));
   }
 
   const seen = new Set<string>();
