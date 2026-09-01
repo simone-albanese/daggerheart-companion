@@ -60,6 +60,7 @@ import { characterRefs } from '../src/engine/holdings.ts';
 import { baseDataset } from '../src/store/dataset.ts';
 import {
   CODEC_VERSION,
+  NARROW_CODEC_VERSIONS,
   READABLE_CODEC_VERSIONS,
   decodeCharacter,
   encodeCharacter,
@@ -640,7 +641,10 @@ describe('a character can know stances and hold Focus', () => {
   });
 
   it('ships the converter the policy requires, keyed on the version it leaves', () => {
-    expect(SCHEMA_VERSION).toBe(8);
+    // `toContain(7)` and not an equality: this file owns the 7 -> 8 step, and
+    // a later bump adding an 8 -> 9 step is not a change to it. The constant
+    // moved to 9 for the Warlock's Favor track.
+    expect(SCHEMA_VERSION).toBe(9);
     expect(MIGRATIONS.map((m) => m.from)).toContain(7);
   });
 
@@ -655,8 +659,12 @@ describe('a character can know stances and hold Focus', () => {
     const after = migrateCharacterRecord(before);
 
     expect(after.from).toBe(7);
+    // Two notes now: `migrateCharacterRecord` walks to the current schema, so
+    // the 8 -> 9 step runs behind this one. The step this file is about is
+    // still the first, which is what makes it identifiable after a later bump.
     expect(after.applied).toEqual([
       'a character can know martial stances and hold Focus, starting with none of either',
+      'a character can hold Favor, and an existing one starts holding none',
     ]);
     expect(after.record['stanceRefs']).toEqual([]);
     expect(after.record['focus']).toEqual({ marked: 0, max: MAX_FOCUS });
@@ -746,20 +754,36 @@ function registryWith(overrides: Record<string, number>, drop: string[] = []): R
 }
 
 describe('the wire', () => {
-  it('writes format 8, still reads 1, 2 and 4, and skips 3, 5, 6 and 7', () => {
-    expect(CODEC_VERSION).toBe(8);
-    expect([...READABLE_CODEC_VERSIONS]).toEqual([1, 2, 4, 8]);
+  it('keeps format 8 readable, and still skips 3, 5, 6 and 7', () => {
     /*
-     * The arithmetic that chose 8. The version is the low nibble of byte 0, so
-     * what matters is which formats a single bit flip can reach: from 5 that is
-     * 4 and 1, from 6 it is 4 and 2, and 1 carries no checksum of its own.
-     * `tests/adversarial.test.ts` is the file that goes red on a wrong choice.
+     * This read `expect(CODEC_VERSION).toBe(8)`, which is a claim about
+     * whatever this build writes rather than about the stances. The build
+     * writes 9 now, and 9's number does not live in the nibble at all - it is
+     * a whole byte behind the 0x0f escape, so `CODEC_VERSION ^ 1` is 8, a
+     * readable format, and the old loop below would have gone red for a reason
+     * that has nothing to do with a martial stance.
+     *
+     * What this file is entitled to pin is the format the stances shipped in:
+     * 8 is still readable, so a format-8 QR still decodes, and the four
+     * numbers that were skipped to get there are still skipped. The general
+     * property - twelve bits of version field, none of them flippable into
+     * something legal - is `tests/transfer/codec.test.ts`'s.
      */
-    const readable = new Set<number>(READABLE_CODEC_VERSIONS);
+    const nibble = new Set<number>(NARROW_CODEC_VERSIONS);
+    expect(nibble.has(8)).toBe(true);
+    /*
+     * The NARROW set and not the readable one, and the difference is the point.
+     * `8 ^ 1` is 9, which IS a readable format - but 9's number never appears
+     * in this nibble, so a format-8 payload whose low bit was knocked out does
+     * not become a format-9 payload; it becomes a nibble of 9, which the gate
+     * refuses because it consults the narrow set when there is no escape. Ask
+     * the readable set here and this test goes red for the wrong reason.
+     */
     for (const bit of [0, 1, 2, 3]) {
-      expect(readable.has(CODEC_VERSION ^ (1 << bit)), `flipping bit ${bit}`).toBe(false);
+      expect(nibble.has(8 ^ (1 << bit)), `flipping bit ${bit} of 8`).toBe(false);
     }
-    for (const skipped of [3, 5, 6, 7]) expect(readable.has(skipped), `${skipped}`).toBe(false);
+    for (const skipped of [3, 5, 6, 7]) expect(nibble.has(skipped), `${skipped}`).toBe(false);
+    expect(new Set<number>(READABLE_CODEC_VERSIONS).has(9)).toBe(true);
   });
 
   it('carries the stances and the Focus track, and back', async () => {
@@ -768,7 +792,9 @@ describe('the wire', () => {
       focus: { marked: 4, max: MAX_FOCUS },
     });
     const payload = await encodeCharacter(before, registry);
-    expect(payload[0]! & 0x0f).toBe(8);
+    // The escape, and the version behind it - the header this build writes.
+    expect(payload[0]! & 0x0f).toBe(0x0f);
+    expect(payload[1]).toBe(CODEC_VERSION);
     const { character, warnings } = await decodeCharacter(payload, registry);
     expect(character.stanceRefs).toEqual(['favored', 'reliable']);
     expect(character.focus).toEqual({ marked: 4, max: MAX_FOCUS });
@@ -984,6 +1010,13 @@ function mount(character: Character, ds: Dataset): void {
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 const named2 = (text: string): HTMLButtonElement | undefined =>
   buttons().find((b) => (b.textContent ?? '').trim().toLowerCase().includes(text.toLowerCase()));
+/**
+ * A control whose whole name is its `aria-label`, which is what a ✕ is. Not
+ * `named2`: the glyph is the same on every one of them, so the label is the
+ * only thing that says which stance a press is about.
+ */
+const labelled = (label: string): HTMLButtonElement | undefined =>
+  buttons().find((b) => b.getAttribute('aria-label') === label);
 const press = (b: HTMLButtonElement | undefined): void => {
   expect(b, 'no such control on the sheet').toBeDefined();
   act(() => b!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
@@ -1003,6 +1036,38 @@ describe('adding, removing and moving Focus on the sheet', () => {
   it('draws no section at all on a dataset with no stances', () => {
     mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST] }), makeDataset());
     expect(container.textContent).not.toContain('Martial Stances');
+  });
+
+  /*
+   * `canRepick` is `all.length > 0 && isMartialArtist`, and the first half was
+   * undefended: dropping it left the whole suite green, because the only case
+   * that separates the two halves is this one.
+   *
+   * On a book that prints no stances the section normally returns null - the
+   * test above - so `canRepick` is never reached and the mutant survives. It
+   * takes a character who holds Focus to keep the section on the page WITH an
+   * empty `all`, and then the question the term answers becomes visible: a
+   * Martial Artist whose book has no stances must not be offered a picker,
+   * because there is nothing behind it. The docblock over `canRepick` says
+   * exactly this; nothing was checking it.
+   */
+  it('offers no picker to a Martial Artist whose book prints no stances', () => {
+    mount(
+      sheet({
+        classRef: 'test-class',
+        subclassRefs: [MARTIAL_ARTIST],
+        focus: { marked: 2, max: 6 },
+      }),
+      makeDataset(),
+    );
+    expect(container.textContent, 'the Focus track keeps the section on the page').toContain(
+      'Martial Stances',
+    );
+    expect(named2('Add a stance'), 'a door onto an empty room').toBeUndefined();
+    expect(
+      buttons().some((b) => /Change stances/.test(b.textContent ?? '')),
+      'nor the other face of the same button',
+    ).toBe(false);
   });
 
   it('names a subclass the shipped book actually prints', () => {
@@ -1031,7 +1096,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(named2('Add a stance'), 'no way in either').toBeUndefined();
   });
 
-  it('still shows what a non-Martial-Artist already carries, and offers no more', () => {
+  it('still shows what a non-Martial-Artist already carries, and lets them drop it', async () => {
     /*
      * The other half, and the one a hard gate would have broken. A sheet can
      * arrive carrying stances - from another device, or from a subclass chosen
@@ -1039,6 +1104,20 @@ describe('adding, removing and moving Focus on the sheet', () => {
      * while they went on being written to storage. So they are drawn; only the
      * picker is withheld, because seeing what you carry is not permission to
      * take more.
+     *
+     * THIS TEST USED TO STOP AT THE FIRST HALF, and the comment above it
+     * promised the second. It did not hold. The only gesture that removed a
+     * RESOLVED stance was a second tap inside the picker, and the picker is
+     * exactly what this character does not get - so the sentence "hiding them
+     * would make them invisible and undroppable" was describing the state the
+     * code was already in for everyone it was written about. Meanwhile an
+     * UNRESOLVED ref, four assertions down, had its own `Drop it` button: the
+     * stance you could read was the one you could not put down.
+     *
+     * `GearSlot` had already learned this and written it out - "gating the
+     * control on a name the build cannot read meant the only way out of the
+     * state was to equip something over the top of it" - and here there was
+     * nothing to equip over the top of it with.
      */
     mount(
       sheet({ classRef: 'test-class', subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] }),
@@ -1048,6 +1127,242 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(container.textContent).toContain('Favored');
     expect(named2('Add a stance'), 'no picker for someone it is not for').toBeUndefined();
     expect(named2('Change stances (1)'), 'nor the other label').toBeUndefined();
+
+    const drop = labelled('Drop Favored');
+    expect(drop, 'a readable stance with no way off the sheet').toBeDefined();
+    // The same 44px floor the Focus steppers and the picker rows are held to.
+    expect(drop!.style.minWidth).toBe('var(--tap)');
+    expect(drop!.style.minHeight).toBe('var(--tap)');
+
+    /*
+     * AND IT TAKES TWO TAPS, because this is the sheet that cannot get it back.
+     *
+     * MEASURED IN CHROME at 393x852, coarse pointer, on an Assassin at level 1
+     * carrying `favored`: one tap and `sectionPresent` went true to false,
+     * `favoredOnScreen` 1 to 0, `dropButtons` 1 to 0, with no control left on
+     * the document naming a stance. No confirmation, and no way back - the
+     * picker is gated on the Martial Artist subclass, which is exactly the
+     * subclass this character does not have.
+     *
+     * The test used to end at the first press and assert the section was gone,
+     * which was a true reading of the code and a description of the defect.
+     * What it asserts now is that the first press does NOT remove, and the
+     * sibling below still holds the other half: a Martial Artist, who has the
+     * picker, still gets it in one.
+     */
+    press(drop);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'one tap took it, with no way to put it back').toEqual(['favored']);
+    expect(container.textContent, 'the section went before the confirmation did').toContain(
+      'Martial Stances',
+    );
+
+    const arm = labelled(
+      'Drop Favored — tap again to confirm. This sheet has no picker to put it back.',
+    );
+    expect(arm, 'the control armed without renaming itself').toBeDefined();
+    // The footprint is unchanged between the two taps, which is what stops the
+    // strip reflowing under the finger that is already on its way down.
+    expect(arm!.style.minWidth).toBe('var(--tap)');
+    expect(arm!.style.minHeight).toBe('var(--tap)');
+    expect(arm!.textContent!.trim(), 'the glyph grew instead of the line below it').toBe('✕');
+    // Said in shape as well as in colour: a line of text that was not there.
+    expect(container.textContent).toContain('TAP ✕ AGAIN TO DROP FAVORED');
+
+    press(arm);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'the second tap drew and did nothing').toEqual([]);
+    expect(container.textContent, 'the section outlived what it was drawn for').not.toContain(
+      'Martial Stances',
+    );
+  });
+
+  it('gives a Martial Artist the same one-tap way out, beside every rule they know', async () => {
+    /*
+     * Not only for the gated case. The picker's second tap is two gestures deep
+     * - open, then find the row again among sixteen - and it is the gesture the
+     * section folds away on purpose. The ✕ sits beside the rule being read.
+     *
+     * AND IT IS STILL ONE TAP, which is the other half of the arming rule. The
+     * confirmation is not for removals, it is for removals that are final: a
+     * Martial Artist's picker is one tap away and puts the stance straight
+     * back, so charging the common case a second tap would be paying the rare
+     * case's cost on every sheet that is not the rare case.
+     */
+    mount(
+      sheet({
+        classRef: 'test-class',
+        subclassRefs: [MARTIAL_ARTIST],
+        stanceRefs: ['favored', 'reliable'],
+      }),
+      withStances,
+    );
+    expect(labelled('Drop Favored'), 'no way out beside the first rule').toBeDefined();
+    expect(labelled('Drop Reliable'), 'nor beside the second').toBeDefined();
+
+    press(labelled('Drop Reliable'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // One row, and only that row.
+    expect(active().stanceRefs).toEqual(['favored']);
+    expect(labelled('Drop Favored')).toBeDefined();
+    expect(labelled('Drop Reliable')).toBeUndefined();
+    // And nothing armed on the way: no second state was drawn or spoken.
+    expect(container.textContent, 'the recoverable case asked for a confirmation').not.toContain(
+      'TAP ✕ AGAIN',
+    );
+    expect(
+      buttons().some((b) => (b.getAttribute('aria-label') ?? '').includes('tap again')),
+      'a control armed on a sheet that has the picker',
+    ).toBe(false);
+  });
+
+  it('costs the unarmed row nothing, not even a gap', () => {
+    /*
+     * The sentence takes a flex line of its own so the ✕ cannot move between
+     * the two taps - and a line of its own is only free if it is absent when
+     * there is nothing to say. An always-mounted empty one, which is what a
+     * `role="status"` live region would need, would charge this row's `gap: 8`
+     * to every stance on every sheet for a state that is almost never on;
+     * `GearSlot` pays exactly that cost on purpose and works around it with a
+     * margin. Here the accessible NAME on the button carries the change
+     * instead, so the line can simply not exist.
+     *
+     * Read as a child count because jsdom lays nothing out: what is being
+     * asserted is that the element is absent, which is the whole of the claim.
+     */
+    mount(
+      sheet({ classRef: 'test-class', subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] }),
+      withStances,
+    );
+    const x = labelled('Drop Favored')!;
+    const row = x.parentElement!;
+    expect(row.style.flexWrap, 'the sentence has no line to wrap onto').toBe('wrap');
+    expect(row.children, 'something is drawn beside the ✕ before it is armed').toHaveLength(2);
+
+    press(x);
+    expect(row.children, 'the armed sentence is not on the page').toHaveLength(3);
+    const said = row.children[2] as HTMLElement;
+    expect(said.style.flex, 'the sentence shares a line with the ✕').toBe('0 0 100%');
+
+    // And it goes again when the arming does.
+    press(labelled('Drop Favored — tap again to confirm. This sheet has no picker to put it back.'));
+    expect(labelled('Drop Favored'), 'the stance survived its own confirmation').toBeUndefined();
+  });
+
+  it('does not carry an arming across a switch to another character', async () => {
+    /*
+     * `Build.tsx` renders `<Edit>` with no key, so selecting a different
+     * character RE-RENDERS this section rather than remounting it. An arming
+     * held as a bare ref would arrive at the next sheet still armed - and two
+     * sheets carrying one stance is not a contrivance, it is what a ref is -
+     * so that character's ✕ would go in one tap, which is the defect this
+     * whole control exists to close, reintroduced sideways.
+     *
+     * The switch below is done the way the app does it: same element type at
+     * the same position, so React reconciles and the section's state survives.
+     * A remount would pass this test without testing anything.
+     */
+    const one = sheet({ subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] });
+    const two: Character = { ...one, id: 'e0f1a2b3-c4d5-4e6f-8a9b-0c1d2e3f4a5b', name: 'Other' };
+    const ix = indexDataset(withStances);
+    const draw = (c: Character): void => {
+      act(() => {
+        useApp.setState({ activeId: c.id });
+        root.render(<Edit stats={deriveStats(c, withStances, ix)} onLevelUp={() => {}} />);
+      });
+    };
+    useApp.setState({
+      ready: true,
+      storageError: null,
+      dataset: withStances,
+      index: ix,
+      characters: [one, two],
+      activeId: one.id,
+      log: [],
+      openCard: null,
+    });
+    draw(one);
+
+    press(labelled('Drop Favored'));
+    expect(
+      labelled('Drop Favored — tap again to confirm. This sheet has no picker to put it back.'),
+      'the first sheet did not arm, so this proves nothing',
+    ).toBeDefined();
+
+    draw(two);
+    expect(labelled('Drop Favored'), 'the next character arrived pre-armed').toBeDefined();
+    expect(container.textContent, 'the sentence followed the switch').not.toContain('TAP ✕ AGAIN');
+
+    press(labelled('Drop Favored'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const held = useApp.getState().characters.find((c) => c.id === two.id)!;
+    expect(held.stanceRefs, 'one tap took it off the sheet that never armed').toEqual(['favored']);
+  });
+
+  it('holds one armed control at a time, and drops the arming when the picker opens', async () => {
+    /*
+     * Two loaded triggers and no way to tell which one the next tap belongs to
+     * is worse than none, so the section holds a single `armed` ref: arming a
+     * second control disarms the first. The picker is the other disarm, and it
+     * is the rule stating itself - while that list is open there IS a way back
+     * in, so nothing on the sheet is one-way.
+     *
+     * A Martial Artist cannot reach this: their resolved rows are never armed.
+     * The character here carries two refs this build cannot name, which are
+     * armed for everybody.
+     */
+    const one = unresolvedRef(15_991);
+    const two = unresolvedRef(15_992);
+    mount(sheet({ classRef: 'test-class', stanceRefs: [one, two] }), makeDataset());
+
+    const drops = (): HTMLButtonElement[] =>
+      buttons().filter((b) => (b.textContent ?? '').includes('Drop it'));
+    expect(drops()).toHaveLength(2);
+
+    press(drops()[0]);
+    expect(drops()[0]!.textContent, 'the first did not arm').toContain('tap again');
+    press(drops()[1]);
+    expect(drops()[1]!.textContent, 'the second did not arm').toContain('tap again');
+    expect(drops()[0]!.textContent, 'two armed controls at once').not.toContain('tap again');
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'three taps removed something').toEqual([one, two]);
+  });
+
+  it('disarms when a way back in appears on screen', async () => {
+    /*
+     * A Martial Artist carrying one ref this build cannot name: the ghost row
+     * is armed - nothing can re-enter that ref - and the picker button is
+     * drawn, because the subclass is theirs. Opening it puts a list of
+     * sixteen on screen, and the arming is dropped with it.
+     */
+    const ghost = unresolvedRef(15_993);
+    mount(
+      sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST], stanceRefs: [ghost] }),
+      withStances,
+    );
+    press(named2('Drop it'));
+    expect(named2('Drop it')!.textContent, 'the ghost row did not arm').toContain('tap again');
+
+    press(named2('Change stances'));
+    press(named2('Done'));
+    expect(named2('Drop it')!.textContent, 'the arming outlived the picker').not.toContain(
+      'tap again',
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'the ref went while the picker was open').toEqual([ghost]);
   });
 
   it('adds no nav entry, because the section lives on a screen that exists', () => {
@@ -1080,9 +1395,17 @@ describe('adding, removing and moving Focus on the sheet', () => {
      *   - it is SHOWN, because hiding it tells a player it does not exist;
      *   - it is DIMMED and carries the sentence, so the rule is on the glass
      *     rather than in the book they do not have open;
-     *   - it is NOT DISABLED, because the tier is arithmetic and a GM who hands
-     *     something over early is not a state this app may refuse to draw.
-     * `GearPicker` made all three the same way for out-of-level gear.
+     *   - it is NOT DISABLED, because folio 13 spends no verb on it: "Mark a
+     *     new stance from your tier or below each time you gain a level" is a
+     *     rule about gaining a level, and nothing anywhere says what a
+     *     character holding one anyway may not do.
+     *
+     * `GearPicker` made all three the same way and now makes the third one
+     * differently, which is the book's doing rather than a drift: the
+     * Equipment chapter DOES spend the verb - "You can't equip weapons or
+     * armor with a higher tier than you" - so the gear pickers refuse the tap
+     * and this picker still only says. `src/ui/build/gear.ts` carries the same
+     * split between the tier limit and the burden limit beside it.
      */
     mount(sheet({ classRef: 'test-class', subclassRefs: [MARTIAL_ARTIST], level: 1 }), withStances);
     press(named2('Add a stance'));
@@ -1167,11 +1490,33 @@ describe('adding, removing and moving Focus on the sheet', () => {
    * reference on the character with no trace of it anywhere on the glass -
    * which is exactly what a dropped weapon did until it was measured.
    */
-  it('names a stance it cannot resolve, and offers the one honest thing', async () => {
+  it('names a stance it cannot resolve, and offers the one honest thing - twice', async () => {
+    /*
+     * Armed by the same rule and not by an exception to it. No list in any
+     * build carries a row for a ref this build cannot name, so no picker on
+     * any sheet can put it back: this is the least recoverable control in the
+     * section, and it would be incoherent for it to be the only one that goes
+     * in one tap.
+     *
+     * The label may grow here, where the ✕ may not: this button is alone on
+     * its line inside a stack, so the extra words move nothing the second tap
+     * is aimed at.
+     */
     const ghost = unresolvedRef(15_999);
     mount(sheet({ classRef: 'test-class', stanceRefs: [ghost] }), makeDataset());
     expect(container.textContent).toContain('STANCE NOT IN THIS BUILD');
     expect(container.textContent).toContain(ghost);
+
+    press(named2('Drop it'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'one tap threw away a ref nothing can re-enter').toEqual([ghost]);
+    expect(named2('Drop it')!.getAttribute('aria-label')).toBe(
+      'Drop it — tap again to confirm. This ref cannot be added back.',
+    );
+    expect(named2('Drop it')!.textContent).toContain('tap again');
+
     press(named2('Drop it'));
     await act(async () => {
       await Promise.resolve();

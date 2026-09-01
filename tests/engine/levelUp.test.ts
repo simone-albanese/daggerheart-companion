@@ -40,6 +40,9 @@ const plan = (toLevel: number, picks: LevelUpPlan['picks'], p: Partial<LevelUpPl
   achievement: tierAchievementFor(toLevel),
   picks,
   newCardRef: 'blade-test-card',
+  // Explicit, because `LevelUpPlan.exchange` is required rather than optional:
+  // a plan that can forget the field is a plan whose exchange goes unchecked.
+  exchange: null,
   ...p,
 });
 

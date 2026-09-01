@@ -472,3 +472,143 @@ describe('the filters, on a screen that cannot afford four rows of them', () => 
     expect(named('FILTERS'), 'a 393px-tall window still draws the full band').toBeDefined();
   });
 });
+
+/**
+ * THE WAY BACK OUT, WHICH THIS SCREEN HAS NEVER HAD.
+ *
+ * `acquire` has three branches - loadout -> vault, vault -> loadout, unowned ->
+ * vault - and not one of them reduces what the character owns. Its four footer
+ * words are MARK n HP? / IN LOADOUT / RECALL / TAKE, and none of them offers to
+ * put a card back. A card taken by a mis-tap stayed taken.
+ *
+ * It is recovery from a touch and NOT the book's exchange: the mechanic that
+ * gives one card up for another is step four's second sentence, it carries a
+ * constraint, and it writes a `levelUpHistory` record. This writes none, and
+ * the words on screen must never suggest it does.
+ */
+describe('giving a card back', () => {
+  const cross = (name: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(`Give ${name} back`));
+  const confirmCross = (name: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '') === `Confirm: give ${name} back, so it is no longer yours`);
+
+  it('offers a ✕ on every card the character owns, and on no other on the screen', () => {
+    /*
+     * The set, not a sample. Asking about ONE unowned card is a test that
+     * passes while the ✕ is drawn on every row, because the card it happens to
+     * pick may be one whose footer is the "not one of your domains" sentence
+     * and has no controls at all. Measured: with the ownership guard replaced
+     * by `true`, a one-card version of this assertion stayed green.
+     */
+    const c = seed();
+    browse(c);
+    const owned = new Set([...c.loadout, ...c.vault]);
+    const ownedNames = [...owned].map((ref) => index.cards.get(ref)!.name).sort();
+
+    const offered = buttons()
+      .map((b) => /^Give (.+) back - it stops being one of your cards$/.exec(b.getAttribute('aria-label') ?? ''))
+      .flatMap((m) => (m === null ? [] : [m[1]!]))
+      .sort();
+
+    expect(offered).toEqual(ownedNames);
+    // Control: the screen really is drawing cards this character does not own,
+    // so "no other" is a claim about them and not about an empty list.
+    const takeable = buttons().filter((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Take '),
+    );
+    expect(takeable.length, 'no unowned card was on screen at all').toBeGreaterThan(0);
+  });
+
+  it('does nothing on the first press, and gives the card back on the second', () => {
+    const c = seed();
+    browse(c);
+    const card = index.cards.get(c.vault[0]!)!;
+
+    click(cross(card.name)!);
+    expect(
+      useApp.getState().characters[0]!.vault,
+      'one press was enough to lose a card',
+    ).toContain(card.id);
+
+    click(confirmCross(card.name)!);
+    const after = useApp.getState().characters[0]!;
+    expect(after.vault).not.toContain(card.id);
+    expect(after.loadout).not.toContain(card.id);
+  });
+
+  it('takes a loadout card off both lists, not just the one it was on', () => {
+    const c = seed();
+    browse(c);
+    const card = index.cards.get(c.loadout[0]!)!;
+    click(cross(card.name)!);
+    click(confirmCross(card.name)!);
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout).not.toContain(card.id);
+    expect(after.vault, 'giving a card back put it in the vault instead').not.toContain(card.id);
+  });
+
+  it('writes no level-up record, because nothing happened at a level', () => {
+    // The line between this and step four's exchange. `levelUpHistory` is the
+    // record of what each level did; an undo that wrote into it would say a
+    // player traded a card away at a level where they had mis-tapped.
+    const c = seed();
+    browse(c);
+    const before = c.levelUpHistory.length;
+    const card = index.cards.get(c.vault[0]!)!;
+    click(cross(card.name)!);
+    click(confirmCross(card.name)!);
+    expect(useApp.getState().characters[0]!.levelUpHistory).toHaveLength(before);
+  });
+
+  it('says nothing about exchanging, in any word on the screen', () => {
+    // The two must not be confused in the words either. "Exchange" is the
+    // book's word for the level-up mechanic, and it carries a rule this does
+    // not.
+    const c = seed();
+    browse(c);
+    const card = index.cards.get(c.vault[0]!)!;
+    click(cross(card.name)!);
+    const labels = buttons().map((b) => b.getAttribute('aria-label') ?? '');
+    expect((container.textContent ?? '').toLowerCase()).not.toContain('exchange');
+    expect(labels.join(' ').toLowerCase()).not.toContain('exchange');
+    expect(labels.join(' ').toLowerCase()).not.toContain('trade');
+  });
+
+  it('answers a live prompt with "no" when any other card control is pressed', () => {
+    // A primed control that survives an unrelated tap is one that fires later,
+    // on a screen the player has stopped reading.
+    const c = seed();
+    browse(c);
+    const card = index.cards.get(c.vault[0]!)!;
+    click(cross(card.name)!);
+    expect(confirmCross(card.name)).toBeDefined();
+
+    const other = index.cards.get(c.loadout[0]!)!;
+    click(buttons().find((b) => (b.getAttribute('aria-label') ?? '') === `Move ${other.name} to the vault`)!);
+    expect(confirmCross(card.name), 'the ✕ was still armed after an unrelated tap').toBeUndefined();
+    expect(useApp.getState().characters[0]!.vault).toContain(card.id);
+  });
+
+  it('never moves the ✕ between the two presses, which is what makes the second one land', () => {
+    /*
+     * The measurement. This footer is a fixed-height `space-between` strip with
+     * no room for a second line, so a question written INTO the ✕ would widen
+     * it and slide it left between the presses. The arming is a colour and a
+     * readout to its left instead; the ✕ is the last child, so the strip's
+     * padding edge pins it and every width change is absorbed before it.
+     */
+    const c = seed();
+    browse(c);
+    const card = index.cards.get(c.vault[0]!)!;
+    const before = cross(card.name)!.textContent;
+    click(cross(card.name)!);
+    const armedGlyph = confirmCross(card.name)!;
+    expect(armedGlyph.textContent, 'the ✕ changed width between the two presses').toBe(before);
+    // The question is in the readout beside it, so it is not colour alone.
+    expect(container.textContent ?? '').toContain('PRESS ✕ AGAIN');
+    // And it is a real target: `--control` is the floor every chip on this
+    // screen states, and it is `--tap` on a touchscreen.
+    expect(armedGlyph.style.minWidth).toBe('var(--control)');
+    expect(armedGlyph.style.minHeight).toBe('var(--control)');
+  });
+});

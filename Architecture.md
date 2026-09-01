@@ -426,16 +426,52 @@ Fasce assegnate: `1000–1999` classi · `2000–2999` sottoclassi · `3000–39
 4. framing multi-frame (solo per il QR)
 ```
 
-**Formato 2** (quello scritto oggi):
+**Formato 9** (quello scritto oggi). Il numero non sta più nel nibble:
+
+```
+byte 0     0x0f nel nibble basso — l'escape «la versione non ci sta qui, leggi il
+           byte dopo» — più 0x80 se il corpo è deflated
+byte 1     la versione, un byte intero: 9
+byte 2-5   crc32 big-endian su tutto il payload con questi quattro byte azzerati
+byte 6..   il corpo
+```
+
+I formati leggibili stanno in **due** liste, e questo documento non le ha mai
+citate: **`NARROW_CODEC_VERSIONS = [1, 2, 4, 8]`** sono quelli il cui numero è il
+nibble basso del byte 0, **`WIDE_CODEC_VERSIONS = [9]`** quelli il cui numero ha
+un byte suo dietro l'escape. `READABLE_CODEC_VERSIONS` è la somma delle due,
+costruita dalle liste invece che riscritta, perché la frase che `decodeCharacter`
+stampa e l'insieme che il cancello controlla non possano dissentire su cosa
+questa build legge. Nessuno dei quattro stretti si scrive più; la loro forma è
+quella che questo documento chiamava «formato 2»:
 
 ```
 byte 0     versione nel nibble basso, 0x80 se il corpo è deflated
-byte 1-4   crc32 big-endian su tutto il payload con questi quattro byte azzerati
+byte 1-4   lo stesso crc32, sotto la stessa regola
 byte 5..   il corpo
 ```
 
-Il formato 1 — stesso header, corpo dal byte 1, nessun checksum — si **legge e non
-si scrive più**. Il passaggio vecchio-telefono → nuovo-telefono è il caso per cui
+**Perché l'header si è allargato.** I numeri a nibble erano finiti *per come erano
+stati scelti*: 1, 2, 4 e 8 sono i quattro nibble di peso uno, e la proprietà che
+li teneva insieme — un bit ribaltato non produce mai un formato leggibile — è una
+parità, non quattro fortune. Il docblock di `CODEC_VERSION` la scrive per esteso
+insieme alla correzione di «quando 8 è speso non c'è un quinto valore», che era
+falsa nel momento in cui è stata scritta: i nibble con quella proprietà sono sei,
+non quattro. Sul byte largo la regola è dichiarata invece che riscoperta a ogni
+bump — **una versione larga è un byte di peso pari** — e non si esaurisce: 128
+valori su 256. L'escape 0x0f non è stato scelto, è l'unico: 15 è il complemento
+dei quattro nibble di peso uno, a distanza 3 da ognuno, quindi l'unico che
+sopravvive anche a un doppio ribaltamento.
+
+**Questa sezione è il valore corrente, e §6.1 non lo è.** Due voci degli elenchi
+di §6.1 dicono «`CODEC_VERSION` fermo a 2»: sono vere dello *scalino* che
+raccontano e sono marcate come tali, ma erano anche l'ultima cosa che questo
+documento diceva del codec, scritte al presente, quindi un lettore le prendeva
+per il valore di oggi. Lo stesso vale per il `DB_VERSION` che compare accanto a
+una di esse: oggi è 3.
+
+Il formato 1 — stesso header stretto, corpo dal byte 1, nessun checksum — si
+**legge e non si scrive più**. Il passaggio vecchio-telefono → nuovo-telefono è il caso per cui
 questo vettore esiste, e lì il mittente *è* la build vecchia.
 
 Il checksum sta qui e non solo nel frame perché è una proprietà del formato, non
@@ -511,6 +547,19 @@ non 3**: dista 2 da entrambi i formati leggibili, e i suoi ribaltamenti danno 5,
 telefono non aggiornato smette di ricevere *qualsiasi* scheda, non solo quella
 di un Ranger. Quella proprietà vale più di un conteggio di riposi e più di un
 bit su una sottoclasse.
+
+**Questa conclusione è stata superata, e le due perdite no.** Il numero di
+formato è poi salito lo stesso, tre volte — 4 per `transformationRef`, 8 per
+`stanceRefs` e `focus`, 9 per `Character.favor` e lo scambio di carte — quindi
+il costo che qui valeva più di un conteggio di riposi è stato pagato per altro.
+Ma le perdite restano **quattro** e queste due restano fra loro: `damageType`
+decodifica `phy` e `consecutiveShortRests` decodifica 0 anche sul formato 9,
+misurato in `src/transfer/codec.ts` e non dedotto. Il che vuol dire che l'unica
+metà ancora vera di questo paragrafo è l'elenco; l'argomento che lo motivava —
+«adottare un numero nuovo vuol dire che un telefono non aggiornato smette di
+ricevere qualsiasi scheda» — è un costo che il progetto ha poi accettato di
+pagare quattro volte, e non è più la ragione per cui questi due campi non sono
+sul filo. La ragione, se ce n'è ancora una, va riscritta qui da chi la conosce.
 
 Il file `.dhchar` li porta esatti entrambi. La conseguenza è che una scheda
 passata via QR arriva senza aver contato nulla e con un compagno che colpisce
@@ -663,10 +712,12 @@ reali invece che su migrazioni sintetiche, e il conto è questo:
   `v3.dhbackup` **non sono state toccate**: sono la prova che il convertitore
   funziona, e riscriverle dimostrerebbe soltanto che il codice attuale sa
   leggere il proprio output. Che non portino il campo *è* il test;
-- **`DB_VERSION` fermo a 2**: il terzo requisito è condizionale — «se cambia
+- **`DB_VERSION` fermo a 2** — anche questo il conto di *questo* scalino, non lo
+  stato di oggi, che è 3: il terzo requisito è condizionale — «se cambia
   anche la forma del database» — e aggiungere un campo a un record non cambia
   né gli object store né gli indici;
-- **`CODEC_VERSION` fermo a 2**: il campo resta fuori dal QR (§5.3);
+- **`CODEC_VERSION` fermo a 2** — vero di *questo* scalino e non di oggi, che
+  scrive il formato 9 (§5.2): il campo resta fuori dal QR (§5.3);
 - **lo stamp del dataset**, `data/srd-1.0.json`, portato a 4. `Dataset` arriva
   all'app con un cast `as unknown as Dataset`, quindi uno stamp vecchio non
   produce alcun errore di compilazione: produce solo un tipo che afferma un
@@ -696,8 +747,10 @@ scalino precedente:
 - **due fixture nuove**, `v5.dhchar` e `v5.dhbackup`, prodotte facendo passare
   la `v4.dhchar` committata attraverso questa build. `v3` e `v4` non sono state
   toccate;
-- **`DB_VERSION` fermo a 2** e **`CODEC_VERSION` fermo a 2**: il campo resta
-  fuori dal QR ed è la quarta perdita deliberata di §5.3;
+- **`DB_VERSION` fermo a 2** e **`CODEC_VERSION` fermo a 2** — di nuovo il conto
+  di *questo* scalino, non lo stato di oggi: `DB_VERSION` è 3 e il codec scrive
+  il formato 9 (§5.2). Il campo resta fuori dal QR ed è la quarta perdita
+  deliberata di §5.3;
 - **lo stamp del dataset** portato a 5.
 
 Le tre cose che *non* erano state fatte al momento del bump, e che valgono più

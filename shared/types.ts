@@ -34,6 +34,32 @@ export type Ref = string;
 export const MAX_FOCUS = 6;
 
 /**
+ * The Favor ceiling, out of the Warlock's class feature: *"The maximum Favor
+ * you can hold at one time is 6."*
+ *
+ * Here rather than in `src/engine/character.ts` for the same reason `MAX_FOCUS`
+ * is, and it is not the same reason as "it looks like a neighbour".
+ * `shared/migrations.ts` seeds a blank Favor track in the 8 -> 9 converter and
+ * must not write a literal `6` that can drift from the ceiling; `shared/` does
+ * not import from `src/engine/`, and making it start to for one number would be
+ * a layering change bought with a constant.
+ *
+ * `COUNTER_CEILINGS.favor` in the engine reads THIS, so there is one 6 - which
+ * is what lets the codec refuse a seventh Favor box by name and the store clamp
+ * one without either of them inventing a number.
+ *
+ * Six here and six for Focus is a coincidence of two class features and not one
+ * rule, so they are two constants. A printing that moves either one moves it
+ * alone, and a single shared `MAX_HELD` would have made that edit silently
+ * wrong for the other class.
+ *
+ * Nothing subtracts from it. Scars cross out Hope slots; nothing in the Warlock
+ * feature takes a Favor box away, so `deriveStats` derives no `maxFavor` and
+ * `syncCounters` has nothing to re-clamp.
+ */
+export const MAX_FAVOR = 6;
+
+/**
  * The contract's version. It governs `.dhchar`, `.dhbackup`, the `characters`
  * store **and** `Dataset` - `Dataset.schemaVersion` is typed `typeof
  * SCHEMA_VERSION` and `data/srd-1.0.json` carries the number.
@@ -111,8 +137,45 @@ export const MAX_FOCUS = 6;
  * The converter leaving 7 seeds `[]` and an empty track, which is not a guess:
  * a schema-7 build had no stance list, no Focus track, no picker and no field
  * on the wire, so that is what every schema-7 sheet meant.
+ *
+ * ## Nine, and the one place this bump does NOT copy eight's converter
+ *
+ * `Character` grows one field - `favor`, the Warlock's track - and one
+ * `AdvancementKind`, `cardExchange`, which is a `levelUpHistory` entry and not
+ * a new key. The refusal earns its keep the way seven's and eight's did: a
+ * schema-8 build reading a schema-9 sheet spreads the file over
+ * `newCharacter()`, and a blank schema-8 sheet has no `favor` key, so the track
+ * a Warlock is holding mid-session would be dropped on read and written back
+ * out gone.
+ *
+ * **The seeded value is 0, and the blank sheet's is 3, and that is deliberate
+ * rather than an oversight in one of them.** The feature reads *"You start with
+ * 3 Favor"*, and "start" is the word the difference turns on:
+ *
+ *   - `MIGRATIONS`' `from: 8` converter seeds `{ marked: 0, max: MAX_FAVOR }`.
+ *     A migration updates somebody who is already playing, at whatever point in
+ *     a session the update lands, and handing them three Favor is inventing a
+ *     resource they did not earn - the same reasoning that made the two
+ *     previous bumps seed `[]` and an empty track rather than a plausible one.
+ *   - `newCharacter()` seeds `{ marked: 3, max: MAX_FAVOR }` **for a Warlock,
+ *     and `{ marked: 0, max: MAX_FAVOR }` for the other twelve classes**,
+ *     because that is who the sentence is about: a character who is starting,
+ *     and who has the feature. `hope` has done half of this since the first
+ *     commit - the blank sheet carries 2 of 6, not 0 - so a non-zero seed on a
+ *     new sheet is the file's own precedent and not a special case; what Favor
+ *     adds is that the seed is asked of the class, through `grantsFavor` in
+ *     `src/engine/character.ts`, which reads the dataset's class features
+ *     rather than a `classRef === 'warlock'` written into the engine. With no
+ *     index there is no class to read and even a Warlock seeds none, the same
+ *     way the Hit Point track falls back to six.
+ *
+ * The cost of the split, said out loud: a schema-8 sheet migrated forward and a
+ * brand-new sheet differ in a field neither build ever showed. That is visible
+ * the day the Warlock's row is drawn, and it is the right way round - a player
+ * who has been playing can add the Favor they hold, and cannot subtract three
+ * they were given without noticing.
  */
-export const SCHEMA_VERSION = 8 as const;
+export const SCHEMA_VERSION = 9 as const;
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -829,7 +892,25 @@ export type AdvancementKind =
   | 'evasion'
   | 'subclass'
   | 'proficiency'
-  | 'multiclass';
+  | 'multiclass'
+  /**
+   * Step Four's second sentence, which is not an advancement.
+   *
+   * *"You can also exchange one domain card you've previously acquired for a
+   * different domain card of the same level or lower."* Folio 53. It sits in
+   * this union because it is a `levelUpHistory` entry - one line of the record
+   * of what a level did - and `LevelUpChoice.kind` is typed off this. It is NOT
+   * an `AdvancementOption`: `optionsForTier` never offers it, `slotUsage` never
+   * counts it (its `optionId` is `card-exchange`, which no option has), and
+   * `deriveStats` counts kinds it knows by name.
+   *
+   * The union's name is the one thing this stretches, and it is stretched
+   * rather than renamed: `AdvancementKind` is read by `checkShapes`,
+   * `shared/campaigns.ts`, the codec's nibble table and four screens, and a
+   * rename would touch all of them to say the same thing this comment says in
+   * one place.
+   */
+  | 'cardExchange';
 
 export interface LevelUpChoice {
   level: number;
@@ -1004,6 +1085,51 @@ export interface Character {
    * when a stance is picked.
    */
   focus: Counter;
+  /**
+   * The Warlock's Favor track. Six boxes, and `marked` counts what is HELD.
+   *
+   * ## Held, not spent, and it is the same argument `focus` makes
+   *
+   * `Counter.marked` counts *used* boxes for every track except Hope, which
+   * `syncCounters` documents as stored *available*, "because that is how each is
+   * read at the table". Favor reads that way: the feature says *"You start with
+   * 3 Favor"* and *"spend a Favor"*, and a Warlock at the table says "I have
+   * two Favor left", never "I have marked four". So it follows `hope` and
+   * `focus`, and a reader of this field never has to ask which direction it
+   * counts in - the three held tracks all count the same way.
+   *
+   * ## What it is spent on, which is not this file's to model
+   *
+   * *"Before making an action roll... spend a Favor... rolling your Patron Die
+   * ... Your Patron Die starts at a d6 and increases to a d8 at level 5."* The
+   * die and the offer on the Duality Roll are a separate piece of work; what is
+   * here is the resource, so that the piece which draws it does not have to
+   * bump a schema and a wire format to get one number stored.
+   *
+   * ## Nothing derives the maximum, and `syncCounters` deliberately skips it
+   *
+   * `COUNTER_CEILINGS.favor` is `MAX_FAVOR`, at the top of this file. Hope's
+   * maximum moves with scars and HP's with the class, so both are re-clamped
+   * after anything that can change a maximum; six is six for every Warlock in
+   * the game, so there is nothing to re-clamp and adding it to `syncCounters`
+   * would make a stored field start moving for no reason.
+   *
+   * ## It is on every sheet, not only a Warlock's
+   *
+   * Like `focus`, which is on every sheet and belongs to one subclass. A field
+   * that exists only when a class ref resolves is a field that vanishes when a
+   * dataset does not load, and `readCharacterRecord` has no way to tell "this
+   * character has no Favor" from "this file lost it". Which sheets DRAW it is
+   * the screen's question and is answered where the screen is.
+   *
+   * The FIELD is unconditional; the three in it are not. `newCharacter()` seeds
+   * `marked: 3` only for a class whose features grant Favor and 0 for the rest,
+   * so every sheet carries an empty six-box track and one class starts with
+   * three of them held. Reading "on every sheet" as "three on every sheet" is
+   * exactly the mistake that shipped: a Bard, a Guardian and a Druid were each
+   * born holding a Warlock's resource.
+   */
+  favor: Counter;
   /** Second class taken at level 5+, with its own subclass in subclassRefs. */
   multiclassRef: Ref | null;
   multiclassDomain: DomainId | null;

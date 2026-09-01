@@ -173,6 +173,18 @@ export function wizard(patch: Partial<Character> = {}): Character {
     // A wizard holds no Focus: the track exists on every sheet and only a
     // Martial Artist ever moves it.
     focus: { marked: 0, max: 6 },
+    /*
+     * And no Favor, for the same reason - it is a Warlock's track and this
+     * sheet is a wizard's.
+     *
+     * Zero rather than the three `newCharacter` seeds, and that is load-bearing
+     * rather than tidy: `tests/wideHeader.test.ts` compares this sheet against
+     * the committed format-8 bytes the previous build wrote, and a format-8
+     * payload decodes `favor` as an empty track because the field is not on
+     * that wire. A three here would make that comparison fail for a reason that
+     * has nothing to do with the header.
+     */
+    favor: { marked: 0, max: 6 },
     armorSlots: { marked: 1, max: 4 },
 
     evasionOverride: null,
@@ -218,6 +230,10 @@ export function loadedWizard(): Character {
     traitMarks: { knowledge: 1, instinct: 1 },
     evasionOverride: 13,
     thresholdOverride: [14, 25],
+    // Held, not spent, and non-zero on purpose: this sheet is the one the
+    // round-trip matrix reads, and a track that is zero on both sides proves
+    // nothing about whether it travelled.
+    favor: { marked: 5, max: 6 },
     activeSecondaryWeapon: 'dagger',
     inventory: [
       { ref: 'attune-potion', name: 'Attune Potion', quantity: 2 },

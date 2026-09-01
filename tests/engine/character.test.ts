@@ -14,7 +14,7 @@ import {
   tierOf,
   weaponDamage,
 } from '@engine/character.ts';
-import { MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
+import { MAX_FAVOR, MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
 import { hasDataset, loadDataset } from '../../tools/sampleCharacters.ts';
 import {
   advancement,
@@ -344,14 +344,33 @@ describe('newCharacter', () => {
     // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
     // whatever the constant said, and this assertion exists to notice a bump.
     // It noticed this one: 5 -> 6, for the SRD 2.0 dataset contract, then
-    // 6 -> 7, for `transformationRef`, then 7 -> 8, for the martial stances.
-    expect(c.schemaVersion).toBe(8);
+    // 6 -> 7, for `transformationRef`, then 7 -> 8, for the martial stances,
+    // then 8 -> 9, for the Warlock's Favor.
+    expect(c.schemaVersion).toBe(9);
     // Seeded here as well as by the converter, because `readCharacterRecord`
     // spreads an imported file over a blank sheet: a build with no key here
     // would drop the field out of any file that did not carry it.
     expect(c.transformationRef).toBeNull();
     expect(c.stanceRefs).toEqual([]);
     expect(c.focus).toEqual({ marked: 0, max: MAX_FOCUS });
+    /*
+     * ZERO, and this line used to say three.
+     *
+     * The Warlock's feature reads *"You start with 3 Favor"* and only the
+     * Warlock has it, so three on a classless blank sheet was a resource handed
+     * to twelve classes that do not have one. `c` here is `newCharacter()` with
+     * no partial and no index: no class to read, so the seed falls to none -
+     * the same degradation the Hit Point track accepts three tests down, where
+     * an unindexed call falls back to six.
+     *
+     * The Warlock's three, the twelve zeroes beside it and the multiclass that
+     * does NOT get three are all in `tests/favor.test.tsx`; what is pinned here
+     * is only that a blank sheet no longer starts holding somebody else's
+     * resource. The 8 -> 9 converter also seeds zero, for a different reason -
+     * it runs on somebody already playing - and `tests/tools/schema.test.ts`
+     * pins that half.
+     */
+    expect(c.favor).toEqual({ marked: 0, max: MAX_FAVOR });
   });
 
   it('lets a caller override any field', () => {

@@ -846,6 +846,16 @@ function boundCounters(c: Character): Character {
      * `1048576/1048576` in the Martial Stances section.
      */
     focus: bound(c.focus, COUNTER_CEILINGS.focus),
+    /*
+     * `favor` is here from the day the field exists, and that is the whole
+     * point of it being here. `focus` reached this function one bump late -
+     * `COUNTER_CEILINGS` had carried its ceiling since schema 8 and nothing on
+     * this path read it, so a record with `focus: { marked: 1048576, max:
+     * 1048576 }` drew `1048576/1048576` in the running app. The same record
+     * with `favor` would draw the same thing in the Warlock's row, and the file
+     * path reaches this function without ever touching the codec's own check.
+     */
+    favor: bound(c.favor, COUNTER_CEILINGS.favor),
   };
   if (c.companion !== null) {
     next.companion = {
