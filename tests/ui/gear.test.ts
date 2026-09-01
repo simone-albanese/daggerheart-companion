@@ -1618,10 +1618,20 @@ describe('the two sentences the screens are built on', () => {
      * about the scene, and no field on any sheet in this app carries it, so
      * there is nothing to ask. `canEquip` is the only refusal in `gear.ts` and
      * this assertion is what stops that being an oversight nobody wrote down.
+     *
+     * It counts the exported `can*` NAMES, not the occurrences of one of them.
+     * The first version of this assertion matched `/export const canEquip/`
+     * and called the result "the only refusal exported": it was uniqueness of
+     * that one declaration, which nothing was ever going to violate. A second
+     * refusal - `export const canWearArmor = ...` - walked straight past it,
+     * measured. A refusal is a predicate this file exports whose name begins
+     * `can`, so that is what the set is built from, and a new one has to be
+     * named in the list here before it can ship.
      */
     const source = readFileSync(new URL('../../src/ui/build/gear.ts', import.meta.url), 'utf8');
     expect(source).toContain('in danger or under pressure');
-    expect(source.match(/export const canEquip/g)).toHaveLength(1);
+    const refusals = [...source.matchAll(/export const (can[A-Z]\w*)/g)].map((m) => m[1]);
+    expect(refusals, 'a second refusal has to be written down here first').toEqual(['canEquip']);
   });
 });
 

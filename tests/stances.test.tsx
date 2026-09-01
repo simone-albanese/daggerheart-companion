@@ -1012,6 +1012,38 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(container.textContent).not.toContain('Martial Stances');
   });
 
+  /*
+   * `canRepick` is `all.length > 0 && isMartialArtist`, and the first half was
+   * undefended: dropping it left the whole suite green, because the only case
+   * that separates the two halves is this one.
+   *
+   * On a book that prints no stances the section normally returns null - the
+   * test above - so `canRepick` is never reached and the mutant survives. It
+   * takes a character who holds Focus to keep the section on the page WITH an
+   * empty `all`, and then the question the term answers becomes visible: a
+   * Martial Artist whose book has no stances must not be offered a picker,
+   * because there is nothing behind it. The docblock over `canRepick` says
+   * exactly this; nothing was checking it.
+   */
+  it('offers no picker to a Martial Artist whose book prints no stances', () => {
+    mount(
+      sheet({
+        classRef: 'test-class',
+        subclassRefs: [MARTIAL_ARTIST],
+        focus: { marked: 2, max: 6 },
+      }),
+      makeDataset(),
+    );
+    expect(container.textContent, 'the Focus track keeps the section on the page').toContain(
+      'Martial Stances',
+    );
+    expect(named2('Add a stance'), 'a door onto an empty room').toBeUndefined();
+    expect(
+      buttons().some((b) => /Change stances/.test(b.textContent ?? '')),
+      'nor the other face of the same button',
+    ).toBe(false);
+  });
+
   it('names a subclass the shipped book actually prints', () => {
     /*
      * The address `STANCE_SUBCLASS` writes down, checked against the dataset -
