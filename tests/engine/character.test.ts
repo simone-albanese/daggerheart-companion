@@ -354,17 +354,23 @@ describe('newCharacter', () => {
     expect(c.stanceRefs).toEqual([]);
     expect(c.focus).toEqual({ marked: 0, max: MAX_FOCUS });
     /*
-     * THREE, and it is the only seeded track on this sheet that is neither zero
-     * nor a class's own number apart from `hope`'s 2.
+     * ZERO, and this line used to say three.
      *
-     * The Warlock's feature reads *"You start with 3 Favor"*, and this function
-     * is what a character starts as. The 8 -> 9 converter seeds ZERO instead,
-     * deliberately, because it runs on somebody who is already playing - the
-     * argument is on `SCHEMA_VERSION`, and `tests/tools/schema.test.ts` pins
-     * the other half of it. The two numbers disagreeing is the design; a later
-     * hand making them agree breaks one of them.
+     * The Warlock's feature reads *"You start with 3 Favor"* and only the
+     * Warlock has it, so three on a classless blank sheet was a resource handed
+     * to twelve classes that do not have one. `c` here is `newCharacter()` with
+     * no partial and no index: no class to read, so the seed falls to none -
+     * the same degradation the Hit Point track accepts three tests down, where
+     * an unindexed call falls back to six.
+     *
+     * The Warlock's three, the twelve zeroes beside it and the multiclass that
+     * does NOT get three are all in `tests/favor.test.tsx`; what is pinned here
+     * is only that a blank sheet no longer starts holding somebody else's
+     * resource. The 8 -> 9 converter also seeds zero, for a different reason -
+     * it runs on somebody already playing - and `tests/tools/schema.test.ts`
+     * pins that half.
      */
-    expect(c.favor).toEqual({ marked: 3, max: MAX_FAVOR });
+    expect(c.favor).toEqual({ marked: 0, max: MAX_FAVOR });
   });
 
   it('lets a caller override any field', () => {

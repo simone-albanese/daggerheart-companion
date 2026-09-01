@@ -157,11 +157,17 @@ export const MAX_FAVOR = 6;
  *     a session the update lands, and handing them three Favor is inventing a
  *     resource they did not earn - the same reasoning that made the two
  *     previous bumps seed `[]` and an empty track rather than a plausible one.
- *   - `newCharacter()` seeds `{ marked: 3, max: MAX_FAVOR }`, because that is
- *     where the sentence is actually about: a character who is starting.
- *     `hope` has done exactly this since the first commit - the blank sheet
- *     carries 2 of 6, not 0 - so a non-zero seed on a new sheet is the file's
- *     own precedent and not a special case.
+ *   - `newCharacter()` seeds `{ marked: 3, max: MAX_FAVOR }` **for a Warlock,
+ *     and `{ marked: 0, max: MAX_FAVOR }` for the other twelve classes**,
+ *     because that is who the sentence is about: a character who is starting,
+ *     and who has the feature. `hope` has done half of this since the first
+ *     commit - the blank sheet carries 2 of 6, not 0 - so a non-zero seed on a
+ *     new sheet is the file's own precedent and not a special case; what Favor
+ *     adds is that the seed is asked of the class, through `grantsFavor` in
+ *     `src/engine/character.ts`, which reads the dataset's class features
+ *     rather than a `classRef === 'warlock'` written into the engine. With no
+ *     index there is no class to read and even a Warlock seeds none, the same
+ *     way the Hit Point track falls back to six.
  *
  * The cost of the split, said out loud: a schema-8 sheet migrated forward and a
  * brand-new sheet differ in a field neither build ever showed. That is visible
@@ -1115,6 +1121,13 @@ export interface Character {
    * dataset does not load, and `readCharacterRecord` has no way to tell "this
    * character has no Favor" from "this file lost it". Which sheets DRAW it is
    * the screen's question and is answered where the screen is.
+   *
+   * The FIELD is unconditional; the three in it are not. `newCharacter()` seeds
+   * `marked: 3` only for a class whose features grant Favor and 0 for the rest,
+   * so every sheet carries an empty six-box track and one class starts with
+   * three of them held. Reading "on every sheet" as "three on every sheet" is
+   * exactly the mistake that shipped: a Bard, a Guardian and a Druid were each
+   * born holding a Warlock's resource.
    */
   favor: Counter;
   /** Second class taken at level 5+, with its own subclass in subclassRefs. */

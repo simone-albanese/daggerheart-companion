@@ -104,6 +104,53 @@ const BASE_STRESS = 6;
 const startingHitPoints = (klass: CharClass | undefined): number =>
   klass?.startingHitPoints ?? HIT_POINTS_WITHOUT_A_CLASS;
 
+/**
+ * The Favor a Warlock starts holding.
+ *
+ * *"You start with 3 Favor... Note: The maximum Favor you can hold at one time
+ * is 6."* Two numbers out of one class feature, and neither is this file's to
+ * invent: the ceiling is `MAX_FAVOR` in `shared/types.ts`, which the codec and
+ * the store both read so that a seventh box can be refused rather than clamped,
+ * and this is the other one. Named rather than written at the seed so that the
+ * one place it is spent from, when something finally spends it, cannot pick a
+ * different three.
+ */
+const STARTING_FAVOR = 3;
+
+/**
+ * Whether a class comes with the Favor track, asked of the dataset.
+ *
+ * Matched on the class feature's NAME, which is what `hasBeastform` in
+ * `src/engine/beastform.ts` does and for the same reason: `data/*.json` is the
+ * only thing that knows which class grants what, and a `classRef === 'warlock'`
+ * written here takes the track away from a layer that renames the class and
+ * refuses it to a layer that ships a class of its own granting Favor.
+ *
+ * `/\bfavor\b/i` and not `=== 'Favor'`, because "Favor" is an English word
+ * before it is a feature name and a layer may well print it "Patron's Favor".
+ * The word boundary is the half that earns its keep: the Martial Stances
+ * chapter has a tier-1 stance called *Favored*, and `\b` refuses that along
+ * with "Disfavor" and "Favoritism". Measured over both shipped datasets rather
+ * than assumed - exactly one class feature name matches in either, the
+ * Warlock's, and nothing among the subclass or Hope feature names matches at
+ * all.
+ *
+ * The name and not the text, deliberately: the Warlock's OTHER feature,
+ * Patron's Pact, says *"spend a Favor"* in its text, so a text match would
+ * grant the track to any homebrew feature that happens to use the English word
+ * in a sentence. A false negative here costs one tap; a false positive puts a
+ * resource on a sheet that should not have one, which is the defect this
+ * predicate exists to end.
+ *
+ * Takes the class and not the character, because the question it answers is
+ * what a sheet is CREATED holding. The live question - does this sheet DRAW a
+ * Favor row - has a second arm, `multiclassRef`, the way `hasBeastform` does.
+ * That arm belongs beside this predicate when something finally draws the row,
+ * not in a second predicate written somewhere else.
+ */
+export const grantsFavor = (klass: CharClass | undefined): boolean =>
+  klass?.classFeatures.some((f) => /\bfavor\b/i.test(f.name)) === true;
+
 /** Tier 1 is level 1, tier 2 is 2-4, tier 3 is 5-7, tier 4 is 8-10. */
 export function tierOf(level: number): Tier {
   if (level <= 1) return 1;
@@ -686,8 +733,9 @@ export function weaponDamage(
 /**
  * A blank sheet, optionally with a class already chosen.
  *
- * The index is optional and it is what makes the Hit Point track right. Without
- * it there is no way to look a class up, and the hardcoded 6 this used to write
+ * The index is optional and it is what makes two seeded tracks right - the Hit
+ * Points below and the Warlock's Favor, whose argument is written at its own
+ * line. Without it there is no way to look a class up, and the hardcoded 6 this used to write
  * is wrong for four of the nine SRD classes - a wizard or a bard starts on 5, a
  * guardian or a seraph on 7 - which is a 6-box track under an engine deriving
  * 5, and `validatePlan` warning "Hit Points are already at the maximum of 12"
@@ -701,6 +749,11 @@ export function weaponDamage(
  * at `HIT_POINTS_WITHOUT_A_CLASS`, which is exactly what `deriveStats` derives
  * for the same sheet. Both read the one constant, so the two cannot drift: a
  * blank sheet is never stored disagreeing with the engine about itself.
+ *
+ * Favor degrades the same way and cannot be checked the same way: nothing
+ * derives a Favor maximum, so an unindexed call seeding a Warlock zero has no
+ * engine reading to disagree with it. That is why the seed's own docblock
+ * argues the direction of the fallback rather than pointing at a derivation.
  */
 export function newCharacter(
   partial: Partial<Character> = {},
@@ -725,21 +778,57 @@ export function newCharacter(
     stanceRefs: [],
     focus: { marked: 0, max: MAX_FOCUS },
     /*
-     * Three, and it is the one seeded value on this sheet that is not zero or
-     * a class's own number - `hope`'s 2 is the other, and for the same reason.
+     * Three for a Warlock and none for the other twelve, out of the dataset.
      *
-     * The Warlock's feature reads *"You start with 3 Favor"*, and this function
-     * is what a character starts as. The 8 -> 9 converter seeds 0 instead, on
-     * purpose: it updates somebody already playing, and three Favor they never
-     * earned is a resource invented for them mid-session. `SCHEMA_VERSION` in
-     * `shared/types.ts` carries the argument in full.
+     * The feature reads *"You start with 3 Favor"* and this function is what a
+     * character starts as, so the number was right and the class it went to was
+     * not: before this line every new sheet carried three, and a Bard, a
+     * Guardian and a Druid were each born holding a resource only the Warlock
+     * has. Nothing downstream contradicted it, which is why it survived - `hp`
+     * is checked against a maximum `deriveStats` derives for the same sheet,
+     * and no `maxFavor` is derived anywhere, so a wrong seed here is a wrong
+     * number nothing ever disagrees with.
      *
-     * Also the fallback for a schema-9 file that arrives without the key, since
-     * `readCharacterRecord` spreads the file over a blank sheet - which is the
-     * right fallback for a terse file, because a file with no Favor track was
-     * written by something that never had one to lose.
+     * `grantsFavor(klass)` reads the same `klass` the `hp` line below reads,
+     * resolved a few lines up. There was never a reason to seed this blind; the
+     * class is in scope, and the claim that it was not is what let the defect
+     * stand through a review.
+     *
+     * ## Without an index a Warlock gets none, and that is the accepted cost
+     *
+     * `index` is optional, so `newCharacter({ classRef: 'warlock' })` alone has
+     * no class to look up, `klass` is `undefined` and the seed falls to zero -
+     * the same degradation the line below already accepts, where that call
+     * falls back to six Hit Points for a class that starts on five. Every path
+     * that PERSISTS a character passes an index (`store.create`, and the
+     * wizard's final assemble); the two callers that do not are preview sheets
+     * that read `deriveStats` and are thrown away. Zero is also the recoverable
+     * direction: a table can add the Favor it holds with one tap, and cannot
+     * subtract three nobody noticed being given.
+     *
+     * ## Multiclassing is not read here, on purpose
+     *
+     * A Ranger who multiclasses into Warlock does acquire its class feature -
+     * `hasBeastform` reads `multiclassRef` for exactly that reason - but that
+     * happens at level 5 and this function seeds `level: 1`. The stronger
+     * reason is the word "start": a multiclass at level 5 is somebody already
+     * playing, which is the case the 8 -> 9 converter seeds ZERO for, on the
+     * argument written out in full on `SCHEMA_VERSION`. So
+     * `newCharacter({ classRef: 'bard', multiclassRef: 'warlock', level: 5 })`
+     * gets none, and the advancement that grants the multiclass is where three
+     * would have to be handed over if the owner ever wants them handed over.
+     *
+     * ## What this does to the terse-file fallback, which is an improvement
+     *
+     * `readCharacterRecord` spreads a file over a blank `newCharacter()` - with
+     * no index and no class - so a schema-9 file that arrives with no `favor`
+     * key now falls back to an EMPTY track where it used to fall back to three.
+     * That is the better answer rather than a side effect to be tolerated: a
+     * file with no Favor track was written by something that never had one, and
+     * it is what the 8 -> 9 converter and the format-8 decoder already answer.
+     * Three doors, one answer, where there were two answers before.
      */
-    favor: { marked: 3, max: MAX_FAVOR },
+    favor: { marked: grantsFavor(klass) ? STARTING_FAVOR : 0, max: MAX_FAVOR },
     multiclassRef: null,
     multiclassDomain: null,
     level: 1,

@@ -219,13 +219,14 @@ export const MIGRATIONS: readonly Migration[] = [
     from: 8,
     note: 'a character can hold Favor, and an existing one starts holding none',
     /*
-     * **Zero, and the blank sheet says three. Both are right, and the word the
-     * difference turns on is "start".**
+     * **Zero, and a new WARLOCK's sheet says three. Both are right, and the
+     * word the difference turns on is "start".**
      *
      * The Warlock's feature reads *"You start with 3 Favor... The maximum Favor
      * you can hold at one time is 6."* `newCharacter()` in
-     * `src/engine/character.ts` seeds 3, because that function is what a
-     * character starts as. This converter is not: it runs on somebody who has
+     * `src/engine/character.ts` seeds 3 for a class whose features grant Favor
+     * and 0 for every other class, because that function is what a character
+     * starts as. This converter is not: it runs on somebody who has
      * been playing, at whatever point in a session the update lands, and the
      * three Favor it would hand them is a resource nobody at that table watched
      * them earn. The two converters before this one made the same call for the

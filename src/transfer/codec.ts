@@ -1376,10 +1376,12 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
   /*
    * Absent before format 9, and an empty six-box track is what its absence
    * means - the same value the 8 -> 9 converter writes, and deliberately NOT
-   * the three `newCharacter` seeds. A payload written by a build that had no
-   * Favor field came from a table that was not holding any, so zero is the
-   * fact; three would be this decoder inventing a resource for an arriving
-   * sheet, which is the same mistake the converter refuses to make.
+   * the three `newCharacter` seeds a Warlock. A payload written by a build that
+   * had no Favor field came from a table that was not holding any, so zero is
+   * the fact; three would be this decoder inventing a resource for an arriving
+   * sheet, which is the same mistake the converter refuses to make - and it
+   * would invent it for a Bard as readily as for a Warlock, since nothing on
+   * the wire at format 8 says which class the sheet is.
    *
    * `readCounter` and not a bare pair of varints, so a seventh Favor box on an
    * inbound payload is refused by name rather than clamped into something

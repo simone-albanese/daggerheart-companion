@@ -9,6 +9,14 @@
  * the owner's decision and it is the thing most likely to be "tidied" by a
  * later hand, so it is pinned from both ends.
  *
+ * **And it is a WARLOCK's sheet that starts with three.** The first version of
+ * this file asserted `newCharacter().favor` was three and shipped, so a Bard, a
+ * Guardian and a Druid were all born holding a resource only one class has -
+ * a defect an assertion written from the seed rather than from the rules could
+ * not see. What replaces it is a set: one sheet per class, all thirteen named,
+ * so a fourteenth class arriving in a dataset fails here rather than quietly
+ * joining whichever side the loop happened to default to.
+ *
  * What is NOT here: the row under Vitals, the Patron Die in `dicePools`, and
  * the offer on the Duality Roll. This lane carries the field and the format so
  * that the work which draws them does not have to bump a schema to get a
@@ -17,7 +25,9 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_FAVOR, SCHEMA_VERSION } from '../shared/types.ts';
 import { MIGRATIONS, migrateCharacterRecord } from '../shared/migrations.ts';
-import { COUNTER_CEILINGS, newCharacter } from '../src/engine/character.ts';
+import { COUNTER_CEILINGS, grantsFavor, indexDataset, newCharacter } from '../src/engine/character.ts';
+import { hasDataset, loadDataset } from '../tools/sampleCharacters.ts';
+import { feature, makeClass, makeDataset } from './fixtures/factories.ts';
 import { parseCharacterFile } from '../src/transfer/fileIo.ts';
 import { CODEC_VERSION, decodeCharacter, encodeCharacter } from '../src/transfer/codec.ts';
 import { normalizeHandles, testRegistry, wizard } from './transfer/fixtures.ts';
@@ -26,9 +36,151 @@ import { normalizeHandles, testRegistry, wizard } from './transfer/fixtures.ts';
 // The two seeds
 // ---------------------------------------------------------------------------
 
+/**
+ * A class that grants Favor and one that does not, with the ids swapped round.
+ *
+ * `warlockish` is not called `warlock` and `plain` IS reachable by a ref a
+ * hand-written check would trust, so a `classRef === 'warlock'` seeded here
+ * would get both of them wrong at once. That is the point of the pair: the
+ * question is answered by the dataset, and these two prove it by disagreeing
+ * with their own ids.
+ */
+const WARLOCKISH = makeClass({
+  id: 'warlockish',
+  name: 'Occultist',
+  classFeatures: [
+    { name: "Patron's Pact", text: 'Before an action roll you can spend a Favor.' },
+    { name: 'Favor', text: 'You start with 3 Favor.' },
+  ],
+});
+const PLAIN = makeClass({ id: 'plain', name: 'Plain', classFeatures: [feature('Rally')] });
+const LAYER = indexDataset(makeDataset({ classes: [WARLOCKISH, PLAIN] }));
+
+/** A brand-new sheet for a class that grants Favor, with no SRD file needed. */
+const newWarlock = () => newCharacter({ classRef: 'warlockish' }, LAYER);
+
+describe('which class the three belong to, asked of the dataset', () => {
+  const seededBy = (...classFeatures: { name: string; text: string }[]): number =>
+    newCharacter(
+      { classRef: 'probe' },
+      indexDataset(makeDataset({ classes: [makeClass({ id: 'probe', classFeatures })] })),
+    ).favor.marked;
+
+  it('follows the class feature and not the ref, in both directions', () => {
+    /*
+     * A layer that renames the Warlock keeps the track, and a layer that puts
+     * the id `warlock` on something with no Favor feature does not get one.
+     * Both halves matter: the first is what `hasBeastform` was written this way
+     * for, and the second is what stops a ref check from being "close enough".
+     */
+    expect(grantsFavor(WARLOCKISH)).toBe(true);
+    expect(newWarlock().favor.marked).toBe(3);
+    const impostor = makeClass({ id: 'warlock', name: 'Warlock', classFeatures: [feature('Rally')] });
+    expect(grantsFavor(impostor)).toBe(false);
+    expect(newCharacter({ classRef: 'warlock' }, indexDataset(makeDataset({ classes: [impostor] }))).favor.marked).toBe(0);
+  });
+
+  it('reads the feature NAME, so a sentence that merely uses the word grants nothing', () => {
+    /*
+     * The Warlock's OTHER feature, Patron's Pact, says *"spend a Favor"* in its
+     * text. Matching on text would therefore be satisfied by any homebrew
+     * feature that used the English word in a sentence, and a false positive
+     * here puts a resource on a sheet that should not have one - which is the
+     * exact defect this predicate was written to end. A false negative costs
+     * one tap.
+     */
+    expect(seededBy({ name: 'Wildtouch', text: 'You curry favor with the local spirits.' })).toBe(0);
+    expect(seededBy({ name: 'Favor', text: 'A feature whose text says nothing.' })).toBe(3);
+  });
+
+  it('holds the word boundary, because the stances chapter really does print "Favored"', () => {
+    // `/\bfavor\b/i` and not `/favor/i`. Tier 1 of the Martial Stances is
+    // "Favored, Invigorating, Quick, Reliable" - see `shared/parsers/stances.ts`
+    // - so a class feature borrowing that word must not seed a Warlock's track.
+    for (const name of ['Favored', 'Favoritism', 'Disfavor', 'Favours']) {
+      expect(seededBy({ name, text: 'A feature.' }), name).toBe(0);
+    }
+    // And the rename it IS meant to survive.
+    expect(seededBy({ name: "Patron's Favor", text: 'A feature.' })).toBe(3);
+  });
+
+  it('says no when there is no class at all, rather than throwing', () => {
+    expect(grantsFavor(undefined)).toBe(false);
+    expect(grantsFavor(PLAIN)).toBe(false);
+  });
+});
+
 describe('where the three Favor come from, and where they do not', () => {
-  it('gives a brand-new character three, because that is where "you start with" points', () => {
-    expect(newCharacter().favor).toEqual({ marked: 3, max: MAX_FAVOR });
+  it.skipIf(!hasDataset())(
+    'gives a brand-new Warlock three and every other class none, one sheet per class',
+    () => {
+      const dataset = loadDataset();
+      const ix = indexDataset(dataset);
+      const held = Object.fromEntries(
+        dataset.classes.map((k) => [k.id, newCharacter({ classRef: k.id }, ix).favor.marked]),
+      );
+      /*
+       * Written out as a SET and not as a loop with a `k.id === 'warlock'`
+       * branch in it, for the reason the Hit Point seeds next door are written
+       * out: a branch inside the assertion agrees with whatever the code under
+       * test decided, and this is the assertion the previous version of this
+       * file got wrong. Twelve zeroes have to be typed for a fourteenth class
+       * to be able to fail here.
+       */
+      expect(held).toEqual({
+        assassin: 0,
+        bard: 0,
+        brawler: 0,
+        druid: 0,
+        guardian: 0,
+        ranger: 0,
+        rogue: 0,
+        seraph: 0,
+        sorcerer: 0,
+        warlock: 3,
+        warrior: 0,
+        witch: 0,
+        wizard: 0,
+      });
+      // Teeth on the shape of that object, so a dataset that lost twelve
+      // classes could not pass it by having nothing left to disagree.
+      expect(Object.keys(held)).toHaveLength(13);
+      expect(Object.values(held).filter((n) => n === 3)).toHaveLength(1);
+
+      // The TRACK is on all thirteen even though the Favor is on one - the
+      // argument is on `Character.favor`, and it is what lets
+      // `readCharacterRecord` tell "has no Favor" from "lost its Favor".
+      for (const k of dataset.classes) {
+        expect([k.id, newCharacter({ classRef: k.id }, ix).favor.max]).toEqual([k.id, MAX_FAVOR]);
+      }
+    },
+  );
+
+  it('gives a Warlock none when there is no index to look the class up in', () => {
+    /*
+     * The accepted degradation, said out loud rather than left to be met. The
+     * index is optional and `hp` already falls back the same way - six for a
+     * class that starts on five - so this is that limit and not a new one.
+     * Every path that PERSISTS a character passes an index; the callers that
+     * do not are preview sheets that read `deriveStats` and are discarded.
+     */
+    expect(newCharacter({ classRef: 'warlock' }).favor).toEqual({ marked: 0, max: MAX_FAVOR });
+    expect(newCharacter().favor).toEqual({ marked: 0, max: MAX_FAVOR });
+  });
+
+  it('does not read the multiclass, because a level-5 pact is not a beginning', () => {
+    /*
+     * `hasBeastform` DOES read `multiclassRef`, and this deliberately does not.
+     * The two ask different questions: that one asks what a character can do
+     * now, this one asks what a sheet is created holding. Multiclassing happens
+     * at level 5, to somebody already playing - which is the case the 8 -> 9
+     * converter seeds ZERO for, on the argument on `SCHEMA_VERSION`.
+     */
+    const c = newCharacter({ classRef: 'plain', multiclassRef: 'warlockish', level: 5 }, LAYER);
+    expect(c.favor).toEqual({ marked: 0, max: MAX_FAVOR });
+    // Control: the same class in the FIRST slot does grant it, so the zero
+    // above is about which slot was read and not about the fixture.
+    expect(newWarlock().favor.marked).toBe(3);
   });
 
   it('gives an existing character none, because a migration is not a beginning', () => {
@@ -173,7 +325,10 @@ describe('the wire', () => {
     expect(bytes[0]! & 0x0f, 'the committed bytes are format 8').toBe(8);
     const { character } = await decodeCharacter(bytes, testRegistry);
     expect(character.favor).toEqual({ marked: 0, max: MAX_FAVOR });
-    expect(character.favor).not.toEqual(newCharacter().favor);
+    // Against a NEW WARLOCK'S sheet, which is the only sheet that seeds three.
+    // This used to read `newCharacter()`, and that comparison stopped having
+    // teeth the moment a classless blank sheet started at zero as well.
+    expect(character.favor).not.toEqual(newWarlock().favor);
   });
 });
 
@@ -288,8 +443,23 @@ describe('the four guard lists, walked with the abuse hp gets', () => {
     // just terse.
     expect(verdict({ hp: undefined })).not.toBe('accepted');
     expect(verdict({ favor: undefined })).toBe('accepted');
-    expect(parseCharacterFile(fileWith({ favor: undefined })).favor).toEqual(
-      newCharacter().favor,
-    );
+    /*
+     * And the blank sheet it falls back to is EMPTY, which is the third thing
+     * the seed's condition changed. `readCharacterRecord` builds its base with
+     * `newCharacter()` - no index, so no class - so a schema-9 file that
+     * arrives with no Favor key used to open on three and now opens on none.
+     * Asserted as the literal rather than as `newCharacter().favor`, because
+     * that spelling would agree with the seed whatever the seed became, and it
+     * is precisely the shape of assertion that let three reach every sheet.
+     *
+     * Zero here is the same answer the 8 -> 9 converter and the format-8
+     * decoder give: a file with no Favor track was written by something that
+     * never had one. Three doors, one answer.
+     */
+    expect(parseCharacterFile(fileWith({ favor: undefined })).favor).toEqual({
+      marked: 0,
+      max: MAX_FAVOR,
+    });
+    expect(newWarlock().favor.marked, 'and three is still reachable').toBe(3);
   });
 });
