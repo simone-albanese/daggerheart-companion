@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { MAX_FAVOR, SCHEMA_VERSION } from '../shared/types.ts';
 import { MIGRATIONS, migrateCharacterRecord } from '../shared/migrations.ts';
 import { COUNTER_CEILINGS, newCharacter } from '../src/engine/character.ts';
+import { parseCharacterFile } from '../src/transfer/fileIo.ts';
 import { CODEC_VERSION, decodeCharacter, encodeCharacter } from '../src/transfer/codec.ts';
 import { normalizeHandles, testRegistry, wizard } from './transfer/fixtures.ts';
 
@@ -173,5 +174,122 @@ describe('the wire', () => {
     const { character } = await decodeCharacter(bytes, testRegistry);
     expect(character.favor).toEqual({ marked: 0, max: MAX_FAVOR });
     expect(character.favor).not.toEqual(newCharacter().favor);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The four guard lists
+// ---------------------------------------------------------------------------
+
+/**
+ * THE COMPARISON, WHICH IS THE ONLY WAY TO KNOW A LIST IS COMPLETE.
+ *
+ * Three waves in a row have shipped a new `Character` field that skipped a
+ * guard its siblings have: `transformationRef` was not in `checkShapes`,
+ * `focus` was not read through `readCounter` and not clamped by
+ * `boundCounters`, and `favor` was measured with the same hole before this
+ * commit - `{ favor: 'not a counter' }` accepted, and the string stored in a
+ * field typed `Counter`.
+ *
+ * So the test is not "is `favor` guarded", which any assertion can be written
+ * to say yes to. It is **does `favor` answer the identical abuse the identical
+ * way `hp` does**, run side by side, one loop, no per-track branches. A hole in
+ * any list shows up as a disagreement rather than as a missing assertion
+ * somebody has to notice is missing.
+ *
+ * The four doors, and where each is proved:
+ *
+ *   1. `readCounter` inside `readCharacterRecord` .... here
+ *   2. the keys of `checkShapes` ..................... here, and the answer is
+ *      that no character-level Counter is in it - see the block below
+ *   3. `boundCounters` in `src/store/state.ts` ....... `tests/store/import.test.ts`
+ *      ("holds the Favor ceiling on the way in"), which is where the fake
+ *      IndexedDB harness lives
+ *   4. the codec ..................................... the wire block above
+ */
+describe('the four guard lists, walked with the abuse hp gets', () => {
+  const fileWith = (patch: Record<string, unknown>): string =>
+    JSON.stringify({
+      format: 'dhchar',
+      schemaVersion: SCHEMA_VERSION,
+      app: '0.6.0',
+      exportedAt: '2026-09-01T12:00:00.000Z',
+      character: { ...newCharacter({ name: 'Probe' }), ...patch },
+    });
+
+  /** The verdict on one file, reduced to something two tracks can be compared on. */
+  const verdict = (patch: Record<string, unknown>): string => {
+    try {
+      parseCharacterFile(fileWith(patch));
+      return 'accepted';
+    } catch (error) {
+      return (error as Error).message.replace(/\bHP\b|\bFavor\b/, 'THE');
+    }
+  };
+
+  const ABUSE: ReadonlyArray<readonly [string, unknown]> = [
+    ['a string where a track belongs', 'not a counter'],
+    ['half a track', { marked: 3 }],
+    ['a track with no marked count', { max: 6 }],
+    ['null', null],
+    ['a number', 42],
+    ['a list', []],
+  ];
+
+  it('answers a damaged Favor track exactly as it answers a damaged HP one', () => {
+    for (const [label, value] of ABUSE) {
+      const hp = verdict({ hp: value });
+      const favor = verdict({ favor: value });
+      expect(favor, label).toBe(hp);
+      // Teeth: the shared answer has to be a refusal. Two tracks that both
+      // accepted everything would satisfy the equality above.
+      expect(hp, label).not.toBe('accepted');
+    }
+  });
+
+  it('names the track it refused, so the two are not merely equally rude', () => {
+    expect(verdict({ hp: 'not a counter' })).toMatch(/no readable THE track/);
+    expect(() => parseCharacterFile(fileWith({ favor: 'not a counter' }))).toThrow(
+      /no readable Favor track/,
+    );
+    expect(() => parseCharacterFile(fileWith({ hp: 'not a counter' }))).toThrow(
+      /no readable HP track/,
+    );
+  });
+
+  it('keeps `checkShapes` out of it, which is why the sentences match', () => {
+    /*
+     * Door 2, and the answer is a deliberate absence rather than a forgotten
+     * line. `checkShapes` runs BEFORE the counters are read, so a `favor` entry
+     * there would refuse `{ favor: 'not a counter' }` with "has a damaged
+     * favor field" while `hp` still answered "has no readable HP track" - the
+     * two tracks would stop agreeing, and the test above would go red for a
+     * guard that had just been ADDED.
+     *
+     * This is measured against the four tracks that were here first: none of
+     * `hp`, `stress`, `hope` or `armorSlots` produces a `checkShapes` sentence
+     * either, so `favor` is in the same list as its siblings by being out of
+     * this one.
+     */
+    for (const track of ['hp', 'stress', 'hope', 'armorSlots', 'focus', 'favor']) {
+      expect(verdict({ [track]: 'not a counter' }), track).not.toMatch(/damaged "/);
+    }
+    // Control: a field that IS in `checkShapes` still answers with its sentence,
+    // so the assertion above is about these tracks and not about the guard
+    // having been emptied.
+    expect(verdict({ inventory: 42 })).toMatch(/damaged "inventory" field/);
+  });
+
+  it('lets an absent track be terse, which is where it follows focus and not hp', () => {
+    // The one place the two deliberately differ, stated rather than left to be
+    // discovered by whoever reads the loop above and wonders why `undefined` is
+    // not in the abuse list. `hp` is required; `favor` and `focus` fall back to
+    // the blank sheet, because `checkShapes`'s rule is that anything absent is
+    // just terse.
+    expect(verdict({ hp: undefined })).not.toBe('accepted');
+    expect(verdict({ favor: undefined })).toBe('accepted');
+    expect(parseCharacterFile(fileWith({ favor: undefined })).favor).toEqual(
+      newCharacter().favor,
+    );
   });
 });

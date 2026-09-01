@@ -1348,9 +1348,12 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
    *
    * `readCounter` and not a bare pair of varints, so a seventh Favor box on an
    * inbound payload is refused by name rather than clamped into something
-   * plausible. That is one of the four guard lists a new field has to enter;
-   * the other three are `readCharacterRecord`, `checkShapes` and
-   * `boundCounters`.
+   * plausible. That is one of the four guard lists a new field has to enter,
+   * and the other three are `readCharacterRecord` (`favor` is read through its
+   * `readCounter`, `tests/favor.test.tsx`), `checkShapes` (deliberately no
+   * entry - it runs first, so one there would answer the same damage with a
+   * different sentence than `hp` does, and the same file measures that) and
+   * `boundCounters` (`tests/store/import.test.ts`, beside the Focus one).
    */
   const favor =
     version >= 9 ? readCounter(r, 'favor', 'Favor') : { marked: 0, max: MAX_FAVOR };
