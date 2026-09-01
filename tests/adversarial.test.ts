@@ -115,20 +115,40 @@ import { normalizeHandles, registryWithout, testRegistry, wizard } from './trans
 const shape = (c: Character): string => JSON.stringify(normalizeHandles(c));
 
 /**
- * Put a valid format-2 checksum on a payload, from the rule rather than from
- * the encoder's own helper: crc32 over the whole payload with bytes 1-4 zeroed,
- * written big-endian into 1-4. A test that asked the code under test for the
- * answer it is checking would agree with any answer.
+ * The format a payload declares, read the way the format describes rather than
+ * asked of the code under test.
+ *
+ * A nibble of 0x0f is the escape that says the version is byte 1; anything else
+ * IS the version. Six lines, so that a test which checks where the checksum
+ * lives does not get its answer from the function that puts it there.
+ */
+const declaredFormat = (payload: Uint8Array): number =>
+  (payload[0]! & 0x0f) === 0x0f ? payload[1]! : payload[0]! & 0x0f;
+
+/** Where those four checksum bytes start: 1 behind a nibble, 2 behind the escape. */
+const checksumOffset = (payload: Uint8Array): number => ((payload[0]! & 0x0f) === 0x0f ? 2 : 1);
+
+/**
+ * Put a valid checksum on a payload, from the rule rather than from the
+ * encoder's own helper: crc32 over the whole payload with its own four bytes
+ * zeroed, written back big-endian into them. A test that asked the code under
+ * test for the answer it is checking would agree with any answer.
+ *
+ * The offset moved with format 9's wider header, and it is derived here from
+ * the payload for the same reason the checksum is: `checksumOffset` reads the
+ * escape nibble the way the format documents it, so this helper keeps telling
+ * the truth about a format-2 fixture and a format-9 payload in the same run.
  */
 const reseal = (payload: Uint8Array): Uint8Array => {
   const out = payload.slice();
+  const at = checksumOffset(out);
   const scratch = out.slice();
-  scratch.fill(0, 1, 5);
+  scratch.fill(0, at, at + 4);
   const sum = crc32(scratch);
-  out[1] = (sum >>> 24) & 0xff;
-  out[2] = (sum >>> 16) & 0xff;
-  out[3] = (sum >>> 8) & 0xff;
-  out[4] = sum & 0xff;
+  out[at] = (sum >>> 24) & 0xff;
+  out[at + 1] = (sum >>> 16) & 0xff;
+  out[at + 2] = (sum >>> 8) & 0xff;
+  out[at + 3] = sum & 0xff;
   return out;
 };
 
@@ -252,11 +272,13 @@ describe.skipIf(!hasDataset())('a transfer that arrived damaged', () => {
 
   it('refuses a payload whose version nibble was flipped, and names the version it read', async () => {
     const row = spread[0]!;
-    // The low nibble of byte 0 is the format version; any of its four bits
-    // becomes a version this build does not read. From 2 the four flips give
-    // 3, 0, 6 and 10 - never 1 - which is what keeps a single-bit flip from
-    // demoting a format-2 payload to the format that carries no checksum.
-    // Reaching that needs two coordinated flips, which is not corruption.
+    // The low nibble of byte 0 held the version until format 9; it now holds
+    // 0x0f, the escape that says "the version is in byte 1". Either way the
+    // nibble is four bits of the version FIELD, and the property is the same
+    // one: no single flip of it lands on something this build reads. From 15
+    // the four flips give 14, 13, 11 and 7, and 15 is three bits from each of
+    // 1, 2, 4 and 8 - so reaching format 1, the one with no checksum of its
+    // own, now takes THREE coordinated flips where it used to take two.
     for (const bit of [0, 1, 2, 3]) {
       const bad = row.payload.slice();
       bad[0] = bad[0]! ^ (1 << bit);
@@ -418,7 +440,11 @@ describe.skipIf(!hasDataset())('a transfer that arrived damaged', () => {
     // a property of the generated dataset.
     const victim = spread[0]!;
     let resealedDifferent = 0;
-    for (let at = 5; at < victim.payload.length && resealedDifferent === 0; at += 1) {
+    // From the first body byte, which moved when the header grew: a flip
+    // inside the checksum itself is undone by the reseal, so starting before
+    // the body would spend iterations proving nothing.
+    const firstBodyByte = checksumOffset(victim.payload) + 4;
+    for (let at = firstBodyByte; at < victim.payload.length && resealedDifferent === 0; at += 1) {
       const tampered = reseal(
         Uint8Array.from(victim.payload, (b, i) => (i === at ? b ^ 0x01 : b)),
       );
@@ -479,16 +505,21 @@ describe('a payload that is not a payload at all', () => {
 
   it('refuses a body whose text length was tampered with, in either direction', async () => {
     // Written without deflate and without identity so the layout is legible:
-    // byte 0 is the header, bytes 1-4 are the checksum, byte 5 says "no id",
-    // byte 6 is the varint length of the name, and the name follows.
+    // byte 0 is the header, byte 1 is the version when the header is the wide
+    // one, then four checksum bytes, then a byte saying "no id", then the
+    // varint length of the name, and the name follows.
     const sheet = wizard();
     const payload = await encodeCharacter(sheet, testRegistry, {
       compress: false,
       identity: false,
     });
-    const LENGTH_AT = 6;
-    // Teeth: prove byte 6 is the name's length before tampering with it, or this
-    // would be flipping a byte at random and calling it a length prefix.
+    // Counted off the header rather than written as a literal, because the
+    // header grew by a byte at format 9 and a pinned 6 would have gone on
+    // tampering with a byte that is no longer the length - and the two
+    // assertions below would have caught it, which is why they are here.
+    const LENGTH_AT = checksumOffset(payload) + 4 + 1;
+    // Teeth: prove that byte is the name's length before tampering with it, or
+    // this would be flipping a byte at random and calling it a length prefix.
     expect(payload[LENGTH_AT]).toBe(sheet.name.length);
     expect(
       new TextDecoder().decode(payload.subarray(LENGTH_AT + 1, LENGTH_AT + 1 + sheet.name.length)),

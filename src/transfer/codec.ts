@@ -13,16 +13,30 @@
  *      in the header either way
  *   3. a crc32 of the payload, inside the payload
  *
- *   format 4 (written)   byte 0     version in the low nibble, 0x80 when deflated
- *                        bytes 1-4  crc32, big-endian, over this whole payload
- *                                   with these four bytes zeroed
- *                        bytes 5..  the body, field by field in `writeBody`
- *   format 2 (read only) the same header and the same body, minus the one
+ *   format 9 (written)   byte 0     0x0f in the low nibble - the escape that
+ *                                   says "the version does not fit in a
+ *                                   nibble, read the next byte" - plus 0x80
+ *                                   when deflated
+ *                        byte 1     the version, a whole byte: 9
+ *                        bytes 2-5  crc32, big-endian, over this whole payload
+ *                                   with those four bytes zeroed
+ *                        bytes 6..  the body, field by field in `writeBody`
+ *   format 8 (read only) byte 0     version in the low nibble, 0x80 when deflated
+ *                        bytes 1-4  the same crc32, under the same rule
+ *                        bytes 5..  the body, minus what format 9 adds
+ *   format 4 (read only) the same header, and the body format 8 grows two
+ *                        fields onto
+ *   format 2 (read only) the same header again, and the body minus the one
  *                        varint format 4 adds after `communityRef`
- *   format 1 (read only) byte 0     the same header, bytes 1.. the body
+ *   format 1 (read only) byte 0     the same header byte, bytes 1.. the body,
+ *                                   and no checksum at all
  *
- * There is no format 3. `CODEC_VERSION` says why, and the short version is that
- * 3 is one bit from both 1 and 2 and 4 is one bit from neither.
+ * There is no format 3, 5, 6 or 7, and 9 is the first one whose number does not
+ * live in the nibble. `CODEC_VERSION` says why at length; the short version is
+ * that a format number's whole job is to be far from the other format numbers,
+ * 1, 2, 4 and 8 are the four nibble values that are one bit away from nothing
+ * readable, and once they were spent the choice was a worse number or a wider
+ * header. This is the wider header.
  *
  * WHY THE CHECKSUM IS HERE AND NOT ONLY ONE LAYER UP. Measured: 8136 single-bit
  * flips across 15 real sheets, and 30.9 % of them decoded into a *different*
@@ -200,11 +214,116 @@ import { characterRefs } from '../engine/holdings.ts';
  * reason 3 was: a nibble holds sixteen and this property is the cheapest thing
  * in the file. When 8 is spent there is no fifth value with it, and the next
  * bump has to widen the header rather than pick a worse number quietly.
+ *
+ * ## Nine, and the header is wider because the sentence above came due
+ *
+ * *"The next bump has to widen the header rather than pick a worse number
+ * quietly."* This is that bump, and it widens the header. It carries two
+ * unrelated things at once on purpose - `Character.favor` and the Step Four
+ * card exchange - because there is one widening to design and letting the
+ * second field spend a second one is exactly what that sentence exists to
+ * stop.
+ *
+ * ### The half of the sentence that was wrong, said out loud
+ *
+ * *"When 8 is spent there is no fifth value with it"* is **false**, and it was
+ * false when it was written. The property being claimed is "every one of its
+ * four single-bit neighbours is unreadable", and with 1, 2 and 4 readable the
+ * nibble values that have it are 7, 8, 11, 13, 14 and 15 - six of them, of
+ * which 8 is the second, not the last. Counted rather than argued.
+ *
+ * The reason the hand-search kept coming out right while its conclusion was
+ * wrong is that it was rediscovering a parity, four times, one number at a
+ * time. 1, 2, 4 and 8 are the four nibbles of weight one; two values of the
+ * same parity differ in an even number of bits, so any two of them are at least
+ * 2 apart, and so is any other odd-weight nibble - 7, 11, 13 and 14. The
+ * readable set is not "four lucky numbers", it is "the odd half of the
+ * nibble", and the odd half has eight members.
+ *
+ * That correction does not make this bump the wrong shape. Four spare nibble
+ * values is four more bumps and then the same wall, at a point where a
+ * `Character` field is mid-flight; and the numbers left are 7, 11, 13 and 14,
+ * which read as noise beside 1, 2, 4, 8 and would have had to be explained
+ * every time. What the correction does change is the argument, and an argument
+ * that is only true by accident is the one to replace.
+ *
+ * ### The escape nibble is not chosen, it is the only one
+ *
+ * Byte 0's low nibble reads **0x0f** - "the version does not fit here, read the
+ * next byte". `ESCAPED_CHOICE` further down this file already spends the
+ * all-ones nibble on the same idea for a level-up head byte, so the idiom is
+ * the file's own.
+ *
+ * It is also forced. What an escape has to be is far from every readable
+ * narrow format, in both directions: a flip must not turn a format-2 payload
+ * into a wide one, and must not turn a wide payload into a narrow one. Measured
+ * over all sixteen values against {1, 2, 4, 8}:
+ *
+ *   min distance >= 2  ->  7, 11, 13, 14, 15
+ *   min distance >= 3  ->  15, and only 15
+ *
+ * 15 is 3 away from each of 1, 2, 4 and 8 - it is their complement set, the one
+ * nibble of weight four against four of weight one. So it is the only escape
+ * that survives a *two*-bit flip as well: from 7 a two-bit flip reaches 4, and
+ * format 4 is readable. From 15 the two-bit flips are 3, 5, 6, 9, 10 and 12,
+ * none of them readable, and it takes three coordinated flips to reach format
+ * 1 - the one that carries no checksum of its own, which is the demotion this
+ * whole line of reasoning exists to prevent.
+ *
+ * ### The property `adversarial.test.ts` pins, re-derived rather than assumed
+ *
+ * The old property was *"the version is a nibble, and every single-bit flip of
+ * it lands on a format this build does not read"*. The version is no longer a
+ * nibble, so that sentence cannot simply be carried forward. **What replaces
+ * it, and is strictly stronger:**
+ *
+ *   Every single-bit flip anywhere in the version FIELD of a payload this build
+ *   writes leaves a payload the version gate refuses by name.
+ *
+ * The field is twelve bits now - byte 0's low nibble plus all of byte 1 - and
+ * both halves are checked, because a property that covers a third of its own
+ * field is not the property:
+ *
+ *   the nibble (4 bits)   15 -> 14, 13, 11, 7. None is a readable narrow
+ *                         format, and none is 15, so none is read as a wide
+ *                         header either: the gate refuses all four.
+ *   the byte (8 bits)     9 -> 8, 11, 13, 1, 25, 41, 73, 137. Every one of them
+ *                         has ODD weight, and every legal wide version has EVEN
+ *                         weight, so the gate refuses all eight.
+ *
+ * The parity is the rule now rather than the accident: **a wide version number
+ * is an even-weight byte**, so one flip always changes the parity and can never
+ * produce another legal version. It is the same law the nibble was obeying
+ * without saying so, written down where it can be checked, and it does not run
+ * out - 128 of the 256 bytes are even, against the four the nibble had.
+ *
+ * Two clauses hold it up, and both are refusals rather than conventions:
+ *
+ *   - a WIDE header declaring a narrow number is refused. 9 ^ 1 is 8 and 9 ^ 8
+ *     is 1, so without this clause a single flip of the version byte would put
+ *     a format-9 payload's body behind a format-8 or format-1 offset. Parity
+ *     already excludes them - 1, 2, 4 and 8 are odd-weight - but the rule is
+ *     stated as "one version, one header width" because that is what
+ *     `BODY_AT` assumes: a version number names exactly one layout.
+ *   - a NARROW header declaring 9 is refused, for the mirror reason.
+ *
+ * `tests/transfer/codec.test.ts` pins the parity and the distances so a future
+ * bump cannot pick a number by eye; `tests/adversarial.test.ts` flips all
+ * twelve bits and is what goes red if any of this is wrong.
+ *
+ * ### What it costs, and what an already-shipped build does with it
+ *
+ * A build that shipped before 9 reads byte 0's nibble, finds 15, and throws
+ * from its own version gate: *"This transfer says it is format 15, and this app
+ * reads 1 and 2 and 4 and 8."* It names 15 and not 9 - 15 is all it read, and
+ * the sentence claims no more than that - and it imports nothing, which is the
+ * half that matters. Proved rather than reasoned: `tests/wideHeader.test.ts` runs
+ * the shipped 8-era gate over these bytes.
  */
-export const CODEC_VERSION = 8;
+export const CODEC_VERSION = 9;
 
 /**
- * Every format this build can read, oldest first.
+ * The formats whose number is the low nibble of byte 0, oldest first.
  *
  * 1 is read and never written. The old-phone-to-new-phone hand-off is the case
  * this whole vector exists for, and in it the *sender* is the older build -
@@ -215,8 +334,34 @@ export const CODEC_VERSION = 8;
  * does not carry is a checksum of its own; on the QR vector the frame header's
  * crc32 covers it, and `adversarial.test.ts` says so out loud rather than
  * letting the reader assume otherwise.
+ *
+ * All four are odd-weight nibbles, and that is the whole of why they are these
+ * four - see `CODEC_VERSION`, which also corrects the claim that there were no
+ * more of them.
  */
-export const READABLE_CODEC_VERSIONS = [1, 2, 4, 8] as const;
+export const NARROW_CODEC_VERSIONS = [1, 2, 4, 8] as const;
+
+/**
+ * The formats whose number lives in a byte of its own, behind the 0x0f escape.
+ *
+ * Even-weight bytes only - see `CODEC_VERSION`. That is not decoration: it is
+ * what makes "one flip of the version byte is always refused" a property of the
+ * SET rather than a fact somebody re-checked by hand at each bump, and it is
+ * the reason the next number here is a lookup and not an argument.
+ */
+export const WIDE_CODEC_VERSIONS = [9] as const;
+
+/**
+ * Every format this build can read, oldest first, both widths together.
+ *
+ * Built from the two lists rather than written out again, so the sentence
+ * `decodeCharacter` prints and the two sets the gate checks cannot disagree
+ * about what this build reads.
+ */
+export const READABLE_CODEC_VERSIONS = [
+  ...NARROW_CODEC_VERSIONS,
+  ...WIDE_CODEC_VERSIONS,
+] as const;
 
 /**
  * What a build that has not updated does with a format-4 payload, said out loud
@@ -247,18 +392,74 @@ export const READABLE_CODEC_VERSIONS = [1, 2, 4, 8] as const;
  * gate - *"This transfer says it is format 8, and this app reads 1 and 2 and
  * 4"*, the message that gate composes verbatim - and imports nothing. That is the whole point: a schema-7 build reading these
  * fields off a schema-8 sheet would drop both, and drop them silently.
+ *
+ * ## Format 9 is the first one an old build cannot even name correctly
+ *
+ * Every refusal above ends with the old build printing the number it was sent.
+ * Format 9's does not, and the difference is worth stating rather than
+ * discovering: the version has moved out of the nibble, so a build that shipped
+ * before 9 reads 0x0f there and says *"This transfer says it is format 15"*.
+ *
+ * That sentence is still true - 15 is what it read, and the payload really did
+ * come from a different version of the app - and the half that carries the
+ * promise is unchanged: it THROWS, from the same gate, before the checksum and
+ * before a single field, so nothing is imported and nothing is half-imported.
+ * The alternative was an escape value an old build would have mistaken for a
+ * format it thinks it can read, which is the failure mode this file has spent
+ * three bumps avoiding.
+ *
+ * It is proved and not argued: `tests/wideHeader.test.ts` runs the 8-era gate -
+ * `[1, 2, 4, 8]`, nibble of byte 0, throw before checksum - over the bytes this
+ * build writes, and asserts both halves.
  */
 
 const VERSION_MASK = 0x0f;
 const DEFLATED_BIT = 0x80;
-/** Bytes 1-4 of a format-2 payload. */
+
+/**
+ * The low nibble that means "the version is in byte 1".
+ *
+ * 0x0f and not a spare small number, and the choice is forced rather than
+ * tasteful: it is the only nibble value three bits from all of 1, 2, 4 and 8,
+ * so it is the only one a single flip cannot reach from a readable format and
+ * the only one a single flip cannot leave for one. `CODEC_VERSION` has the
+ * table this was measured from.
+ */
+const WIDE_HEADER = 0x0f;
+
+/** Bytes 1-4 of a format-2 payload, 2-5 of a format-9 one. */
 const CHECKSUM_BYTES = 4;
+
+/**
+ * Where the checksum starts, per format. Absent for 1, which has none.
+ *
+ * Two tables and not one because format 1 breaks the arithmetic that would
+ * derive one from the other, and a derivation with an exception in it is worse
+ * than two lines a test can compare.
+ *
+ * What keeps them from drifting is not an assertion about these constants -
+ * neither is exported - but `reseal` in `tests/transfer/codec.test.ts` and
+ * `tests/adversarial.test.ts`. It re-seals a payload from the FORMAT's own
+ * description of where the four bytes are, and re-sealing an untouched payload
+ * has to be a no-op; if `CHECKSUM_AT` and `BODY_AT` disagreed by so much as a
+ * byte, the encoder and that rule would put the checksum in different places
+ * and every resealed test in both files would go red at once.
+ */
+const CHECKSUM_AT: Record<number, number> = { 2: 1, 4: 1, 8: 1, 9: 2 };
+
 const BODY_AT: Record<number, number> = {
   1: 1,
   2: 1 + CHECKSUM_BYTES,
   4: 1 + CHECKSUM_BYTES,
   8: 1 + CHECKSUM_BYTES,
+  9: 2 + CHECKSUM_BYTES,
 };
+
+const isNarrowVersion = (version: number): boolean =>
+  (NARROW_CODEC_VERSIONS as readonly number[]).includes(version);
+
+const isWideVersion = (version: number): boolean =>
+  (WIDE_CODEC_VERSIONS as readonly number[]).includes(version);
 
 export class CodecError extends Error {
   override name = 'CodecError';
@@ -1401,10 +1602,20 @@ export async function encodeCharacter(
   // bit means we can simply take whichever came out shorter.
   const useDeflate = squeezed !== null && squeezed.length < body.length;
   const chosen = useDeflate ? squeezed : body;
-  const out = new Uint8Array(BODY_AT[CODEC_VERSION]! + chosen.length);
-  out[0] = CODEC_VERSION | (useDeflate ? DEFLATED_BIT : 0);
-  out.set(chosen, BODY_AT[CODEC_VERSION]!);
-  writeChecksum(out, payloadChecksum(out));
+  const bodyAt = BODY_AT[CODEC_VERSION]!;
+  const out = new Uint8Array(bodyAt + chosen.length);
+  /*
+   * One branch and not two functions, because a build writes exactly one
+   * format and the branch is dead the moment `CODEC_VERSION` is a literal. It
+   * is written as a branch anyway so that the next bump - whichever width it
+   * takes - changes the constant and nothing else here.
+   */
+  const wide = isWideVersion(CODEC_VERSION);
+  out[0] = (wide ? WIDE_HEADER : CODEC_VERSION) | (useDeflate ? DEFLATED_BIT : 0);
+  if (wide) out[1] = CODEC_VERSION;
+  out.set(chosen, bodyAt);
+  const checksumAt = CHECKSUM_AT[CODEC_VERSION]!;
+  writeChecksum(out, checksumAt, payloadChecksum(out, checksumAt));
   return out;
 }
 
@@ -1415,10 +1626,16 @@ export async function encodeCharacter(
  * nothing in a format-2 payload sits outside it - the version nibble, the
  * deflate flag, the three header bits nothing reads, and every byte of the
  * body. A reader can check the rule without knowing where the field is.
+ *
+ * The offset is a parameter as of format 9, and the sentence survives the
+ * widening word for word: the wide header's version BYTE sits at index 1, in
+ * front of the four zeroed ones, so it is inside the coverage exactly the way
+ * the nibble always was. A payload whose version byte was knocked about and
+ * whose number happened to stay legal would still fail here.
  */
-function payloadChecksum(payload: Uint8Array): number {
+function payloadChecksum(payload: Uint8Array, at: number): number {
   const scratch = payload.slice();
-  scratch.fill(0, 1, 1 + CHECKSUM_BYTES);
+  scratch.fill(0, at, at + CHECKSUM_BYTES);
   return crc32(scratch);
 }
 
@@ -1429,18 +1646,15 @@ function payloadChecksum(payload: Uint8Array): number {
  * reads four bytes from the wrong place. `frames.ts` has that footgun twice and
  * only gets away with it once. Four lines of shifting cannot have the bug.
  */
-function writeChecksum(payload: Uint8Array, sum: number): void {
-  payload[1] = (sum >>> 24) & 0xff;
-  payload[2] = (sum >>> 16) & 0xff;
-  payload[3] = (sum >>> 8) & 0xff;
-  payload[4] = sum & 0xff;
+function writeChecksum(payload: Uint8Array, at: number, sum: number): void {
+  payload[at] = (sum >>> 24) & 0xff;
+  payload[at + 1] = (sum >>> 16) & 0xff;
+  payload[at + 2] = (sum >>> 8) & 0xff;
+  payload[at + 3] = sum & 0xff;
 }
 
-const readChecksum = (payload: Uint8Array): number =>
-  ((payload[1]! << 24) | (payload[2]! << 16) | (payload[3]! << 8) | payload[4]!) >>> 0;
-
-const isReadable = (version: number): boolean =>
-  (READABLE_CODEC_VERSIONS as readonly number[]).includes(version);
+const readChecksum = (payload: Uint8Array, at: number): number =>
+  ((payload[at]! << 24) | (payload[at + 1]! << 16) | (payload[at + 2]! << 8) | payload[at + 3]!) >>> 0;
 
 export async function decodeCharacter(
   payload: Uint8Array,
@@ -1448,7 +1662,23 @@ export async function decodeCharacter(
 ): Promise<DecodeResult> {
   if (payload.length < 2) throw new CodecError('That is not a character transfer: it is empty.');
   const header = payload[0]!;
-  const version = header & VERSION_MASK;
+  const nibble = header & VERSION_MASK;
+  /*
+   * The version, out of a nibble or out of a whole byte.
+   *
+   * `payload[1]` is safe to reach for: the length check one line up is what
+   * makes it so, and it is there for the empty case rather than for this one -
+   * which is worth saying, because moving it would break a read that looks
+   * unguarded and is not.
+   *
+   * The two sets are checked separately and neither accepts the other's
+   * numbers. That is the "one version, one header width" clause `CODEC_VERSION`
+   * argues for: `BODY_AT` maps a version to exactly one layout, so a wide
+   * header saying 8 - which is one flipped bit away from the 9 this build
+   * writes - must be a refusal and not a body read five bytes in.
+   */
+  const wide = nibble === WIDE_HEADER;
+  const version = wide ? payload[1]! : nibble;
 
   /*
    * The version is read before the checksum on purpose. A payload this build
@@ -1457,11 +1687,11 @@ export async function decodeCharacter(
    * as corruption.
    *
    * The sentence says both possibilities because the code knows only one thing
-   * - the nibble it read - and either could have produced it. Telling the user
+   * - the number it read - and either could have produced it. Telling the user
    * to update their app would be a confident guess in exactly the case this
    * whole item exists to catch.
    */
-  if (!isReadable(version)) {
+  if (!(wide ? isWideVersion(version) : isNarrowVersion(version))) {
     throw new CodecError(
       `This transfer says it is format ${version}, and this app reads ${READABLE_CODEC_VERSIONS.join(' and ')}. ` +
         'Either it came from a different version of the app, or it is damaged. Nothing has been imported.',
@@ -1469,13 +1699,14 @@ export async function decodeCharacter(
   }
 
   const bodyAt = BODY_AT[version]!;
-  if (version >= 2) {
+  const checksumAt = CHECKSUM_AT[version];
+  if (checksumAt !== undefined) {
     // Before reading the four bytes, not after: a three-byte payload declaring
     // format 2 would otherwise read past the end and checksum whatever it found.
     if (payload.length < bodyAt + 1) {
       throw new CodecError('The transfer ended early - it is incomplete or damaged.');
     }
-    if (readChecksum(payload) !== payloadChecksum(payload)) {
+    if (readChecksum(payload, checksumAt) !== payloadChecksum(payload, checksumAt)) {
       throw new CodecError(
         'The transfer is damaged: its checksum does not match the bytes that arrived, so nothing has been imported. Send it again.',
       );

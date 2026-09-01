@@ -60,6 +60,7 @@ import { characterRefs } from '../src/engine/holdings.ts';
 import { baseDataset } from '../src/store/dataset.ts';
 import {
   CODEC_VERSION,
+  NARROW_CODEC_VERSIONS,
   READABLE_CODEC_VERSIONS,
   decodeCharacter,
   encodeCharacter,
@@ -746,20 +747,36 @@ function registryWith(overrides: Record<string, number>, drop: string[] = []): R
 }
 
 describe('the wire', () => {
-  it('writes format 8, still reads 1, 2 and 4, and skips 3, 5, 6 and 7', () => {
-    expect(CODEC_VERSION).toBe(8);
-    expect([...READABLE_CODEC_VERSIONS]).toEqual([1, 2, 4, 8]);
+  it('keeps format 8 readable, and still skips 3, 5, 6 and 7', () => {
     /*
-     * The arithmetic that chose 8. The version is the low nibble of byte 0, so
-     * what matters is which formats a single bit flip can reach: from 5 that is
-     * 4 and 1, from 6 it is 4 and 2, and 1 carries no checksum of its own.
-     * `tests/adversarial.test.ts` is the file that goes red on a wrong choice.
+     * This read `expect(CODEC_VERSION).toBe(8)`, which is a claim about
+     * whatever this build writes rather than about the stances. The build
+     * writes 9 now, and 9's number does not live in the nibble at all - it is
+     * a whole byte behind the 0x0f escape, so `CODEC_VERSION ^ 1` is 8, a
+     * readable format, and the old loop below would have gone red for a reason
+     * that has nothing to do with a martial stance.
+     *
+     * What this file is entitled to pin is the format the stances shipped in:
+     * 8 is still readable, so a format-8 QR still decodes, and the four
+     * numbers that were skipped to get there are still skipped. The general
+     * property - twelve bits of version field, none of them flippable into
+     * something legal - is `tests/transfer/codec.test.ts`'s.
      */
-    const readable = new Set<number>(READABLE_CODEC_VERSIONS);
+    const nibble = new Set<number>(NARROW_CODEC_VERSIONS);
+    expect(nibble.has(8)).toBe(true);
+    /*
+     * The NARROW set and not the readable one, and the difference is the point.
+     * `8 ^ 1` is 9, which IS a readable format - but 9's number never appears
+     * in this nibble, so a format-8 payload whose low bit was knocked out does
+     * not become a format-9 payload; it becomes a nibble of 9, which the gate
+     * refuses because it consults the narrow set when there is no escape. Ask
+     * the readable set here and this test goes red for the wrong reason.
+     */
     for (const bit of [0, 1, 2, 3]) {
-      expect(readable.has(CODEC_VERSION ^ (1 << bit)), `flipping bit ${bit}`).toBe(false);
+      expect(nibble.has(8 ^ (1 << bit)), `flipping bit ${bit} of 8`).toBe(false);
     }
-    for (const skipped of [3, 5, 6, 7]) expect(readable.has(skipped), `${skipped}`).toBe(false);
+    for (const skipped of [3, 5, 6, 7]) expect(nibble.has(skipped), `${skipped}`).toBe(false);
+    expect(new Set<number>(READABLE_CODEC_VERSIONS).has(9)).toBe(true);
   });
 
   it('carries the stances and the Focus track, and back', async () => {
@@ -768,7 +785,9 @@ describe('the wire', () => {
       focus: { marked: 4, max: MAX_FOCUS },
     });
     const payload = await encodeCharacter(before, registry);
-    expect(payload[0]! & 0x0f).toBe(8);
+    // The escape, and the version behind it - the header this build writes.
+    expect(payload[0]! & 0x0f).toBe(0x0f);
+    expect(payload[1]).toBe(CODEC_VERSION);
     const { character, warnings } = await decodeCharacter(payload, registry);
     expect(character.stanceRefs).toEqual(['favored', 'reliable']);
     expect(character.focus).toEqual({ marked: 4, max: MAX_FOCUS });

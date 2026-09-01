@@ -11,7 +11,9 @@ import type { Character } from '../../shared/types.ts';
 import { stripComments } from '../harness/reachability.ts';
 import {
   CODEC_VERSION,
+  NARROW_CODEC_VERSIONS,
   READABLE_CODEC_VERSIONS,
+  WIDE_CODEC_VERSIONS,
   CodecError,
   UnknownSlugError,
   characterRefs,
@@ -50,15 +52,30 @@ const committed = (name: string): Uint8Array =>
     ),
   );
 
+/**
+ * The format a payload declares, read the way the format describes rather than
+ * asked of the code under test.
+ *
+ * A nibble of 0x0f is the escape that says the version is byte 1; anything else
+ * IS the version. Six lines, so that a test which checks where the checksum
+ * lives does not get its answer from the function that puts it there.
+ */
+const declaredFormat = (payload: Uint8Array): number =>
+  (payload[0]! & 0x0f) === 0x0f ? payload[1]! : payload[0]! & 0x0f;
+
+/** Where those four checksum bytes start: 1 behind a nibble, 2 behind the escape. */
+const checksumOffset = (payload: Uint8Array): number => ((payload[0]! & 0x0f) === 0x0f ? 2 : 1);
+
 const reseal = (payload: Uint8Array): Uint8Array => {
   const out = payload.slice();
+  const at = checksumOffset(out);
   const scratch = out.slice();
-  scratch.fill(0, 1, 5);
+  scratch.fill(0, at, at + 4);
   const sum = crc32(scratch);
-  out[1] = (sum >>> 24) & 0xff;
-  out[2] = (sum >>> 16) & 0xff;
-  out[3] = (sum >>> 8) & 0xff;
-  out[4] = sum & 0xff;
+  out[at] = (sum >>> 24) & 0xff;
+  out[at + 1] = (sum >>> 16) & 0xff;
+  out[at + 2] = (sum >>> 8) & 0xff;
+  out[at + 3] = sum & 0xff;
   return out;
 };
 
@@ -223,7 +240,7 @@ describe('size', () => {
   it('deflates only when deflating helps, and says which it did', async () => {
     const small = await encodeCharacter(wizard(), testRegistry);
     expect(isDeflated(small)).toBe(false);
-    expect(small[0]! & 0x0f).toBe(CODEC_VERSION);
+    expect(declaredFormat(small)).toBe(CODEC_VERSION);
 
     const chatty = wizard({ notes: 'The tower burned in the spring. '.repeat(20) });
     const big = await encodeCharacter(chatty, testRegistry);
@@ -565,20 +582,119 @@ describe('counter maxima', () => {
   });
 });
 
+/** Set bits, which is the whole of the parity argument the version numbers rest on. */
+const weight = (n: number): number => {
+  let bits = 0;
+  for (let v = n; v > 0; v >>>= 1) bits += v & 1;
+  return bits;
+};
+
 describe('the format number', () => {
   /*
-   * A nibble holds sixteen formats and two are spent. The point of writing that
-   * down here is that a version bump is a compatibility decision - a payload
-   * this build writes cannot be read by any build that shipped before it - and
-   * the place to be reminded of that is the file where the constant changes.
+   * A nibble held sixteen formats and the four that could be spent are spent.
+   * The point of writing that down here is that a version bump is a
+   * compatibility decision - a payload this build writes cannot be read by any
+   * build that shipped before it - and the place to be reminded of that is the
+   * file where the constant changes.
    */
   it('writes the newest format it knows and reads every one before it', async () => {
     expect(CODEC_VERSION).toBe(READABLE_CODEC_VERSIONS.at(-1));
     expect([...READABLE_CODEC_VERSIONS].sort((a, b) => a - b)).toEqual([
       ...READABLE_CODEC_VERSIONS,
     ]);
-    expect(CODEC_VERSION).toBeLessThanOrEqual(0x0f);
-    expect((await encodeCharacter(wizard(), testRegistry))[0]! & 0x0f).toBe(CODEC_VERSION);
+    // One list per header width, and the readable list is the two of them.
+    expect([...NARROW_CODEC_VERSIONS, ...WIDE_CODEC_VERSIONS]).toEqual([
+      ...READABLE_CODEC_VERSIONS,
+    ]);
+    for (const v of NARROW_CODEC_VERSIONS) expect(v, `narrow ${v}`).toBeLessThanOrEqual(0x0f);
+    for (const v of WIDE_CODEC_VERSIONS) expect(v, `wide ${v}`).toBeLessThanOrEqual(0xff);
+
+    const payload = await encodeCharacter(wizard(), testRegistry);
+    expect(declaredFormat(payload)).toBe(CODEC_VERSION);
+    // And what an 8-era build reads out of byte 0 is the escape, not the
+    // version - which is why its refusal names 15. See `favor.test.tsx`.
+    expect(payload[0]! & 0x0f).toBe(0x0f);
+  });
+
+  it('puts the checksum where the format says it is, so re-sealing changes nothing', async () => {
+    // `reseal` is written from the format's description and never asks the
+    // encoder where its own field went. That makes this the check that keeps
+    // `CHECKSUM_AT` and `BODY_AT` from drifting apart: if the encoder sealed at
+    // a different offset than the format documents, this would not be a no-op.
+    const payload = await encodeCharacter(loadedWizard(), testRegistry);
+    expect([...reseal(payload)]).toEqual([...payload]);
+    // Teeth: the same helper on a payload whose body really did change is NOT
+    // a no-op, so the equality above is a claim about the offset and not about
+    // `reseal` returning its argument.
+    const tampered = Uint8Array.from(payload, (b, i) => (i === payload.length - 1 ? b ^ 0x01 : b));
+    expect([...reseal(tampered)]).not.toEqual([...tampered]);
+  });
+
+  /**
+   * THE PROPERTY THE WIDER HEADER HAD TO RE-DERIVE, PINNED.
+   *
+   * The old one was "the version is a nibble and every single-bit flip of it
+   * lands on a format this build does not read". The version is no longer a
+   * nibble, so it is replaced by a parity that says the same thing about twelve
+   * bits instead of four - and by the measurement that shows the old docblock's
+   * "there is no fifth value" was wrong. `adversarial.test.ts` is what goes red
+   * on a real payload; this is what goes red on a badly chosen number.
+   */
+  it('keeps every legal version a single flip away from nothing legal', () => {
+    const narrow = new Set<number>(NARROW_CODEC_VERSIONS);
+    const wide = new Set<number>(WIDE_CODEC_VERSIONS);
+
+    // 1. Every narrow number is an odd-weight nibble. Two values of one parity
+    //    differ in an even number of bits, so this ALONE gives the distance-2
+    //    property that was found by hand four times over.
+    for (const v of narrow) expect(weight(v) % 2, `narrow ${v} weight`).toBe(1);
+    for (const v of narrow) {
+      for (const bit of [0, 1, 2, 3]) {
+        expect(narrow.has(v ^ (1 << bit)), `narrow ${v}, bit ${bit}`).toBe(false);
+      }
+    }
+
+    // 2. Every wide number is an even-weight byte, so one flip of the version
+    //    byte always changes the parity and leaves the set. Eight bits, all of
+    //    them, which is the half a nibble-shaped property would have missed.
+    for (const v of wide) expect(weight(v) % 2, `wide ${v} weight`).toBe(0);
+    for (const v of wide) {
+      for (let bit = 0; bit < 8; bit += 1) {
+        expect(wide.has(v ^ (1 << bit)), `wide ${v}, bit ${bit}`).toBe(false);
+      }
+    }
+    /*
+     * The hazard that makes the clause above load-bearing rather than tidy.
+     * 9 ^ 1 is 8 and 9 ^ 8 is 1: both flips of the version BYTE land on numbers
+     * that name a real layout, at a different offset, with a different body.
+     * What stops them is that the gate consults the wide set when the nibble is
+     * the escape, and neither is in it - so the assertion is not "those numbers
+     * are meaningless", it is "those numbers are meaningful and this gate still
+     * refuses them".
+     */
+    expect(narrow.has(9 ^ 1), 'a flip of the version byte really can spell 8').toBe(true);
+    expect(narrow.has(9 ^ 8), 'and 1, the format with no checksum').toBe(true);
+    expect(wide.has(9 ^ 1)).toBe(false);
+    expect(wide.has(9 ^ 8)).toBe(false);
+    // One version, one header width: the two sets never share a number.
+    for (const v of wide) expect(narrow.has(v), `${v} in both sets`).toBe(false);
+
+    // 3. The escape, and why it is 0x0f rather than a spare small number: it is
+    //    three bits from every readable narrow format, and the only nibble
+    //    value that is. So no single flip crosses between the two widths, and
+    //    reaching format 1 - the one with no checksum of its own - from a
+    //    payload this build writes takes three coordinated flips.
+    for (const v of narrow) expect(weight(0x0f ^ v), `escape vs ${v}`).toBe(3);
+
+    // 4. The correction, measured rather than argued. `CODEC_VERSION` used to
+    //    say 8 was "the last number in the nibble" with the distance-2
+    //    property. There were five more, and only one of them was any better
+    //    than the four already spent.
+    const spare = [...Array(16).keys()].filter(
+      (v) => !narrow.has(v) && [...narrow].every((r) => weight(v ^ r) >= 2),
+    );
+    expect(spare).toEqual([7, 11, 13, 14, 15]);
+    expect(spare.filter((v) => [...narrow].every((r) => weight(v ^ r) >= 3))).toEqual([0x0f]);
   });
 
   it('has no reader for a format that does not exist yet', async () => {
