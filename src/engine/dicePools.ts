@@ -23,21 +23,33 @@
  *     them at the moment of spending, which is right for Rally and Slayer and
  *     wrong for Prayer.
  *
+ * THE FOURTH IS THE ONE THE TRAY CAN ACTUALLY HOLD, and it is registered here
+ * anyway. A Warlock's Patron Die has no count, no cap and no face to keep
+ * between rolls: *"you can spend a Favor to call upon their aid, rolling your
+ * Patron Die and adding its result to the total"* - you pay, you roll, the
+ * number lands in the action roll and there is nothing left to store. So it
+ * goes to the tray rather than to `poolStore`, which is what `cost` below is
+ * for. The three questions the tray still cannot answer are the reason it is
+ * described here first: how BIG it is (a d6, a d8 from level 5), WHO has one
+ * (`Patron's Pact`, through a multiclass as well as through a class), and what
+ * it COSTS. A tray asked on its own would let any character arm a free d8.
+ *
  * NOTHING HERE READS A FEATURE'S TEXT, for the same reason `modifiers.ts` does
- * not: the register below is hand-authored against `data/srd-1.0.json`, keyed
+ * not: the register below is hand-authored against the shipped dataset, keyed
  * on the granting entity's ref and the feature's own name, and
  * `tests/engine/dicePools.test.ts` walks the dataset against it in both
  * directions. Which features a character actually HOLDS is not decided here
  * either - `characterFeatures` already answers that, including the
  * multiclass rule and which subclass cards were really taken - so a Wordsmith
- * who never took the mastery card does not get a d10.
+ * who never took the mastery card does not get a d10, and a Ranger who
+ * multiclassed into Warlock does get a Patron Die.
  */
 import type { DieSize } from './dice.ts';
 import { characterFeatures } from './features.ts';
-import type { Character, Ref } from '../../shared/types.ts';
+import { MAX_FAVOR, type Character, type Ref } from '../../shared/types.ts';
 import type { DatasetIndex, DerivedStats } from './character.ts';
 
-export type PoolId = 'rally' | 'prayer' | 'slayer';
+export type PoolId = 'rally' | 'prayer' | 'slayer' | 'patron';
 
 /**
  * When the die's number is decided.
@@ -67,6 +79,34 @@ export type RolledAt = 'grant' | 'spend';
  */
 export type Beneficiary = 'self' | 'either';
 
+/**
+ * What taking one die out of this pool costs, when the rules charge for it.
+ *
+ * `null` for the three pools you are simply given: a Rally Die is described
+ * into existence once a session, Prayer Dice arrive at the start of one, a
+ * Slayer Die is banked by declining a Hope you had already earned. Nothing on
+ * the sheet moves to get one, so nothing has to be written to hand one over.
+ *
+ * `'favor'` - the Warlock's Patron Die, and the reason this field exists.
+ * *"you can spend a Favor to call upon their aid, rolling your Patron Die and
+ * adding its result to the total."* The payment is not a step taken before the
+ * die arrives; it IS the die arriving. Two consequences, and both of them are
+ * why a priced pool is a different shape rather than a flag on the same one:
+ *
+ *   - it is never handed to `ui/player/poolStore.ts`. There is no interval in
+ *     which a player holds an unpaid Patron Die, so there is nothing for an
+ *     inventory to hold. It goes straight into the tray, armed, which is what
+ *     "adding its result to the total" means on this app's Duality Roll.
+ *   - the charge and the arming are ONE call, `heldDice.ts::arm`, whose
+ *     docblock says how the two half-done states - armed without paying, paid
+ *     without a die - were made unrepresentable rather than merely avoided.
+ *
+ * A union of one member because the book charges for exactly one pool. It
+ * names the track rather than being a boolean for the same reason `Spend.apply`
+ * names one: a screen that has to decrement something has to be told what.
+ */
+export type PoolCost = 'favor' | null;
+
 /** One thing the rules say a spent die may be used for. */
 export interface Spend {
   /** The button, when the app can apply it. Null when it can only be described. */
@@ -92,10 +132,12 @@ export interface DicePool {
    * sheet. `cap` still bounds it.
    */
   granted: number | null;
-  /** The most this pool may hold at once. */
+  /** The most this pool may put into play at once. */
   cap: number;
   rolledAt: RolledAt;
   beneficiary: Beneficiary;
+  /** What one die costs, and `null` when it is free. */
+  cost: PoolCost;
   /** Roll one extra and discard the lowest. Divine Wielder's `Devout`. */
   dropLowest: boolean;
   /** What the rules say a spent die may do. */
@@ -121,8 +163,28 @@ interface PoolSpec {
   id: PoolId;
   name: string;
   base: DieSize;
+  /**
+   * A size the pool grows to at a level, when the growth has no feature of its
+   * own for `UPGRADES` to key on.
+   *
+   * *"At level 5, your Rally Die increases to a d8"* is a sentence inside the
+   * Rally feature's own text, and *"Your Patron Die starts at a d6 and
+   * increases to a d8 at level 5"* is a sentence inside `Patron's Pact`'s.
+   * Neither book prints a second feature at level 5 for a register keyed on
+   * `<ref>:<feature name>` to find, so the level lives on the pool that grows.
+   *
+   * This was `RALLY_D8_AT`, a module constant read by an `id === 'rally'` test
+   * inside `poolsFor`. One pool with that shape is a special case; two is the
+   * point at which a branch per pool is the wrong answer. That the two levels
+   * agree at 5 is a coincidence of two class features and not one rule - the
+   * same argument `shared/types.ts` makes for keeping `MAX_FOCUS` and
+   * `MAX_FAVOR` as two sixes - so each pool still states its own.
+   */
+  growsTo?: { atLevel: number; sides: DieSize };
   rolledAt: RolledAt;
   beneficiary: Beneficiary;
+  /** Omitted for a pool you are given; see `PoolCost`. */
+  cost?: 'favor';
   spends: Spend[];
   clearGrantsHope?: true;
   /** How many the rules grant, from the sheet. Null means "you bank them". */
@@ -141,6 +203,7 @@ const POOLS: Record<string, PoolSpec> = {
     id: 'rally',
     name: 'Rally Die',
     base: 6,
+    growsTo: { atLevel: 5, sides: 8 },
     rolledAt: 'spend',
     beneficiary: 'self',
     spends: [
@@ -190,6 +253,58 @@ const POOLS: Record<string, PoolSpec> = {
     granted: () => null,
     cap: (stats) => stats.proficiency,
   },
+  /*
+   * THE KEY CARRIES A U+2019, not an ASCII apostrophe: the dataset prints
+   * `Patron’s Pact` and this map is matched against it character for character.
+   * `names only features the dataset still has, spelt the same way` is the test
+   * that catches a straight quote typed here, and it is worth knowing that it
+   * would fail on a difference nobody can see in a diff.
+   *
+   * The feature that OPENS this is `Patron's Pact` and not `Favor`. Favor is
+   * the currency - `src/engine/character.ts::grantsFavor` reads that one, by
+   * name, for the seed - and the die is a second sentence in a second feature.
+   * A Warlock has both; nothing else in the book has either.
+   */
+  'warlock:Patron’s Pact': {
+    id: 'patron',
+    name: 'Patron Die',
+    base: 6,
+    growsTo: { atLevel: 5, sides: 8 },
+    rolledAt: 'spend',
+    beneficiary: 'self',
+    cost: 'favor',
+    spends: [
+      {
+        apply: null,
+        text: 'Add its result to the total of the action roll you called it for.',
+      },
+    ],
+    /*
+     * Nothing is handed over and nothing is banked: every Patron Die is bought,
+     * one Favor at a time, at the moment of the roll. `null` is the Slayer's
+     * answer too and it means the same thing - how many you have had this
+     * session is a fact about the session, not a number on the sheet.
+     */
+    granted: () => null,
+    /*
+     * The most Favor there is, because the most Patron Dice you can have paid
+     * for is the most Favor you can be holding: *"The maximum Favor you can
+     * hold at one time is 6."* Read from `MAX_FAVOR` rather than written as a
+     * six, so the pool cannot outlive a printing that moves the ceiling.
+     *
+     * The book's own limit is tighter and is NOT this number - "before making
+     * an action roll... rolling your Patron Die" is one die for one roll. It is
+     * not enforced and it is not meant to be: the tray this die is armed into
+     * knows nothing about where a die came from, by design and by its own
+     * docblock, so "one Patron Die per action roll" is not a question it can be
+     * asked. The limit the app CAN hold a player to is the one it takes the
+     * payment for, and that is the Favor track - which is where the screen
+     * gates the control. Everything else in this file is the same bargain:
+     * `NOTHING HERE DECIDES A RULE`, it prints the sentence and does the
+     * arithmetic it owns.
+     */
+    cap: () => MAX_FAVOR,
+  },
 };
 
 /** A feature that changes a pool the character already has. */
@@ -218,16 +333,6 @@ const UPGRADES: Record<string, Upgrade> = {
 export const POOL_REGISTER = { pools: POOLS, upgrades: UPGRADES } as const;
 
 /**
- * The level at which a Rally Die becomes a d8.
- *
- * A number rather than a line in the register because it is the one upgrade in
- * the book that is not a feature: "At level 5, your Rally Die increases to a
- * d8" is in the Rally feature's own text, so there is no second feature for the
- * register to key on.
- */
-const RALLY_D8_AT = 5;
-
-/**
  * Every pool this character actually has, with its numbers worked out.
  *
  * Returns an empty array for the great majority of characters, and the screen
@@ -250,9 +355,18 @@ export function poolsFor(c: Character, ix: DatasetIndex, stats: DerivedStats): D
       if (up.sides !== undefined) sides = up.sides;
       if (up.dropLowest === true) dropLowest = true;
     }
-    // The one upgrade written into the granting feature's own text rather than
-    // into a feature of its own.
-    if (spec.id === 'rally' && sides === spec.base && c.level >= RALLY_D8_AT) sides = 8;
+    /*
+     * The growth written into the granting feature's own text rather than into
+     * a feature of its own - a Rally Die's d8 at 5, a Patron Die's d8 at 5.
+     *
+     * `sides === spec.base` is load-bearing and is not a tidiness guard: it
+     * runs AFTER `UPGRADES`, so without it a level-10 Wordsmith holding
+     * `Epic Poetry` would have their d10 walked back down to a d8. A feature
+     * the player spent a mastery slot on outranks a sentence about levels.
+     */
+    if (spec.growsTo !== undefined && sides === spec.base && c.level >= spec.growsTo.atLevel) {
+      sides = spec.growsTo.sides;
+    }
 
     out.push({
       id: spec.id,
@@ -264,6 +378,7 @@ export function poolsFor(c: Character, ix: DatasetIndex, stats: DerivedStats): D
       cap: Math.max(0, spec.cap(stats)),
       rolledAt: spec.rolledAt,
       beneficiary: spec.beneficiary,
+      cost: spec.cost ?? null,
       dropLowest,
       spends: spec.spends,
       clearGrantsHope: spec.clearGrantsHope === true,
