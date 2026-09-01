@@ -142,9 +142,18 @@ function Harness({ start, klass }: { start: Partial<Draft>; klass: CharClass }):
   });
 }
 
+/**
+ * A fresh key every time, so a second `mount` in one test really is a second
+ * character and not the first one's `useState` surviving the re-render. That
+ * cost half an hour once: two mounts, one draft, and an assertion about the
+ * SECOND that was reading the first.
+ */
+let mounts = 0;
+
 function mount(start: Partial<Draft>, klass: CharClass = PLAIN): void {
+  mounts += 1;
   act(() => {
-    root.render(createElement(Harness, { start, klass }));
+    root.render(createElement(Harness, { start, klass, key: String(mounts) }));
   });
 }
 
@@ -153,13 +162,14 @@ function mount(start: Partial<Draft>, klass: CharClass = PLAIN): void {
  * compared rather than each trusted on its own.
  */
 function mountSheet(
-  held: { primary: Ref | null; secondary: Ref | null },
+  held: { primary: Ref | null; secondary: Ref | null; armor?: Ref | null },
   klass: CharClass = PLAIN,
 ): void {
   const character: Character = makeCharacter({
     classRef: klass.id,
     activePrimaryWeapon: held.primary,
     activeSecondaryWeapon: held.secondary,
+    activeArmor: held.armor ?? null,
   });
   useApp.setState({ characters: [character], activeId: character.id });
   act(() => {
@@ -188,6 +198,26 @@ function slot(label: string): HTMLButtonElement {
   expect(found, `the ${label} slot draws no button`).not.toBeNull();
   return found as HTMLButtonElement;
 }
+
+/** The live region under a slot, mounted whether or not it has anything in it. */
+function noteRegion(label: string): HTMLElement {
+  const heading = [...container.querySelectorAll('span')].find(
+    (s) => (s.textContent ?? '').trim() === label,
+  );
+  expect(heading, `no slot labelled ${label}`).toBeDefined();
+  const found = [...heading!.parentElement!.children].find(
+    (el) => el.getAttribute('role') === 'status',
+  );
+  expect(found, `the ${label} slot draws no live region`).toBeDefined();
+  return found as HTMLElement;
+}
+
+/** Every ✕ on the screen, by the slot it clears. */
+const clears = (): string[] =>
+  buttons()
+    .map((b) => b.getAttribute('aria-label') ?? '')
+    .filter((l) => l.startsWith('Clear '))
+    .sort();
 
 /**
  * The line under a slot: whatever `GearSlot` prints beneath the row, and
@@ -432,5 +462,83 @@ describe('a weapon in the hand the book did not file it under', () => {
       'SMALL DAGGER AND GREATSWORD ARE 3 HANDS — YOUR MAXIMUM BURDEN IS 2 · ' +
         'THE BOOK LISTS GREATSWORD AS A PRIMARY WEAPON',
     );
+  });
+});
+
+describe('putting something down, and being able to see that you can', () => {
+  it('offers a ✕ on all three wizard slots, as the sheet always has', () => {
+    /*
+     * The capability was never missing - `WeaponPicker` draws `Unequip` and
+     * `ArmorPicker` draws `Unarmored`, both calling `onPick(null)`, and the
+     * wizard's `onPick` has always taken a null. What was missing is that the
+     * way out was inside the room you were trying to leave, on two of three
+     * slots, while the third one and all three on the sheet showed a ✕.
+     */
+    mount({ primary: 'greatsword', secondary: 'small-dagger', armor: 'gambeson' });
+    expect(clears()).toEqual(['Clear Armor', 'Clear Primary weapon', 'Clear Secondary weapon']);
+
+    mountSheet({ primary: 'greatsword', secondary: 'small-dagger', armor: 'gambeson' });
+    expect(clears()).toEqual(['Clear Armor', 'Clear Primary weapon', 'Clear Secondary weapon']);
+  });
+
+  it('empties the slot it names, and no other', () => {
+    mount({ primary: 'greatsword', secondary: 'small-dagger', armor: 'gambeson' });
+    const clear = (label: string): void =>
+      press(buttons().find((b) => b.getAttribute('aria-label') === `Clear ${label}`));
+
+    clear('Primary weapon');
+    expect(draft).toMatchObject({ primary: null, secondary: 'small-dagger', armor: 'gambeson' });
+    clear('Armor');
+    expect(draft).toMatchObject({ primary: null, secondary: 'small-dagger', armor: null });
+    clear('Secondary weapon');
+    expect(draft).toMatchObject({ primary: null, secondary: null, armor: null });
+  });
+
+  it('draws no ✕ over a slot that is already empty', () => {
+    // There is nothing to clear, and a control that would do nothing is worse
+    // than none: it is a second thing to try before believing the slot.
+    mount({});
+    expect(clears()).toEqual([]);
+  });
+
+  it('clears one slot at a 44px target', () => {
+    mount({ primary: 'greatsword' });
+    const x = buttons().find((b) => b.getAttribute('aria-label') === 'Clear Primary weapon')!;
+    // jsdom lays nothing out, so this is the DECLARATION the layout engine acts
+    // on. `var(--tap)` is the 44px floor this project holds every control to.
+    expect(x.style.minWidth).toBe('var(--tap)');
+  });
+});
+
+describe('the sentence under a slot, spoken as well as printed', () => {
+  it('is a live region on every slot, mounted before it has anything to say', () => {
+    /*
+     * Two inline warnings in this same creation flow are already
+     * `role="status"`; this one was a bare `<span>`, so the line that changes
+     * when the OTHER hand is filled reached a screen reader as nothing at all.
+     * Mounted empty rather than conditionally, because a live region has to
+     * exist before its contents change for the change to be spoken -
+     * `NameRefusal` writes that rule down.
+     */
+    mount({});
+    for (const label of ['Primary weapon', 'Secondary weapon', 'Armor']) {
+      expect(noteRegion(label).textContent).toBe('');
+    }
+  });
+
+  it('costs nothing while it is empty', () => {
+    /*
+     * The reason `NameRefusal` carries its own margin instead of sitting under
+     * a `gap`: an always-mounted region under a 6px gap would charge every slot
+     * on both screens 6px permanently, for the empty case that is almost every
+     * slot almost always.
+     */
+    mount({ primary: 'longsword' });
+    const region = noteRegion('Primary weapon');
+    expect(region.style.marginTop).toBe('0px');
+    expect(region.parentElement!.style.gap, 'a gap would charge the empty case').toBe('');
+
+    mount({ primary: 'small-dagger' });
+    expect(noteRegion('Primary weapon').style.marginTop).toBe('6px');
   });
 });

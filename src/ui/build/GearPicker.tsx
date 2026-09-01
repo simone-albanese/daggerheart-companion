@@ -1656,10 +1656,29 @@ export function GearSlot({
     lost !== null
       ? '1px dashed var(--edge)'
       : `1px solid ${title === null ? 'var(--line-soft)' : 'var(--line)'}`;
+  /*
+   * The note, ready to be spoken.
+   *
+   * It is the only part of this slot that changes without anybody touching the
+   * slot: a two-handed weapon arriving in the OTHER hand rewrites this line,
+   * and so does a level-up. Two inline warnings in the same creation flow are
+   * already `role="status"` for exactly that - `Wizard.tsx`'s blocking reason
+   * and its refused write - and this one was a bare `<span>`, so a screen
+   * reader was told nothing at all.
+   *
+   * Mounted whether or not there is anything in it, because a live region has
+   * to exist before its contents change for the change to be spoken;
+   * `NameRefusal` writes that rule down and this follows it, including the
+   * trick that makes it free. The stack below carries no `gap` - an empty
+   * region under one would cost every slot on both screens 6px permanently -
+   * so the two gaps are margins on the elements that want them, and the note's
+   * is zero until it has something to say.
+   */
+  const said = (note ?? '').toUpperCase();
   return (
-    <div className="stack" style={{ gap: 6 }}>
+    <div className="stack">
       <span className="t-label">{label}</span>
-      <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
+      <div className="row" style={{ gap: 8, alignItems: 'stretch', marginTop: 6 }}>
         <button
           type="button"
           onClick={onOpen}
@@ -1733,11 +1752,13 @@ export function GearSlot({
           </button>
         )}
       </div>
-      {(note ?? '') !== '' && (
-        <span className="t-meta" style={{ color: 'var(--stress)' }}>
-          {(note ?? '').toUpperCase()}
-        </span>
-      )}
+      <span
+        className="t-meta"
+        role="status"
+        style={{ color: 'var(--stress)', marginTop: said === '' ? 0 : 6 }}
+      >
+        {said}
+      </span>
     </div>
   );
 }

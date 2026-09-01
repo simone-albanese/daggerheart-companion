@@ -1375,6 +1375,18 @@ export function StepEquipment({
             })}
             empty={`Search ${dataset.weapons.length} weapons`}
             onOpen={() => setOpen('primary')}
+            /*
+             * PUTTING SOMETHING DOWN, WITHOUT OPENING THE DIALOG TO DO IT.
+             *
+             * The capability was never missing: `WeaponPicker` draws an
+             * `Unequip` button and `ArmorPicker` an `Unarmored`, both of which
+             * call `onPick(null)`, and this `set` has always taken it. What was
+             * missing is that you had to know the way out was inside the room
+             * you were trying to leave - and the off-hand slot beside this one,
+             * and all three slots on the sheet, have shown a ✕ the whole time.
+             * So this is discoverability and parity, not a new power.
+             */
+            onClear={() => set({ primary: null })}
           />
           <GearSlot
             label="Secondary weapon"
@@ -1408,6 +1420,7 @@ export function StepEquipment({
             note={armor && tierNote(armor.tier, sheet.level)}
             empty={`Search ${dataset.armors.length} sets of armor`}
             onOpen={() => setOpen('armor')}
+            onClear={() => set({ armor: null })}
           />
         </div>
       </Section>
