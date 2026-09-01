@@ -6,18 +6,23 @@
  * measurement that claim rests on, because two of its three parts are wrong and
  * the wrongness is only visible with the numbers in front of you:
  *
- * - 839 of 849 is EXACTLY right, and reproduced here.
+ * - 839 of 849 was EXACTLY right for the dataset that document was written
+ *   against, and the ratio is unchanged: it is 847 of 857 here, because
+ *   `shared/parsers/rules.ts` grew an island for the equipment chapter and SRD
+ *   1.0 gained eight rules sections. The MISSES are the same ten, name for
+ *   name - all eight new titles are printed in both books - so the eight are
+ *   the whole of the difference and nothing about the finding moved.
  * - The absences are 8 weapons and 2 rules titles, not 9 and 2. Nine plus two
- *   is eleven, and 849 - 11 is 838.
+ *   is eleven, and 857 - 11 is 846.
  * - Neither "renamed" rules section was renamed by the book. Both titles are
  *   editorial, minted in `shared/parsers/rules.ts`, and the control test below
  *   is what proves it: they are missing from SRD 1's OWN text too. A name that
  *   its own book does not print cannot have been renamed by the other one.
  *
- * The control is the load-bearing idea here. Searching a book for 849 strings
+ * The control is the load-bearing idea here. Searching a book for 857 strings
  * always returns some number; only running the same search against the book the
  * strings came from tells you which misses are the book's and which are the
- * harness's. SRD 1 scores 847, so exactly 2 of SRD 2's 10 misses are ours.
+ * harness's. SRD 1 scores 855, so exactly 2 of SRD 2's 10 misses are ours.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -62,8 +67,8 @@ const norm = (s: string): string =>
  * the cells of neighbouring columns, so "Improved Halberd" is never adjacent
  * text on any line. `page.runs` keeps the extractor's order, in which the row
  * reads straight through - "improved halberd strength very close d10+5 phy".
- * Measured: lines alone refind 815 of 849 in SRD 2 and only 758 in SRD 1;
- * adding the runs takes those to 839 and 847.
+ * Measured: lines alone refind 823 of 857 in SRD 2 and only 766 in SRD 1;
+ * adding the runs takes those to 847 and 855.
  */
 const haystack = (pages: BookPage[]): string => {
   const parts: string[] = [];
@@ -92,10 +97,14 @@ const missesIn = (hay: string, names: Named[], f: (s: string) => string = norm):
 const have = (i: number): boolean => BOOKS[i]!.localPaths.some((p) => existsSync(p));
 
 describe('the SRD 1 name list', () => {
-  it('is 849 records and 849 distinct names', () => {
+  it('is 857 records and 857 distinct names', () => {
     const names = namesOf();
-    expect(names.length).toBe(849);
-    expect(new Set(names.map((n) => n.name)).size).toBe(849);
+    // 849 until the equipment chapter's island gave SRD 1.0 eight more rules
+    // sections. The count outside `rules` is the half that did NOT move, and it
+    // is asserted separately so that a chapter of prose can never be mistaken
+    // for a record appearing in a collection.
+    expect(names.length).toBe(857);
+    expect(new Set(names.map((n) => n.name)).size).toBe(857);
     // 780 is the figure an earlier document used; it is this one minus `rules`.
     expect(names.filter((n) => n.coll !== 'rules').length).toBe(780);
   });
@@ -112,16 +121,16 @@ describe.skipIf(!(have(0) && have(1)))('SRD 1 names, looked for in both books', 
     two = (await loadSrd({ pdfPath: BOOKS[1]!.localPaths.find(existsSync)! })).pages;
   });
 
-  it('CONTROL: SRD 1 refinds 847 of its own 849, and the 2 it misses are titles the parser invented', () => {
+  it('CONTROL: SRD 1 refinds 855 of its own 857, and the 2 it misses are titles the parser invented', () => {
     const misses = missesIn(haystack(one), names);
     expect(misses).toEqual([
       'rules/Companion: Taking Damage as Stress',
       'rules/Making GM Moves',
     ]);
-    expect(names.length - misses.length).toBe(847);
+    expect(names.length - misses.length).toBe(855);
   });
 
-  it('refinds 839 of 849 in SRD 2, missing 8 weapons and the same 2 invented titles', () => {
+  it('refinds 847 of 857 in SRD 2, missing 8 weapons and the same 2 invented titles', () => {
     const misses = missesIn(haystack(two), names);
     expect(misses).toEqual([
       'weapons/Axe of Fortunis',
@@ -135,7 +144,7 @@ describe.skipIf(!(have(0) && have(1)))('SRD 1 names, looked for in both books', 
       'rules/Companion: Taking Damage as Stress',
       'rules/Making GM Moves',
     ]);
-    expect(names.length - misses.length).toBe(839);
+    expect(names.length - misses.length).toBe(847);
     expect(misses.filter((m) => m.startsWith('weapons/')).length).toBe(8);
   });
 
@@ -151,7 +160,7 @@ describe.skipIf(!(have(0) && have(1)))('SRD 1 names, looked for in both books', 
         .trim();
     const before = missesIn(haystack(two), names, noDash);
     const after = missesIn(haystack(two), names);
-    expect(names.length - before.length).toBe(830);
+    expect(names.length - before.length).toBe(838);
     expect(before.filter((m) => !after.includes(m)).sort()).toEqual([
       'domainCards/Arcana-Touched',
       'domainCards/Blade-Touched',
@@ -168,7 +177,7 @@ describe.skipIf(!(have(0) && have(1)))('SRD 1 names, looked for in both books', 
   it('the runs stream is load-bearing: the lines alone lose 24 weapons in SRD 2 and 89 in SRD 1', () => {
     const linesOnly = (pages: BookPage[]): string =>
       pages.map((p) => p.lines.map((l) => l.text).join('\n')).join('\n');
-    expect(names.length - missesIn(linesOnly(two), names).length).toBe(815);
-    expect(names.length - missesIn(linesOnly(one), names).length).toBe(758);
+    expect(names.length - missesIn(linesOnly(two), names).length).toBe(823);
+    expect(names.length - missesIn(linesOnly(one), names).length).toBe(766);
   });
 });

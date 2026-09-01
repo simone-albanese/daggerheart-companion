@@ -113,7 +113,10 @@ const SHAPE: Record<SrdChapter, number> = {
   'character-creation': 1,
   // 5 + the five Martial Stances sections SRD 2.0 prints on folio 13.
   'core-materials': 10,
-  'core-mechanics': 24,
+  // 24 + the eight the equipment chapter's island reads off folios 55-83. They
+  // land here and not in a chapter of their own because `EQUIPMENT` is 20pt:
+  // the recomputation above is what says so, and it says it every run.
+  'core-mechanics': 32,
   'running-an-adventure': 35,
 };
 

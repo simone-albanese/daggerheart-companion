@@ -643,10 +643,18 @@ describe('ruleSection', () => {
     });
     // 35 before folio 13: `stances` and `shifting-into-stances` each set two
     // paragraphs the book draws as bullets. Neither adds a table.
-    expect(shapes.filter((s) => s.list).length).toBe(37);
+    //
+    // 37 before the equipment chapter. Four of its eight carry a list -
+    // `combat-wheelchair`'s two sets of quoted descriptions, `armor`'s three
+    // bullets about base score and thresholds, and the four rarity bullets in
+    // each of `loot` and `consumables`. NONE of the eight carries a table, and
+    // that is the assertion worth reading twice: every table on those 29 folios
+    // is set at 8pt and belongs to `weapons`, `armors`, `loot` or `consumables`
+    // as records, so `tables` below stays at 12.
+    expect(shapes.filter((s) => s.list).length).toBe(41);
     expect(shapes.filter((s) => s.table).length).toBe(7);
     expect(shapes.filter((s) => s.list && s.table).length).toBe(3);
-    expect(shapes.filter((s) => s.list || s.table).length).toBe(41); // 37 + 7 - 3
+    expect(shapes.filter((s) => s.list || s.table).length).toBe(45); // 41 + 7 - 3
     expect(rules.flatMap((rule) => tables(rule.id))).toHaveLength(12);
 
     /*
@@ -664,12 +672,15 @@ describe('ruleSection', () => {
      * It has now done it twice: folio 13's Martial Stances rules took the
      * dataset 69 -> 74 and this line 65 -> 67, two list parts from `stances`
      * and `shifting-into-stances`.
+     *
+     * Three times: the equipment chapter took it 74 -> 82 and this line
+     * 67 -> 74, seven list parts across four of the eight new sections.
      */
     const bullets = rules
       .flatMap((rule) => ruleSection(rules, rule.id)?.blocks ?? [])
       .flatMap((block) => block.parts)
       .filter((part) => part.kind === 'list');
-    expect(bullets).toHaveLength(67);
+    expect(bullets).toHaveLength(74);
   });
 
   it('answers null for a section this dataset does not carry', () => {

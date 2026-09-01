@@ -1,7 +1,7 @@
 /**
  * Which chapter of the book each rules section is printed in.
  *
- * ## A second membership of the same sixty-nine
+ * ## A second membership of the same eighty-two
  *
  * `moments.ts` maps the sections onto *when a GM reaches for them*. This maps
  * them onto *where the book put them*, which is a different question with a
@@ -31,7 +31,7 @@
  * | 119 | APPENDIX |
  *
  * Nothing else in the book is set above 20pt. `CONTENTS` and `APPENDIX` hold
- * no rules section, so the five below are every chapter the sixty-nine fall
+ * no rules section, so the five below are every chapter the eighty-two fall
  * into, and a section's chapter is the last opener at or before its
  * `sourcePage`. The table is generated from that rule and then frozen here;
  * `tests/ui/chapters.test.ts` recomputes it on every run from the five folios,
@@ -107,10 +107,10 @@
  * collections, and `moments.ts` is keyed on the book's own slugs.
  *
  * Four of the five headings below are **already** typed in this repository, as
- * `start:` strings in `shared/parsers/rules.ts`, beside all sixty-nine section
+ * `start:` strings in `shared/parsers/rules.ts`, beside all eighty-two section
  * titles it also types by hand. This module adds exactly one heading the repo
  * did not already carry - `CORE MATERIALS`, fourteen characters. Five headings,
- * seventy-eight characters, **zero sentences**, against the 100,165 characters
+ * seventy-eight characters, **zero sentences**, against the 113,840 characters
  * of section prose that live only in `data/`.
  *
  * The `AskEntry.at.part` precedent is the real objection and it is answered
@@ -135,14 +135,21 @@
  *
  * ## Two counts a reader will take for bugs, and they are the book's
  *
+ * Measured on the SHIPPED dataset, `data/srd-2.0.json`, 82 sections and 113,840
+ * characters of body. The figures this section used to give - 10,879 / 10.9%,
+ * and 35 rows against 24 - were SRD 1.0's, and were already a book out of date
+ * before the equipment chapter was read; these are re-measured, not adjusted.
+ *
  * - **CHARACTER CREATION opens onto a single row - and that row is the longest
- *   section in the SRD.** `character-creation` is 10,879 characters, 10.9% of
+ *   section in the SRD.** `character-creation` is 11,021 characters, 9.7% of
  *   the whole corpus. Its body runs folios 4-6; everything else on those folios
  *   is the ten creation steps, which this app models as the Build wizard rather
  *   than as prose. A count is not a weight, and this is the row that proves it.
- * - **RUNNING AN ADVENTURE is 35 rows against CORE MECHANICS' 24, but only
- *   41.3% of the prose against 38.0%.** The two big chapters are near-equal by
- *   weight. The 35 is the book's shape, not a lopsidedness the index introduced.
+ * - **RUNNING AN ADVENTURE is 35 rows against CORE MECHANICS' 32, and the
+ *   smaller half by weight: 37.1% of the prose against 43.0%.** It was the
+ *   heavier half until the equipment chapter arrived, which put eight rows and
+ *   9,800 characters into CORE MECHANICS and none anywhere else. Both numbers
+ *   are the book's shape, not a lopsidedness the index introduced.
  *
  * ## One hazard, and it is in the DOM rather than in the data
  *
@@ -185,7 +192,7 @@ export const CHAPTER_LABELS: Record<SrdChapter, string> = {
 };
 
 /**
- * All sixty-nine, and every one of them in exactly one chapter.
+ * All eighty-two, and every one of them in exactly one chapter.
  *
  * **There is no exclusion list and none is possible**, which is the difference
  * from `SECTION_MOMENTS`. Eight sections belong to no moment, because a moment
@@ -245,12 +252,31 @@ export const SECTION_CHAPTER: Readonly<Record<Ref, SrdChapter>> = {
   'additional-rules': 'core-mechanics',
   'leveling-up': 'core-mechanics',
   multiclassing: 'core-mechanics',
+  /*
+   * Folios 44-61 / 55-83: the equipment chapter, eight rows, and every one of
+   * them DERIVED rather than chosen. `EQUIPMENT` is 20pt, a sibling of `GOLD`
+   * and of `FLOW OF THE GAME`, and the last 28pt opener at or before folio 44
+   * is CORE MECHANICS - so there is no Equipment chapter for these to go in,
+   * and the recomputation in `chapters.test.ts` is what says so on every run.
+   *
+   * These eight were unreachable prose until `shared/parsers/rules.ts` grew an
+   * island for the chapter: the island above it stopped at `Equipment` and the
+   * one below started at `GOLD`, so the folios between fell through. Their
+   * TABLES were never in this stream and still are not - the weapon, armor,
+   * loot and consumable rows are the dataset's own collections and have their
+   * own four blocks in the index. What arrived is the chapter's prose.
+   */
+  equipment: 'core-mechanics',
+  weapons: 'core-mechanics',
+  'primary-weapon-tables': 'core-mechanics',
+  'secondary-weapon-tables': 'core-mechanics',
+  'combat-wheelchair': 'core-mechanics',
+  armor: 'core-mechanics',
+  loot: 'core-mechanics',
+  consumables: 'core-mechanics',
   // Folio 62. `GOLD` is 20pt, a sibling of `EQUIPMENT` on folio 44, and the
   // next 28pt opener is RUNNING AN ADVENTURE on folio 63 - so there is no
-  // Equipment chapter to put it in. Equipment is itself only a subhead of CORE
-  // MECHANICS, which is why `RANGES` skips folios 44-61: those are the weapon,
-  // armor, loot and consumable tables the dataset models as collections, and
-  // they have their own four blocks in the index.
+  // Equipment chapter to put it in either.
   gold: 'core-mechanics',
 
   // RUNNING AN ADVENTURE — folio 63
