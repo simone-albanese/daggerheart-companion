@@ -188,6 +188,24 @@ const armors = dataset.armors;
  * count below is against that, because that is what the dialog is showing.
  */
 const primaries = weapons.filter((w) => w.slot === 'primary');
+/**
+ * The tier the fixture has reached, and what the draw is now measured against.
+ *
+ * RANDOM draws from the rows on screen THAT THIS CHARACTER CAN EQUIP, which is
+ * a narrower set than the rows on screen and used not to be. The old pool was
+ * every row, under a comment saying that skipping out-of-reach gear would be
+ * hiding it; that held while a tap could equip it and inverts now that a tap
+ * cannot - the button's promise is that it will equip what it lands on, so its
+ * pool has to be the pool a tap has. `src/ui/build/GearPicker.tsx` carries the
+ * argument; `tests/ui/gear.test.ts` carries the sentence out of the book.
+ *
+ * Written as a number rather than imported so the counts below are not the
+ * implementation agreeing with itself, and pinned to the fixture's level by
+ * the first assertion in `what it draws`.
+ */
+const FIXTURE_TIER = 2;
+const takeable = <T extends { tier: Tier }>(rows: readonly T[]): T[] =>
+  rows.filter((r) => r.tier <= FIXTURE_TIER);
 const tierOfWeapon = (ref: Ref | null): Tier | undefined =>
   weapons.find((w) => w.id === ref)?.tier;
 const tierOfArmor = (ref: Ref | null): Tier | undefined => armors.find((a) => a.id === ref)?.tier;
@@ -256,32 +274,39 @@ describe('which pickers offer it', () => {
    * screen reader is read the label and never the neighbour, so the label has
    * to carry both facts on its own.
    *
+   * IT SAYS "YOU CAN EQUIP" AND NOT "SHOWING", and that word is the whole of
+   * the honesty here. The count beside the button is the rows on screen; the
+   * draw is the subset of them this character may equip, and on a level 3
+   * fixture those two numbers are 291 and 147. A label that said "from the 291
+   * showing" would now be naming a pool the button does not have.
+   *
    * THE KILLING MUTATION: `label="Equip a random weapon"` - the sentence
    * without the tier and the size of the draw, which is what the button would
    * say if it were named after itself rather than after what it is about to
-   * do. Dropping `tierPhrase` from `gear.ts` fails it the same way.
+   * do. Dropping `tierPhrase` from `gear.ts` fails it the same way, and so
+   * does putting `rows.length` back in place of the drawable count.
    */
-  it('says which tiers and how many, for a reader that cannot see the count', () => {
+  it('says which tiers and how many it may equip, for a reader that cannot see the count', () => {
     mount('weapons');
     expect(randomButton()!.getAttribute('aria-label'), 'unfiltered').toBe(
-      `Equip a random weapon of any tier, from the ${String(primaries.length)} showing`,
+      `Equip a random weapon of any tier, from the ${String(takeable(primaries).length)} you can equip`,
     );
 
-    click(chip('TIER 3'));
-    const three = primaries.filter((w) => w.tier === 3).length;
+    click(chip('TIER 2'));
+    const two = primaries.filter((w) => w.tier === 2).length;
     expect(randomButton()!.getAttribute('aria-label'), 'one chip lit').toBe(
-      `Equip a random weapon of tier 3, from the ${String(three)} showing`,
+      `Equip a random weapon of tier 2, from the ${String(two)} you can equip`,
     );
 
     click(chip('TIER 1'));
-    const both = primaries.filter((w) => w.tier === 1 || w.tier === 3).length;
+    const both = primaries.filter((w) => w.tier === 1 || w.tier === 2).length;
     expect(randomButton()!.getAttribute('aria-label'), 'two chips lit, said in order').toBe(
-      `Equip a random weapon of tiers 1, 3, from the ${String(both)} showing`,
+      `Equip a random weapon of tiers 1, 2, from the ${String(both)} you can equip`,
     );
 
     mount('armor');
     expect(randomButton()!.getAttribute('aria-label'), 'the armor picker names its own verb').toBe(
-      `Wear a random set of armor of any tier, from the ${String(armors.length)} showing`,
+      `Wear a random set of armor of any tier, from the ${String(takeable(armors).length)} you can equip`,
     );
   });
 
@@ -301,6 +326,20 @@ describe('what it draws', () => {
    * only place in the suite that would notice - the engine test proves the
    * function is reproducible, not that the dialog is wired to it.
    */
+  it('is standing on a level 3 fixture, which has reached tier 2', () => {
+    /*
+     * The premise every count in this file now rests on. `playedCharacter()`
+     * is levelled on purpose - the empty sheet exercises nothing - and the
+     * level is what decides which rows RANDOM may land on. If the fixture ever
+     * moves to level 8, `FIXTURE_TIER` moves with it or every assertion below
+     * quietly stops testing the narrowing.
+     */
+    expect(playedCharacter().level).toBe(3);
+    expect(FIXTURE_TIER).toBe(2);
+    expect(takeable(primaries).length).toBeLessThan(primaries.length);
+    expect(takeable(armors).length).toBeLessThan(armors.length);
+  });
+
   it('equips the same thing twice for the same seed', () => {
     mount('weapons', seededRng(20250909));
     click(randomButton()!);
@@ -328,9 +367,16 @@ describe('what it draws', () => {
    * is the assertion that sees it.
    */
   it('stays inside the tier the chips asked for', () => {
+    /*
+     * TIER 2 on both, where the weapon half used to lift TIER 3. The chip is
+     * not the subject of this test - the pool being the filtered rows is - and
+     * TIER 3 is now an empty draw on a level 3 fixture, which would prove the
+     * narrowing rather than the composition. The empty case has its own test
+     * below; this one needs a chip with something behind it.
+     */
     for (const s of [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]) {
       mount('weapons', seededRng(s));
-      click(chip('TIER 3'));
+      click(chip('TIER 2'));
       click(randomButton()!);
 
       mount('armor', seededRng(s));
@@ -340,12 +386,51 @@ describe('what it draws', () => {
 
     const drawn = picked.filter((_, i) => i % 2 === 0);
     const worn = picked.filter((_, i) => i % 2 === 1);
-    expect(drawn.map(tierOfWeapon), 'a weapon came back from outside TIER 3').toEqual(
-      drawn.map(() => 3),
+    expect(drawn.map(tierOfWeapon), 'a weapon came back from outside TIER 2').toEqual(
+      drawn.map(() => 2),
     );
     expect(worn.map(tierOfArmor), 'armor came back from outside TIER 2').toEqual(
       worn.map(() => 2),
     );
+  });
+
+  /**
+   * The second door, shut.
+   *
+   * A tap on a tier 4 row does nothing on a level 3 sheet - the book says
+   * *"You can't equip weapons or armor with a higher tier than you."* - and
+   * this is the control one column to the left of it that would otherwise have
+   * equipped the same row with dice in front of it. Both pickers, because both
+   * have the button.
+   *
+   * THE KILLING MUTATION: `randomGear(rows.map((r) => r.item), ...)` in either
+   * picker - the pool it had before - which re-arms the button and lands a
+   * tier 4 weapon on a level 3 character on the first seed.
+   */
+  it('will not draw what a tap cannot equip, on either picker', () => {
+    for (const [name, chipLabel] of [
+      ['weapons', 'TIER 4'],
+      ['armor', 'TIER 4'],
+    ] as const) {
+      mount(name, seededRng(7));
+      click(chip(chipLabel));
+      const button = randomButton()!;
+      expect(button.disabled, `${name}: RANDOM is live over a pool it may not draw`).toBe(true);
+      expect(button.getAttribute('aria-label'), `${name}: the label counts the wrong pool`).toContain(
+        'from the 0 you can equip',
+      );
+      click(button);
+    }
+    expect(picked, 'RANDOM equipped gear above the character’s tier').toEqual([]);
+
+    // The control, on the same two pickers with a tier they have reached: the
+    // button is not simply dead.
+    for (const name of ['weapons', 'armor']) {
+      mount(name, seededRng(7));
+      click(chip('TIER 2'));
+      click(randomButton()!);
+    }
+    expect(picked.length, 'the tier the character does have drew nothing either').toBe(2);
   });
 
   /**

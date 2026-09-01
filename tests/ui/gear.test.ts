@@ -19,11 +19,21 @@
  * says when it opens up. These tests hold that line item by item and level by
  * level: present, explained, and eligible the moment the level arrives.
  *
+ * WHAT CHANGED, AND WHAT DID NOT. `eligible` used to be advice and is now a
+ * refusal: the pickers will not equip gear above the character's tier, because
+ * the book the app ships says *"You can't equip weapons or armor with a higher
+ * tier than you."* Every count and every sentence below is untouched by that -
+ * the list is the same length, the dimming is the same dimming, the reason is
+ * the same reason - because the refusal happens on the tap, not in the filter.
+ * The last two describes are where it is asked directly, together with the one
+ * limit in the same chapter that is deliberately still only a sentence.
+ *
  * Where a cross-product is too large to enumerate - eight weapon axes are
  * roughly 4.7 million chip combinations before you type a single letter - the
  * sweep prints exactly what it walked and exactly what it left alone, so no
  * number in this file can be read as "we covered everything".
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import srd from '../../data/srd-2.0.json' with { type: 'json' };
 import type { Armor, Dataset, Item, Range, Tier, Weapon, WeaponTrait } from '@shared/types.ts';
@@ -35,8 +45,12 @@ import {
   filterWeapons,
   itemQuery,
   itemQueryChanged,
+  canEquip,
+  slotTierNote,
   tierLevel,
   tierNote,
+  weaponNote,
+  MAX_BURDEN,
   weaponQuery,
   weaponQueryChanged,
   type ArmorQuery,
@@ -1217,5 +1231,462 @@ describe('the empty search and the search that finds nothing', () => {
       'Light-Frame Wheelchair',
     ]);
     expect(filterWeapons(weapons, { ...search('wheelchair'), slot: 'secondary' }, 1)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The one line under a filled slot
+// ---------------------------------------------------------------------------
+
+/**
+ * The sentence a slot prints about what is in it, counted against the whole
+ * armoury for the reason the filters are.
+ *
+ * This one is not a filter and it can still be wrong invisibly, in the harder
+ * direction: a note that does not appear looks exactly like a note that had
+ * nothing to say. Both screens had that defect and in opposite ways - the
+ * wizard printed the burden sentence over an EMPTY off-hand slot, and both
+ * printed it to a Warrior, whose Combat Training reads *"You ignore burden when
+ * equipping weapons."*
+ *
+ * MEASURED on `data/srd-2.0.json`, and the numbers pick the cases below:
+ *
+ *   primary slot, burden 1     139        primary slot, burden 2     152
+ *   secondary slot, burden 1   100        secondary slot, burden 2     0
+ *
+ * The zero is why the count matters rather than the old `primary.burden === 2`
+ * test. No weapon the book files as an off-hand takes two hands, so on this
+ * printing three hands can only be reached by a two-handed PRIMARY beside an
+ * off-hand, and four hands only by a primary-slot weapon sitting in the
+ * off-hand - which the pickers allow, because their slot chip is a default and
+ * not a fence.
+ */
+const weapon = (name: string): Weapon => {
+  const found = weapons.find((w) => w.name === name);
+  if (!found) throw new Error(`no weapon called ${name} in this build`);
+  return found;
+};
+
+describe('what a filled weapon slot says about what is in it', () => {
+  const LONGSWORD = weapon('Longsword'); // primary, two-handed, tier 1
+  const BROADSWORD = weapon('Broadsword'); // primary, one-handed, tier 1
+  const HATCHET = weapon('Hatchet'); // secondary, one-handed, tier 1
+  const LEGENDARY_HATCHET = weapon('Legendary Hatchet'); // secondary, tier 4
+
+  it('is standing on the weapons it says it is', () => {
+    expect([LONGSWORD.slot, LONGSWORD.burden, LONGSWORD.tier]).toEqual(['primary', 2, 1]);
+    expect([BROADSWORD.slot, BROADSWORD.burden, BROADSWORD.tier]).toEqual(['primary', 1, 1]);
+    expect([HATCHET.slot, HATCHET.burden, HATCHET.tier]).toEqual(['secondary', 1, 1]);
+    expect(LEGENDARY_HATCHET.tier).toBe(4);
+    expect(MAX_BURDEN).toBe(2);
+    // The measurement the header is built on, re-taken every run.
+    expect(weapons.filter((w) => w.slot === 'secondary' && w.burden === 2)).toEqual([]);
+    expect(weapons.filter((w) => w.slot === 'primary' && w.burden === 2)).toHaveLength(152);
+  });
+
+  it('says nothing about an empty slot', () => {
+    const empty = { weapon: undefined, primary: LONGSWORD, level: 1, ignoresBurden: false };
+    expect(weaponNote({ slot: 'secondary', ...empty })).toBeNull();
+    expect(weaponNote({ slot: 'primary', ...empty, primary: undefined })).toBeNull();
+  });
+
+  it('counts the hands rather than asking whether the primary is two-handed', () => {
+    const at = { slot: 'secondary', weapon: HATCHET, level: 1, ignoresBurden: false } as const;
+    expect(weaponNote({ ...at, primary: LONGSWORD })).toBe(
+      'Longsword and Hatchet are 3 hands — your maximum burden is 2',
+    );
+    // Exactly two hands is exactly the limit, and the limit is not exceeded.
+    expect(weaponNote({ ...at, primary: BROADSWORD })).toBeNull();
+    expect(weaponNote({ ...at, primary: undefined })).toBeNull();
+  });
+
+  it('reaches four hands the only way this printing can', () => {
+    // A primary-slot two-hander in the off-hand: no filter refuses it, and the
+    // old `primary.burden === 2` test could never have printed the real number.
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LONGSWORD,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe(
+      'Longsword and Longsword are 4 hands — your maximum burden is 2 · ' +
+        'The book lists Longsword as a primary weapon',
+    );
+  });
+
+  it('names the hand the book files a weapon under, when it is in the other one', () => {
+    /*
+     * No `onPick` on either build screen compares `weapon.slot` with the slot
+     * it is filling, and the picker's Slot chip is one tap from "Any" - so all
+     * 291 primary-slot weapons can sit in the off-hand and all 100 off-hand
+     * weapons in the main hand. The owner's call is that this is said and not
+     * refused, so the sentence is the whole of the repair.
+     */
+    expect(weapons.filter((w) => w.slot === 'primary')).toHaveLength(291);
+    expect(weapons.filter((w) => w.slot === 'secondary')).toHaveLength(100);
+
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: BROADSWORD,
+        primary: BROADSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe('The book lists Broadsword as a primary weapon');
+    // Both directions, from the one comparison.
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: HATCHET,
+        primary: HATCHET,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe('The book lists Hatchet as a secondary weapon');
+    // And silence when the two agree, which is every default pick.
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: BROADSWORD,
+        primary: BROADSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps saying which hand the book meant, even to someone who ignores burden', () => {
+    // Combat Training lifts a hand COUNT. It says nothing about which hand a
+    // weapon belongs in, so this half of the note survives the exception.
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LONGSWORD,
+        primary: LONGSWORD,
+        level: 10,
+        ignoresBurden: true,
+      }),
+    ).toBe('The book lists Longsword as a primary weapon');
+  });
+
+  it('says nothing to a character who ignores burden', () => {
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: HATCHET,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('leaves the burden sentence off the main hand, where it would be said twice', () => {
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: LONGSWORD,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('prints both true things instead of choosing one', () => {
+    /*
+     * The ternary both screens used dropped the tier line whenever the burden
+     * line fired. A level 1 character holding a tier 4 off-hand beside a
+     * two-handed primary was told about the hands and never about the tier.
+     */
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LEGENDARY_HATCHET,
+        primary: LONGSWORD,
+        level: 1,
+        ignoresBurden: false,
+      }),
+    ).toBe(
+      'Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2 · ' +
+        `Tier 4 — kept; you cannot equip it again until level ${tierLevel(4)}`,
+    );
+    // And at a level that reaches tier 4, only the hands are left to say.
+    expect(
+      weaponNote({
+        slot: 'secondary',
+        weapon: LEGENDARY_HATCHET,
+        primary: LONGSWORD,
+        level: 10,
+        ignoresBurden: false,
+      }),
+    ).toBe('Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2');
+  });
+
+  it('names the wrong hand for every weapon it is wrong for, and no other', () => {
+    // 391 weapons in each hand, walked, against plain array code.
+    for (const w of weapons) {
+      for (const slot of ['primary', 'secondary'] as const) {
+        const note = weaponNote({ slot, weapon: w, primary: w, level: 10, ignoresBurden: true });
+        const said = note !== null && note.includes('The book lists');
+        expect(said, `${w.name} in the ${slot} slot`).toBe(w.slot !== slot);
+      }
+    }
+  });
+
+  it('fires on exactly the pairs that are over the limit, across the whole armoury', () => {
+    /*
+     * 391 x 391 is 152,881 pairs, walked rather than sampled, against plain
+     * arithmetic written here - so the assertion cannot pass by re-running the
+     * implementation's own test.
+     */
+    let over = 0;
+    let said = 0;
+    for (const p of weapons) {
+      for (const w of weapons) {
+        const shouldSay = p.burden + w.burden > 2;
+        const note = weaponNote({
+          slot: 'secondary',
+          weapon: w,
+          primary: p,
+          level: 10,
+          ignoresBurden: false,
+        });
+        const saysHands = note !== null && note.includes('hands');
+        expect(saysHands, `${p.name} + ${w.name}`).toBe(shouldSay);
+        if (shouldSay) over += 1;
+        if (saysHands) said += 1;
+      }
+    }
+    // Printed rather than only compared, so "we covered everything" is a number.
+    expect(over).toBe(said);
+    expect(over).toBe(
+      weapons.filter((w) => w.burden === 2).length * weapons.length +
+        weapons.filter((w) => w.burden === 1).length * weapons.filter((w) => w.burden === 2).length,
+    );
+    expect(over).toBe(152 * 391 + 239 * 152);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The one limit in that chapter that is a refusal
+// ---------------------------------------------------------------------------
+
+/**
+ * `canEquip` is the whole of it: one predicate, asked once per pick, and the
+ * only thing in this module that can answer "no".
+ *
+ * It exists as a separate export from `tierNote` on purpose. The two are the
+ * same arithmetic and they are asked for opposite reasons - a list asks what
+ * to print under a row it is showing, a pick asks whether to happen - and
+ * collapsing them would mean the day someone changes a sentence they change a
+ * refusal. The pair is walked here across the whole armoury so the arithmetic
+ * cannot drift apart while both stay green on their own examples.
+ */
+describe('the tier a character may equip', () => {
+  it('is true exactly while the tier line is silent, at every tier and every level', () => {
+    // 0 and 11 are outside the book's levels and are here because `Edit.tsx`
+    // lets a level be typed: the predicate must answer rather than throw.
+    for (const level of [0, ...LEVELS, 11, 99]) {
+      for (const tier of TIERS) {
+        expect(canEquip(tier, level), `tier ${tier} at level ${level}`).toBe(
+          tierNote(tier, level) === null,
+        );
+        expect(canEquip(tier, level), `tier ${tier} at level ${level}, against the table`).toBe(
+          tier <= reachedTier(level),
+        );
+      }
+    }
+  });
+
+  it('opens each tier at the level the book opens it at, and not one level before', () => {
+    for (const tier of TIERS) {
+      const at = tierLevel(tier);
+      expect(canEquip(tier, at), `tier ${tier} at level ${at}`).toBe(true);
+      expect(canEquip(tier, at - 1), `tier ${tier} at level ${at - 1}`).toBe(at === 1);
+    }
+    expect([tierLevel(1), tierLevel(2), tierLevel(3), tierLevel(4)]).toEqual([1, 2, 5, 8]);
+  });
+
+  it('refuses every row the list dims, and no row it does not, over both catalogues', () => {
+    /*
+     * The property the pickers are built on: `blocked={!eligible}` is only
+     * honest if `eligible` and `canEquip` are the same fact. Walked over all
+     * 391 weapons and all 85 armors at all ten levels rather than sampled -
+     * 4,760 rows - because a mismatch would be one item at one level.
+     */
+    let refused = 0;
+    for (const level of LEVELS) {
+      for (const r of filterWeapons(weapons, weaponQuery(), level)) {
+        expect(canEquip(r.item.tier, level), `${r.item.name} at ${level}`).toBe(r.eligible);
+        if (!r.eligible) refused += 1;
+      }
+      for (const r of filterArmors(armors, armorQuery(), level)) {
+        expect(canEquip(r.item.tier, level), `${r.item.name} at ${level}`).toBe(r.eligible);
+        if (!r.eligible) refused += 1;
+      }
+    }
+    /*
+     * Printed rather than only compared: a sweep that refused nothing would
+     * pass every assertion above. Counted independently on the shipped JSON -
+     * 295 weapons and 70 armors at level 1, 194 and 46 through levels 2-4,
+     * 101 and 23 through 5-7, and nothing at all from level 8 - which is what
+     * this total is, and it is a fifth of the 4,760 rows walked.
+     */
+    expect(refused).toBe(1457);
+  });
+});
+
+/**
+ * TWO LIMITS, ONE CHAPTER, TWO ANSWERS - and the book is what splits them.
+ *
+ * The Equipment chapter states the burden limit and stops at the number:
+ * *"Your character's maximum burden is 2 hands."* It states the tier limit
+ * with a verb: *"You can't equip weapons or armor with a higher tier than
+ * you."* So the app says the first and refuses the second, and this describe is
+ * where that claim is checked against the shipped dataset instead of being
+ * asserted in a comment.
+ *
+ * ## The two sentences are in two different chapters, and that was measured
+ *
+ * This was written on a branch where neither chapter had been ingested yet, so
+ * it guessed that both sentences lived in `equipment` and said out loud that it
+ * was guessing. On the composed tree the guess was half wrong and the guard
+ * caught it: the tier refusal is in `equipment`, but the burden line is under a
+ * `## BURDEN` heading inside `weapons`, in BOTH shipped books. The lookup below
+ * names them separately for that reason, and neither test reads the other's
+ * chapter.
+ *
+ * The fork for a build with no chapter at all is kept: it pins the literal and
+ * says so. With the chapters, `MAX_BURDEN` stops being a bare `2` in a test and
+ * becomes the number inside the book's own sentence, and the tier sentence must
+ * be present for `canEquip` to be entitled to refuse anything. If a printing
+ * lands with different wording, this reddens - which is the point: a refusal in
+ * the UI whose justification is no longer in the book is exactly the defect this
+ * whole change is repairing, in the other direction.
+ */
+describe('the two sentences the screens are built on', () => {
+  /** Typographic apostrophes in the book must not fail a match. */
+  const flat = (t: string): string => t.replace(/[‘’]/g, "'");
+  const equipment = dataset.rules.find((r) => r.id === 'equipment');
+  /* The burden line is printed under `## BURDEN` inside the weapons chapter,
+     not in the equipment one - measured on both books, not assumed. */
+  const weapons = dataset.rules.find((r) => r.id === 'weapons');
+
+  it('pins the burden number to the book when the book is here, and to a literal when it is not', () => {
+    if (weapons === undefined) {
+      // No weapons chapter in this build. The literal is the only anchor there
+      // is, and this branch is the reason it is still allowed to be one.
+      expect(MAX_BURDEN).toBe(2);
+      expect(dataset.rules.some((r) => /burden/i.test(r.body))).toBe(false);
+      return;
+    }
+    const said = /maximum burden is (\d+) hands?/i.exec(flat(weapons.body));
+    expect(said, 'the chapter no longer prints the burden limit').not.toBeNull();
+    expect(MAX_BURDEN).toBe(Number(said![1]));
+  });
+
+  it('finds no consequence printed for going over the burden limit', () => {
+    if (weapons === undefined) return;
+    /*
+     * The negative half, and the one that licenses `handsNote` to be a
+     * sentence rather than a fence. If a printing ever adds "you can't equip"
+     * or "you cannot carry" to the burden line, this reddens and the note has
+     * to become a refusal like the tier line did.
+     */
+    const around = /[^.]*maximum burden[^.]*\./i.exec(flat(weapons.body));
+    expect(around, 'the chapter no longer prints the burden limit').not.toBeNull();
+    expect(around![0]).not.toMatch(/can't|cannot|may not/i);
+  });
+
+  it('finds the tier limit printed as a refusal, which is what the pickers act on', () => {
+    if (equipment === undefined) {
+      // Nothing to read. Recorded rather than skipped so the fork is visible
+      // in the run: this build ships no chapter that says either sentence.
+      expect(dataset.rules.map((r) => r.id)).not.toContain('equipment');
+      return;
+    }
+    expect(flat(equipment.body)).toContain(
+      "You can't equip weapons or armor with a higher tier than you.",
+    );
+  });
+
+  it('leaves the armor-in-danger sentence unimplemented, and says why here', () => {
+    /*
+     * NOT DONE, ON PURPOSE. The same chapter prints a third refusal: *"They
+     * can't equip armor while in danger or under pressure."* It is a rule of
+     * play, not of construction - whether a character is in danger is a fact
+     * about the scene, and no field on any sheet in this app carries it, so
+     * there is nothing to ask. `canEquip` is the only refusal in `gear.ts` and
+     * this assertion is what stops that being an oversight nobody wrote down.
+     *
+     * It counts the exported `can*` NAMES, not the occurrences of one of them.
+     * The first version of this assertion matched `/export const canEquip/`
+     * and called the result "the only refusal exported": it was uniqueness of
+     * that one declaration, which nothing was ever going to violate. A second
+     * refusal - `export const canWearArmor = ...` - walked straight past it,
+     * measured. A refusal is a predicate this file exports whose name begins
+     * `can`, so that is what the set is built from, and a new one has to be
+     * named in the list here before it can ship.
+     */
+    const source = readFileSync(new URL('../../src/ui/build/gear.ts', import.meta.url), 'utf8');
+    expect(source).toContain('in danger or under pressure');
+    const refusals = [...source.matchAll(/export const (can[A-Z]\w*)/g)].map((m) => m[1]);
+    expect(refusals, 'a second refusal has to be written down here first').toEqual(['canEquip']);
+  });
+});
+
+/**
+ * The sentence a slot prints over gear the pickers would now refuse.
+ *
+ * This is the whole of what a sheet that already carries out-of-tier gear is
+ * told, and the whole of what happens to it: it is told, and it keeps it.
+ */
+describe('gear that is already on a character the pickers would refuse', () => {
+  it('says kept, and says the level it could be put back on at', () => {
+    expect(slotTierNote(4, 1)).toBe('Tier 4 — kept; you cannot equip it again until level 8');
+    expect(slotTierNote(3, 4)).toBe('Tier 3 — kept; you cannot equip it again until level 5');
+    expect(slotTierNote(2, 1)).toBe('Tier 2 — kept; you cannot equip it again until level 2');
+  });
+
+  it('is silent wherever the list is silent, at every tier and level', () => {
+    for (const level of [0, ...LEVELS, 99]) {
+      for (const tier of TIERS) {
+        expect(slotTierNote(tier, level) === null, `tier ${tier} at level ${level}`).toBe(
+          canEquip(tier, level),
+        );
+      }
+    }
+  });
+
+  it('is not the sentence the list prints, at any tier or level', () => {
+    /*
+     * The two are deliberately different strings, and this is the assertion
+     * that keeps them different: a slot that reverted to `tierNote` would say
+     * "usable from level 8" over a sword the app will not hand back, which is
+     * the exact gap this pair exists to close.
+     */
+    for (const level of [1, 4, 7]) {
+      for (const tier of TIERS) {
+        const list = tierNote(tier, level);
+        const slot = slotTierNote(tier, level);
+        if (list === null) continue;
+        expect(slot, `tier ${tier} at level ${level}`).not.toBe(list);
+        expect(slot).toContain('kept');
+        expect(list).not.toContain('kept');
+      }
+    }
+  });
+
+  it('reaches the weapon slot through `weaponNote`, beside the other two clauses', () => {
+    const at = { slot: 'secondary', primary: undefined, ignoresBurden: false } as const;
+    expect(weaponNote({ ...at, weapon: weapon('Legendary Hatchet'), level: 1 })).toBe(
+      'Tier 4 — kept; you cannot equip it again until level 8',
+    );
+    expect(weaponNote({ ...at, weapon: weapon('Legendary Hatchet'), level: 8 })).toBeNull();
   });
 });

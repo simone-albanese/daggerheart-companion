@@ -89,8 +89,10 @@ import {
 import { parseCharacterFile, serializeCharacter } from '../src/transfer/fileIo.ts';
 import {
   armorQuery,
+  canEquip,
   filterArmors,
   filterWeapons,
+  slotTierNote,
   tierLevel,
   tierNote,
   weaponQuery,
@@ -1203,12 +1205,21 @@ describe.skipIf(!hasDataset())('gear a level has not reached', () => {
     expect(all.length - 96).toBe(dataset.weapons.length - usable(1));
   });
 
-  it('still equips the tier 4 armor, and gives a level 1 sheet every number printed on it', () => {
-    // UNGUARDED, and stated as policy at the top of src/ui/build/gear.ts: "A GM
-    // who hands a level 2 party a tier 4 sword has not broken a rule this app is
-    // entitled to enforce." So the picker dims the row, prints the reason, and
-    // fires `onPick` anyway - there is no `disabled` on that button - and the
-    // engine then applies the armor in full. The guard is a sentence, not a lock.
+  it('still wears the tier 4 armor it arrived in, and gives a level 1 sheet every number printed on it', () => {
+    /*
+     * THE ENGINE IS UNGUARDED, AND THE PICKER IS NOT ANY MORE. This comment
+     * used to say the picker "fires `onPick` anyway - there is no `disabled` on
+     * that button", and that stopped being true when the Equipment chapter's
+     * *"You can't equip weapons or armor with a higher tier than you."* was
+     * read: both dialogs now refuse the tap and the RANDOM draw.
+     *
+     * What did not change is everything below. `deriveStats` never asked the
+     * tier and still does not, so a sheet that HOLDS tier 4 armor at level 1 -
+     * by file, by QR, by a level edited back down - gets the full thresholds
+     * and the full score, with nothing normalised away behind it. The refusal
+     * is on the act of equipping; it is not a state the app refuses to
+     * represent, and this test is what keeps those two apart.
+     */
     const armor = [...dataset.armors]
       .filter((a) => a.tier === 4)
       .sort((a, b) => b.baseScore - a.baseScore)[0]!;
@@ -1224,7 +1235,14 @@ describe.skipIf(!hasDataset())('gear a level has not reached', () => {
     expect(stats.armorScore).toBe(Math.min(MAX_ARMOR_SCORE, armor.baseScore));
     expect(syncCounters(novice, stats).armorSlots).toEqual({ marked: 0, max: stats.armorScore });
     // The one thing standing between the player and a surprise is the line the
-    // slot prints behind the picker.
+    // slot prints behind the picker - which is the SLOT's sentence, not the
+    // list's: it says the armor is kept and cannot be put back on at this
+    // level, because after the refusal that second half is the fact a player
+    // reaching for the ✕ needs and the list's wording never carried.
+    expect(canEquip(armor.tier, novice.level)).toBe(false);
+    expect(slotTierNote(armor.tier, novice.level)).toBe(
+      'Tier 4 — kept; you cannot equip it again until level 8',
+    );
     expect(tierNote(armor.tier, novice.level)).toBe('Tier 4 — usable from level 8');
 
     // Control: unequip it and the same level 1 sheet is back to [level, 2 x level].

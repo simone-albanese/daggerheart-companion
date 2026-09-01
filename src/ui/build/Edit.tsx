@@ -11,16 +11,17 @@
  * rule it has no business applying.
  */
 import { useState } from 'react';
-import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
+import { TRAITS, TRAIT_LABELS, type Character, type Ref, type Trait } from '../../../shared/types.ts';
 import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
+import { ignoresBurden } from '../../engine/burden.ts';
 import { unresolvedWeapons } from '../../engine/holdings.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
-import { tierNote } from './gear.ts';
+import { slotTierNote, weaponNote } from './gear.ts';
 import {
   ArmorPicker,
   armorSummary,
@@ -81,6 +82,15 @@ export function Edit({
    * ref the sheet is still holding.
    */
   const missing = unresolvedWeapons(character, index);
+  /*
+   * Folio 28, Combat Training: *"You ignore burden when equipping weapons."*
+   * The line under the off-hand read `${primary.name} is two-handed — no hand
+   * left for this` for anybody at all, which is the general rule stated as if
+   * the book had not written an exception to it - and stated hardest at the one
+   * class the exception belongs to. Same predicate as the wizard, so the two
+   * screens cannot end up saying different things about one character.
+   */
+  const ignoring = ignoresBurden(character, index);
   const lineage = [
     ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
     (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
@@ -217,7 +227,13 @@ export function Edit({
                   label="Primary weapon"
                   title={primary?.name ?? null}
                   meta={primary && weaponSummary(primary, stats)}
-                  note={primary && tierNote(primary.tier, character.level)}
+                  note={weaponNote({
+                    slot: 'primary',
+                    weapon: primary,
+                    primary,
+                    level: character.level,
+                    ignoresBurden: ignoring,
+                  })}
                   empty={`Search ${dataset.weapons.length} weapons`}
                   unresolved={
                     missing.primary === null
@@ -231,14 +247,22 @@ export function Edit({
                   label="Secondary weapon"
                   title={secondary?.name ?? null}
                   meta={secondary && weaponSummary(secondary, stats)}
-                  note={
-                    // Said, not enforced. A sheet that quietly unequipped the
-                    // off-hand when a greatsword arrived would be the app
-                    // making a call the table gets to make.
-                    secondary && primary?.burden === 2
-                      ? `${primary.name} is two-handed — no hand left for this`
-                      : secondary && tierNote(secondary.tier, character.level)
-                  }
+                  /*
+                   * Still said, not enforced - a sheet that quietly unequipped
+                   * the off-hand when a greatsword arrived would be the app
+                   * making a call the table gets to make. What changed is that
+                   * the thing being said is now true: `no hand left for this`
+                   * was the general rule with the book's own exception left
+                   * out, and it was a refusal in the mouth of a screen that
+                   * refuses nothing.
+                   */
+                  note={weaponNote({
+                    slot: 'secondary',
+                    weapon: secondary,
+                    primary,
+                    level: character.level,
+                    ignoresBurden: ignoring,
+                  })}
                   empty="Optional"
                   unresolved={
                     missing.secondary === null
@@ -252,7 +276,7 @@ export function Edit({
                   label="Armor"
                   title={armor?.name ?? null}
                   meta={armor && armorSummary(armor, stats.thresholds, stats.armorScore)}
-                  note={armor && tierNote(armor.tier, character.level)}
+                  note={armor && slotTierNote(armor.tier, character.level)}
                   empty={`Search ${dataset.armors.length} sets of armor`}
                   unresolved={
                     stats.unresolvedArmor === null
@@ -678,6 +702,76 @@ function TransformationSection({
  * smallest target in the section is therefore 44x44, which is the floor
  * `var(--tap)` names, and nothing is under it.
  *
+ * ## The fourth gesture: putting one down
+ *
+ * Three of the gestures above are the ones this section was built around. The
+ * fourth was missing, and the shape of the gap is the exact reverse of the
+ * lesson `GearSlot` already learned: **the stance you could read was less
+ * removable than the one you could not.**
+ *
+ * An unresolved ref got a `Drop it` button on its ghost row. A resolved one got
+ * nothing of its own - the only way off the sheet was a second tap inside the
+ * picker, and the picker is gated on the Martial Artist subclass. So for the
+ * exact character the gate above exists to protect - somebody carrying stances
+ * who did not take that subclass - a readable stance was undroppable, while it
+ * went on being written to storage. `GearSlot`'s docblock says it in the words
+ * this is repairing: *"gating the control on a name the build cannot read meant
+ * the only way out of the state was to equip something over the top of it."*
+ *
+ * It is a ✕ on the row rather than the ghost row's `Drop it`, and that is a
+ * decision about pixels. A `Drop it` under each block is a full 44px control
+ * plus a gap for every stance known - about 150px on a three-stance sheet
+ * against a 603px scroll area, which is a quarter of the screen spent on the
+ * rarest gesture in the section. The ✕ takes 44px of WIDTH beside a block that
+ * is already taller than 44px, so it adds no row of its own; it is also the
+ * shape this app already uses for "empty this", on all three gear slots.
+ *
+ * WHAT THAT COSTS IS WIDTH, and the honest version is that it has not been
+ * re-measured. The ✕ and its gap take 52px off the text column, which can wrap
+ * a stance's rule onto one more line. Every figure above - 83.5px, 354.47px,
+ * 1750.75px, 58.37/58.37/74.23 - was measured BEFORE this control existed and
+ * is left standing as what it was rather than re-derived by guess. The one
+ * claim that does not depend on them is the one that matters here: the smallest
+ * target is still 44x44.
+ *
+ * ## And it arms itself when the tap cannot be taken back
+ *
+ * ONE TAP OR TWO, decided by whether this sheet can put the stance back, which
+ * is whether it draws the picker at all. Measured at 393x852 with a coarse
+ * pointer on an Assassin at level 1 carrying `favored`: one tap, no
+ * confirmation, and the section left the document entirely - stance gone, drop
+ * control gone, and no control anywhere on the page naming a stance. The
+ * picker is gated on the Martial Artist subclass, so for that character there
+ * was nothing left anywhere that could undo it.
+ *
+ * The rule is written on `needsConfirm` below and it is one rule: **arm when
+ * there is no way back.** The other half of it lives on a different screen in
+ * a different file - the ✕ on `Cards.tsx`, which reached the same rule from
+ * the other end and stated it: the arming is for *"the only control here that
+ * REDUCES what the character owns... exactly the case a player cannot see
+ * coming."* Two implementations of one rule is a thing to read together rather
+ * than to trust separately.
+ *
+ * WHAT IT COSTS, and it is not width. The ✕ keeps its footprint and its place
+ * in both states - a control that grows between its two taps reflows the strip
+ * the second tap is aimed at, which this codebase has measured at seventeen
+ * pixels of extra label and repaired with `flex: 0 0 100%` rather than by
+ * reordering. So the armed sentence takes a flex line of its own under the
+ * row, and the only movement is what is BELOW the row going down, never what
+ * is beside it going sideways.
+ *
+ * How tall that line is has NOT been measured and is not claimed here - it is
+ * a `.t-meta` at `500 10px/1` mono against a 369px column at 393x852, so on a
+ * phone it is one line or two depending on the stance's name, and every figure
+ * in this docblock predates it. What IS structural, and is asserted in
+ * `tests/stances.test.tsx` rather than reasoned about: the row draws two
+ * children when nothing is armed and three when something is, so the unarmed
+ * state - which is every row on every sheet almost all of the time - costs
+ * exactly nothing, not even the `gap` a permanently mounted empty line would
+ * charge. `GearSlot` pays that 6px on purpose to get a live region; this does
+ * not, and the accessible name on the button is what carries the change to a
+ * screen reader instead.
+ *
  * ## Shown, never applied
  *
  * Nothing here computes. It writes a `Ref[]` and a `Counter` and renders the
@@ -731,6 +825,29 @@ function StancesSection({
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
   const [picking, setPicking] = useState(false);
+  /*
+   * Which removal has been asked for once and not yet confirmed, AND ON WHOSE
+   * SHEET.
+   *
+   * One entry for the whole section rather than a flag per row: arming a
+   * second control disarms the first for free, which is the behaviour you want
+   * anyway - two rows both saying "tap again" is two loaded triggers and no
+   * way to tell which one the next tap belongs to.
+   *
+   * The character's id is the other half, and it is not defensive noise.
+   * `Build.tsx` renders `<Edit>` with no key, so switching the active
+   * character RE-RENDERS this section instead of remounting it; a bare ref
+   * would arrive at the next sheet still armed. Two characters can carry the
+   * same stance - that is what a ref is for - so that sheet's ✕ would go in
+   * one tap, which is precisely the defect this arming exists to close,
+   * reintroduced by a control that outlived the character it was aimed at.
+   */
+  const [armed, setArmed] = useState<{ sheet: string; ref: Ref } | null>(null);
+  const isArmed = (ref: Ref): boolean =>
+    armed !== null && armed.sheet === character.id && armed.ref === ref;
+  const arm = (ref: Ref): void => {
+    setArmed({ sheet: character.id, ref });
+  };
 
   const all = dataset.stances;
   // `collections.stances`, never `byRef`: the stances are deliberately out of
@@ -773,6 +890,62 @@ function StancesSection({
         : [...character.stanceRefs, id],
     });
   };
+
+  /*
+   * WHETHER THIS SHEET HAS A WAY BACK IN - written once, and read by the two
+   * places that need it.
+   *
+   * It is the exact condition the `Add a stance` button is drawn under at the
+   * bottom of this function, and it is deliberately the same expression rather
+   * than an equivalent one: the arming below is a claim about whether the
+   * picker exists, so if that gate ever moves, the arming has to move with it
+   * or start lying. `all.length === 0` is not redundant even though every
+   * resolved row comes out of `all` - a Martial Artist on a book that prints no
+   * stances gets no picker either.
+   */
+  const canRepick = all.length > 0 && isMartialArtist;
+
+  /**
+   * THE RULE, AND IT IS ONE RULE: arm when there is no way back.
+   *
+   * MEASURED IN CHROME at 393x852 with a coarse pointer, on an Assassin at
+   * level 1 carrying `favored`. Before the tap: the section is on the page,
+   * the stance is on screen, one drop control. After ONE tap, no confirmation:
+   * `sectionPresent=false`, `favoredOnScreen=0`, `dropButtons=0`, and no
+   * control anywhere on the document mentions a stance. The picker is gated on
+   * the Martial Artist subclass, so for this character there is nothing left
+   * that could put it back - the state is not recoverable from that screen or
+   * any other. (The ✕ itself measures 44.00 x 74.22 and sits at x=337 of 393
+   * and x=264 of 320. The target was never the defect.)
+   *
+   * `Cards.tsx` reached the same rule from the other end and wrote it down:
+   * the arming is for *"the only control here that REDUCES what the character
+   * owns... exactly the case a player cannot see coming"*. This is that case,
+   * so it gets that treatment, and the rule is now one rule across the app
+   * rather than two local habits. **The other half lives on another screen and
+   * in another file**, which is the standing reason to read the two together
+   * rather than trust either alone.
+   *
+   * The consequence is that the SAME glyph costs one tap or two depending on
+   * the sheet, and that is the point rather than an inconsistency: what the
+   * player is being protected from is not the removal, it is the removal being
+   * final. A Martial Artist's picker is one tap away and its row puts the
+   * stance straight back - two taps to undo, against two taps to do - so a
+   * confirmation there would charge the common case a cost only the rare case
+   * has.
+   *
+   * The unresolved rows below are ALWAYS armed, by the same rule and not by an
+   * exception to it: a ref this build cannot name cannot be re-entered by
+   * anybody, picker or no picker, because there is no row in any list that
+   * carries it. It is the least recoverable control in the section.
+   *
+   * NO TIMER. An arming that disarms itself puts the second tap on a race the
+   * player cannot see the clock for - and on this section the two taps can be
+   * minutes apart, because the thing between them is reading a rule. It
+   * disarms when another control is armed, when the picker opens, and when the
+   * drop goes through.
+   */
+  const needsConfirm = (resolved: boolean): boolean => !resolved || !canRepick;
 
   /*
    * The tier this character has reached, from the level alone - the same
@@ -824,15 +997,42 @@ function StancesSection({
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {ref}
           </span>
+          {/*
+            Armed, always. See `needsConfirm`: nothing in this build can name
+            this ref, so no list anywhere carries a row that would put it back.
+            The label grows on the second state and that costs nothing here -
+            this button is alone on its line inside a stack, so the extra words
+            move no control the finger is aimed at. On the ✕ below they would,
+            and that is why that one keeps its footprint and puts its sentence
+            on a line of its own.
+          */}
           <button
             type="button"
             className="btn btn-ghost"
-            style={{ alignSelf: 'flex-start', minHeight: 'var(--tap)' }}
+            aria-label={
+              isArmed(ref)
+                ? `Drop it — tap again to confirm. This ref cannot be added back.`
+                : `Drop it`
+            }
+            style={{
+              alignSelf: 'flex-start',
+              minHeight: 'var(--tap)',
+              borderColor: isArmed(ref) ? 'var(--damage)' : undefined,
+              color: isArmed(ref) ? 'var(--damage)' : undefined,
+            }}
             onClick={() => {
+              // `needsConfirm(false)` rather than a `true` written here: this
+              // row is armed BY the rule, not by an exception to it, and a
+              // literal would be a second copy of the rule to keep in step.
+              if (needsConfirm(false) && !isArmed(ref)) {
+                arm(ref);
+                return;
+              }
+              setArmed(null);
               onPatch({ stanceRefs: character.stanceRefs.filter((r) => r !== ref) });
             }}
           >
-            Drop it
+            {isArmed(ref) ? 'Drop it — tap again' : 'Drop it'}
           </button>
         </div>
       ))}
@@ -847,9 +1047,92 @@ function StancesSection({
         <div className="stack" style={{ gap: 8 }}>
           {all
             .filter((s) => character.stanceRefs.includes(s.id))
-            .map((s) => (
-              <FeatureBlock key={s.id} name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
-            ))}
+            .map((s) => {
+              const mustConfirm = needsConfirm(true);
+              const live = mustConfirm && isArmed(s.id);
+              return (
+                /*
+                 * WRAPPING, so the armed sentence can take a line of its own.
+                 *
+                 * With two children nothing wraps - the block is `flex: 1` and
+                 * the ✕ is a fixed 44 - so this costs nothing until the third
+                 * child exists. It exists because a control that grows between
+                 * its two taps reflows the strip the second tap is aimed at:
+                 * seventeen pixels of extra label was enough to do it once in
+                 * this codebase, and reordering did not fix it - `flex: 0 0
+                 * 100%` did. So the ✕ keeps its footprint and its position to
+                 * the pixel across both states, and the words appear below on
+                 * their own flex line, where they push nothing sideways and
+                 * only push what is under the row down.
+                 */
+                <div
+                  key={s.id}
+                  className="row"
+                  style={{ gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}
+                >
+                  <div className="stack" style={{ flex: 1, minWidth: 0 }}>
+                    <FeatureBlock name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
+                  </div>
+                  {/*
+                    The way back out of a stance you can read - see the section
+                    docblock. `toggle`, not a second write of `stanceRefs`: the
+                    picker's row and this ✕ do the same thing to the same field,
+                    and two routes to one write is two behaviours eventually.
+
+                    THE NAME CHANGES WHEN IT ARMS, and that is the whole of how
+                    this is spoken. A live region would have to be mounted empty
+                    before it could announce anything - `GearSlot` writes that
+                    rule down - and an always-mounted region on a `gap: 8` row
+                    charges every stance on every sheet 8px for a state that is
+                    almost never on. An accessible NAME that changes on the
+                    element the tap just moved focus to is announced without
+                    either cost, and it is the element the next tap is going to.
+                  */}
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    aria-label={
+                      live
+                        ? `Drop ${s.name} — tap again to confirm. This sheet has no picker to put it back.`
+                        : `Drop ${s.name}`
+                    }
+                    onClick={() => {
+                      if (mustConfirm && !live) {
+                        arm(s.id);
+                        return;
+                      }
+                      setArmed(null);
+                      toggle(s.id);
+                    }}
+                    style={{
+                      flex: 'none',
+                      minWidth: 'var(--tap)',
+                      minHeight: 'var(--tap)',
+                      padding: 0,
+                      borderColor: live ? 'var(--damage)' : undefined,
+                      color: live ? 'var(--damage)' : undefined,
+                    }}
+                  >
+                    ✕
+                  </button>
+                  {live && (
+                    /*
+                     * Said in words, not only in the ring: the ring is colour
+                     * on a border this button already had, and colour alone is
+                     * not accepted here as the carrier of a state. This is the
+                     * shape half - a line of text that was not there before.
+                     */
+                    <span
+                      className="t-meta"
+                      style={{ flex: '0 0 100%', color: 'var(--damage)', lineHeight: 1.4 }}
+                    >
+                      TAP ✕ AGAIN TO DROP {s.name.toUpperCase()} — THIS SHEET HAS NO PICKER TO PUT
+                      IT BACK
+                    </span>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
 
@@ -875,13 +1158,22 @@ function StancesSection({
                      * would be letting them take it without ever printing the
                      * rule they were breaking.
                      *
-                     * It is not DISABLED, which is `GearPicker`'s decision for
-                     * out-of-level gear and the same argument: the tier is
-                     * arithmetic, and a GM who hands a player something early
-                     * is not a state this app may refuse to represent. Hiding
-                     * it would be worse still - `gear.ts` calls that lying by
-                     * omission, and the sheet already says SHOWN, NEVER
-                     * APPLIED, so nothing here moves a number either way.
+                     * It is not DISABLED, and `GearPicker` no longer agrees
+                     * with that - which is the point rather than a drift. The
+                     * Equipment chapter spends a verb on gear: *"You can't
+                     * equip weapons or armor with a higher tier than you."*
+                     * Folio 13 spends none on stances: *"Mark a new stance
+                     * from your tier or below each time you gain a level"* is
+                     * a rule for gaining a level, and no sentence anywhere
+                     * says what a character who has one anyway may not do. So
+                     * the gear picker refuses and this one says; the book is
+                     * what splits them, and `gear.ts` carries the same split
+                     * between the tier limit and the burden limit.
+                     *
+                     * Hiding it would be worse than either - `gear.ts` calls
+                     * that lying by omission - and the sheet already says
+                     * SHOWN, NEVER APPLIED, so nothing here moves a number
+                     * either way.
                      */
                     dim={s.tier > characterTier}
                     reason={
@@ -920,14 +1212,18 @@ function StancesSection({
           </button>
         </div>
       ) : (
-        all.length > 0 &&
-        isMartialArtist && (
+        // The same `canRepick` the arming above is built on, so the two cannot
+        // drift: what is armed is exactly what this button cannot undo.
+        canRepick && (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-ghost"
               style={{ minHeight: 'var(--tap)' }}
               onClick={() => {
+                // A way back in has just appeared on screen; nothing here is
+                // one-way while it is open, so nothing stays armed.
+                setArmed(null);
                 setPicking(true);
               }}
             >
