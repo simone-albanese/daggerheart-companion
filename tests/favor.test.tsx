@@ -17,10 +17,13 @@
  * so a fourteenth class arriving in a dataset fails here rather than quietly
  * joining whichever side the loop happened to default to.
  *
- * What is NOT here: the row under Vitals, the Patron Die in `dicePools`, and
- * the offer on the Duality Roll. This lane carries the field and the format so
- * that the work which draws them does not have to bump a schema to get a
- * number stored.
+ * What is NOT here: the Patron Die in `dicePools` and the offer on the Duality
+ * Roll. This lane carried the field and the format so that the work which draws
+ * them does not have to bump a schema to get a number stored - and the first of
+ * those has since been done: the row under Vitals exists, and
+ * `tests/ui/classTracks.test.tsx` holds it, along with `drawsFavor`, the live
+ * predicate that reads the multiclass where `grantsFavor` below deliberately
+ * does not.
  */
 import { describe, expect, it } from 'vitest';
 import { MAX_FAVOR, SCHEMA_VERSION } from '../shared/types.ts';

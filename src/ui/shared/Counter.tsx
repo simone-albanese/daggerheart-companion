@@ -591,8 +591,18 @@ export function Counter({
  * ring that was never once looked at on the device this cell was reshaped for.
  * It lights on the way down and settles the same moment the number above it
  * does.
+ *
+ * EXPORTED, because a second surface presses it. `ClassTracks` on the Play
+ * screen draws a 44px strip for Focus and Favor rather than a 90px card, and
+ * the two glyphs on it have to be this button and not a third one: the 44px
+ * floor, the `flex: none` that a 0.5px overflow at 360 once ate, the ring that
+ * outlives the finger, and the rule that a disabled stepper does not light are
+ * every one of them measurements, and a copy of a measurement is a copy that
+ * will be measured once and then drift. `src/ui/build/parts.tsx` already has a
+ * `Stepper` of its own with a different shape and a different floor; this
+ * export exists so that there is not a third.
  */
-function Step({
+export function Step({
   label,
   glyph,
   disabled,

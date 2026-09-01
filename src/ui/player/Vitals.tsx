@@ -1,5 +1,6 @@
 /**
- * The four tracks plus the incoming-damage calculator.
+ * The four tracks plus the incoming-damage calculator - and, under them, the
+ * one or two a CLASS grants.
  *
  * "Someone hit you for 14 - how many HP is that?" is the question the sheet has
  * to answer instantly, because the alternative is three people doing mental
@@ -12,6 +13,7 @@ import { applyDamage, markDamage, SEVERITY_LABEL } from '../../engine/damage.ts'
 import type { DerivedStats } from '../../engine/character.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
+import { ClassTracks } from './ClassTracks.tsx';
 import { CompanionPanel, useHasCompanion, WhoSwitch, type Who } from './Companion.tsx';
 import type { Arming } from './attack.ts';
 import { ActiveConditions } from './Conditions.tsx';
@@ -344,6 +346,36 @@ export function Vitals({
           })
         }
       </div>
+
+      {/*
+       * Focus and Favor, in a row of their own under the four.
+       *
+       * UNDER, and not two more cards in the grid above: those tracks are
+       * `minmax(0, 1fr)` over items whose min-content is 44 + 44 of steppers,
+       * so a fifth and sixth card is one wrap and the four that were already
+       * there pay for it in width. A row of its own costs them nothing -
+       * measured at 393, the grid is 369x186 at the same x and y whether this
+       * draws or not.
+       *
+       * HERE AND NOT IN `Play.tsx`, which is one insertion instead of two: the
+       * cockpit and the phone both mount this component, so both get the row
+       * from one line, and the companion branch above returns before it - a
+       * wolf has no patron.
+       *
+       * It renders NOTHING for a sheet with neither track - which is twelve
+       * of the thirteen classes this dataset ships and all nine of the older
+       * one's - so this line costs the general sheet no pixel and no gap.
+       * What it costs a sheet that HAS one is 52px of column on the phone (a
+       * 46px strip and this panel's 6px gap) and 56 in the cockpit (the same
+       * strip and its 10), and in the cockpit those 56 come out of
+       * `DualityRoll` below: measured, the panel goes 428x211 -> 428x267 and
+       * the roll panel 428x404 -> 428x348, which is a `.scroll` and was 404 of
+       * a fit rather than a floor. That is not free - at 1180x695 it takes
+       * ROLL from painted 26.1 of 54 to 0, reachable by scrolling that panel -
+       * and `ClassTracks`'s own docblock carries that reading in full, with the
+       * thumb-arc numbers and the two-state proof.
+       */}
+      <ClassTracks />
 
       {/*
        * The calculator, on the layout that still keeps it here.

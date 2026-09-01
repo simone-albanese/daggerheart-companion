@@ -150,12 +150,101 @@ const STARTING_FAVOR = 3;
  *
  * Takes the class and not the character, because the question it answers is
  * what a sheet is CREATED holding. The live question - does this sheet DRAW a
- * Favor row - has a second arm, `multiclassRef`, the way `hasBeastform` does.
- * That arm belongs beside this predicate when something finally draws the row,
- * not in a second predicate written somewhere else.
+ * Favor row - has a second arm, `multiclassRef`, the way `hasBeastform` does,
+ * and a third, the track a sheet is already holding. Something draws the row
+ * now, so those arms are where this note said they belonged: `drawsFavor`,
+ * directly below, which calls this rather than restating the expression.
  */
 export const grantsFavor = (klass: CharClass | undefined): boolean =>
   klass?.classFeatures.some((f) => /\bfavor\b/i.test(f.name)) === true;
+
+/**
+ * The subclass the Martial Stances sheet belongs to, as an ADDRESS.
+ *
+ * Folio 13: *"When you choose the Martial Artist subclass, take the Martial
+ * Stances sheet."* So Focus is that subclass's resource, and a sheet that never
+ * took it has no track to spend.
+ *
+ * The rule this repo puts on writing an address into `src/` is that it is
+ * CHECKED AGAINST THE DATASET EVERY RUN - the same condition
+ * `IGNORES_BURDEN_FEATURE` in `src/engine/burden.ts` is held to - and
+ * `tests/ui/classTracks.test.tsx` does it: if a printing renames the subclass,
+ * that test reddens instead of the track quietly ceasing to exist for the
+ * people the book gave it to.
+ *
+ * A slug rather than a match on feature text, and the reason is measured rather
+ * than aesthetic: `stance` is a substring of `circumstance`, which is the trap
+ * the Build screen's own section fell into once. A flag on `Subclass` was the
+ * other candidate and it puts a fact about ONE subclass into the shape of all
+ * twenty-six.
+ *
+ * **`src/ui/build/Edit.tsx` writes this same slug down a second time**, under
+ * `STANCE_SUBCLASS`, and that duplication is deliberate for exactly one round:
+ * that file belongs to another lane this pass and must not be edited from here.
+ * It is not left to drift - `classTracks.test.tsx` reads Edit.tsx's source and
+ * fails if the two literals ever disagree - and the next hand to open Edit.tsx
+ * should delete its copy and import this one.
+ */
+export const STANCE_SUBCLASS = 'martial-artist';
+
+/**
+ * Whether this sheet DRAWS the Focus track.
+ *
+ * Three arms, and only the first is about entitlement.
+ *
+ *  1. the Martial Artist subclass, which is whose track it is. `subclassRefs`
+ *     and not `classRef`, and that already answers the multiclass: folio 54
+ *     says a multiclass "acquires its class feature", and `applyLevelUp`'s
+ *     `multiclass` case pushes the chosen subclass ref onto `subclassRefs`
+ *     alongside `multiclassRef`. A Warlock who multiclassed into Brawler and
+ *     took Martial Artist is in this list already, so no second arm is needed
+ *     here - unlike `drawsFavor` below, whose feature hangs off the CLASS.
+ *  2. a sheet already carrying a stance, whoever they are;
+ *  3. a sheet already holding Focus, whoever they are.
+ *
+ * The last two are the same rule `StancesSection` is built on and it is not a
+ * courtesy: a sheet that arrived by QR or by file from a build with a different
+ * subclass keeps writing `focus` and `stanceRefs` to storage, and a screen that
+ * refuses to show a number the sheet is holding is the defect this repo has
+ * already measured on a dropped weapon - a reference on the sheet with no trace
+ * of it on the glass. Hidden is how a thing becomes impossible to spend.
+ *
+ * No `DatasetIndex`, because none of the three questions is asked of the
+ * dataset. That is not an inconsistency with `drawsFavor` - it is what the two
+ * books actually say: Focus hangs off a subclass this file can name, Favor off
+ * a class feature only the dataset can identify.
+ */
+export const drawsFocus = (c: Character): boolean =>
+  c.subclassRefs.includes(STANCE_SUBCLASS) || c.stanceRefs.length > 0 || c.focus.marked > 0;
+
+/**
+ * Whether this sheet DRAWS the Favor track - the live question, and the second
+ * arm the note over `grantsFavor` promised would land here.
+ *
+ * `grantsFavor` answers what a sheet is CREATED holding and so reads one class.
+ * This answers what a sheet SHOWS, and reads both: folio 54 MULTICLASSING says
+ * *"you choose an additional class, gain access to one of its domains, and
+ * acquire its class feature"*, so a Bard who took a patron at level 5 has Favor
+ * and a version of this that read `classRef` alone would deny them the track
+ * their own sheet is storing. It is the shape `hasBeastform` and `ignoresBurden`
+ * already use, and it calls `grantsFavor` rather than restating the regular
+ * expression, so the word-boundary reasoning over "Favored" lives in one place.
+ *
+ * `favor.marked > 0` is the third arm and it is the same rule `drawsFocus`
+ * carries: a sheet holding a resource is shown that resource whatever this
+ * build can work out about its class - including a class ref from a later
+ * dataset that resolves to nothing here.
+ *
+ * One port, taking the character, for the reason `ignoresBurden`'s docblock
+ * spells out at length: the moment a class-shaped port exists beside it, that
+ * becomes the cheap call and every multiclassed sheet silently answers false.
+ */
+export function drawsFavor(c: Character, ix: DatasetIndex): boolean {
+  if (c.favor.marked > 0) return true;
+  return [c.classRef, c.multiclassRef]
+    .filter((r): r is Ref => typeof r === 'string' && r !== '')
+    .some((r) => grantsFavor(ix.classes.get(r)));
+}
 
 /** Tier 1 is level 1, tier 2 is 2-4, tier 3 is 5-7, tier 4 is 8-10. */
 export function tierOf(level: number): Tier {
