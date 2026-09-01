@@ -16,11 +16,17 @@
  *    because of its face and size. The manifest below names every heading
  *    that opens a section, in book order, so a layout change fails loudly
  *    instead of silently merging two topics.
- * 3. The rules are not one chapter. They are nine islands scattered through
+ * 3. The rules are not one chapter. They are TEN islands scattered through
  *    the book - two pages out of the class chapter, one out of the
  *    environments chapter - and the reference tables inside them are the only
  *    material in this directory that has to be selected by GEOMETRY rather
  *    than by text, because a table's cells are only a table by where they sit.
+ *
+ *    Ten entries, nine islands on SRD 1.0: `the Martial Stances rules` answers
+ *    `null` for a book that does not print folio 13. This line said "eight"
+ *    until it was counted rather than read - it had been true of SRD 1.0 and
+ *    was left behind twice, once when folio 13's island arrived and once when
+ *    the equipment chapter's did.
  *
  * ## Nothing here is a coordinate carried in the source
  *
@@ -120,12 +126,12 @@ function localRuns(page: BookPage): TextRun[] {
  *
  * ## The equipment chapter added one voter per book, and moved neither median
  *
- * Twenty-nine folios entered the stream with `the equipment chapter` and
- * twenty-eight of them abstain, so the vote counts went 15 -> 16 even in SRD
- * 1.0 and 16 -> 17 odd in SRD 2.0: the single new voter is each book's
- * chapter-opening prose page, folio 44 and folio 55. Both medians are the same
- * numbers afterwards, 299 for even folios and 313.5 for odd ones, measured on
- * both books before and after.
+ * `the equipment chapter` put 18 folios into SRD 1.0's stream and 29 into SRD
+ * 2.0's. Seventeen and twenty-eight of them abstain, so each book gained
+ * exactly ONE voter - its chapter-opening prose page, folio 44 and folio 55 -
+ * and the counts went 15 -> 16 even in SRD 1.0 and 16 -> 17 odd in SRD 2.0.
+ * Both medians are the same numbers afterwards, 299 for even folios and 313.5
+ * for odd ones, measured on both books before and after.
  *
  * Only the classification matters, not the value: no run is wide enough to
  * straddle the gutter, so any x strictly inside it sorts the columns the same
@@ -251,6 +257,7 @@ interface Island {
  *   island                     SRD 1.0    SRD 2.0
  *   Introduction                   3-3        3-3
  *   Character Creation             4-6        4-6
+ *   Martial Stances                  -      13-13
  *   Beastform preamble           12-12      15-15
  *   Ranger Companion             18-19      21-22
  *   Core Mechanics               35-43      46-54
@@ -427,10 +434,23 @@ const ISLANDS: readonly Island[] = [
  * For the one heading the two books do not spell the same way, and for that
  * one only. SRD 1.0 sets the consumables head as `Consumables` at 17.3pt, a
  * sibling of `LOOT`; SRD 2.0 sets it as `CONSUMABLES` at 12.0pt, a rank below
- * `LOOT` on the same page. Matching is on the exact string the book prints - a
- * case-insensitive compare is not available, because `INTRODUCTION` opens two
- * different sections in this manifest and `Introduction` is what the contents
- * page calls the second one - so the two spellings are listed instead.
+ * `LOOT` on the same page.
+ *
+ * ## Why a list and not a case-insensitive compare
+ *
+ * NOT because case-folding would break something else. It was checked and it
+ * would not: of the 90 `start` entries below, exactly one pair of spellings
+ * differs only by case, and it is this pair. The two `INTRODUCTION` entries are
+ * already the same string in the same case, and sequential matching is what
+ * keeps them apart.
+ *
+ * It is refused because of what `start` IS. Every one of those 90 entries
+ * records what the book prints, letter for letter, and matching them exactly is
+ * the whole of "a layout change fails loudly instead of silently merging two
+ * topics". Folding case would weaken all 90 to serve one, and would accept a
+ * heading the book had stopped setting that way. A list weakens exactly the
+ * entry that needs it and leaves the other 89 exact - and it says out loud that
+ * two books disagree here, which a fold would hide.
  *
  * This is `folioOf`'s rule at a different layer, and it obeys the same one:
  * oldest book first, so a later revision's rename never shadows the name a
@@ -546,11 +566,13 @@ const SPECS: readonly Spec[] = [
   { id: 'multiclassing', title: 'Multiclassing', start: 'MULTICLASSING' },
 
   /*
-   * The equipment chapter. Folios 44-61 / 55-83, and the only chapter in the
-   * book whose prose shares its pages with four other parsers' records: the
-   * weapon, armor, loot and consumable tables belong to `equipment.ts` and
-   * `loot.ts`, and appear in the dataset as `weapons`, `armors`, `loot` and
-   * `consumables`.
+   * The equipment chapter. Folios 44-61 / 55-83, whose prose shares its pages
+   * with four other COLLECTIONS' records - `weapons`, `armors`, `loot` and
+   * `consumables`, read by two other parsers, `equipment.ts` and `loot.ts`.
+   * (Not the only chapter that does - folios 8-31 of SRD 2.0 carry the 13
+   * classes, 26 subclasses, 22 beastforms and 16 stances - but the densest:
+   * 315 weapons, 69 armors, 120 loot and 111 consumables are printed on these
+   * 29 pages, 615 records against eight sections of prose.)
    *
    * ## What keeps the tables out is the book's own type size, not a rectangle
    *
@@ -558,8 +580,8 @@ const SPECS: readonly Spec[] = [
    * these folios at 8pt. So the weapon, armor, loot and consumable rows are
    * gone before this manifest sees a thing, and the eight sections below are
    * the chapter's prose alone. Counted on the folios themselves: SRD 2.0's 29
-   * pages carry 4,016 lines of which 3,809 are under 9pt, SRD 1.0's 18 carry
-   * 1,921 of which 1,737 are. Nine parts in ten of this chapter is table.
+   * pages carry 4,016 lines of which 3,809 are under 9pt (94.8%), SRD 1.0's 18
+   * carry 1,921 of which 1,737 are (90.4%).
    *
    * ## The furniture that survives the size filter, and the two drops that end it
    *
@@ -592,9 +614,10 @@ const SPECS: readonly Spec[] = [
   { start: 'TIER 1 (LEVEL 1)', drop: true },
   /*
    * Mixed case, in both books, and it is the book's own setting rather than a
-   * typo to normalise - the SRD sets ten of its 17.3pt heads that way, `The
-   * Spotlight` and `Class Domains` among them, and two of those are already
-   * matched in caseful form by the manifest above.
+   * typo to normalise. Counted off the 17.3pt Eveleth bands: eight of SRD 1.0's
+   * display heads are set in mixed case and nine of SRD 2.0's, and THREE of
+   * them are already matched in caseful form by the manifest above -
+   * `Core Gameplay Loop`, `The Spotlight`, `Turn Order & Action Economy`.
    *
    * Its `By Mark Thompson` credit is 9.3pt italic, so it is body text and stays
    * inside the section. That is where a credit belongs, and it is the reason
