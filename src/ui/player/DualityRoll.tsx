@@ -2271,10 +2271,16 @@ export function DualityRoll({
          * own rule is that the resting point of an idle thumb gets the harmless
          * control.
          *
-         * It costs the column 50px when it draws a control (44 and the stack's
-         * 6px gap) and 37 when it draws one of its two statements, and nothing
-         * at all on every roll a Bard makes, on every roll with Fear, and on
-         * every reaction roll - see `favorOffer`, which is where the gate is.
+         * Measured in Chrome at 393x852, driving a Warlock through the real
+         * app: the row is 369x44 laid out 6px under a 317x56 ROLL, so it costs
+         * the column 50; a statement measured 41 and costs 47; the record
+         * measured 31 and costs 37. At 320x568 the control grows to 66 rather
+         * than clipping its second sentence, which is what `minHeight` buys and
+         * what `FavorRow`'s own ergonomics note carries the arithmetic for. It
+         * costs nothing at all on every roll a Bard makes, on every roll with
+         * Fear and on every reaction roll - see `favorOffer`, which is the gate,
+         * and which was driven too: 25 rolls on a Bard, 13 of them with Hope
+         * and one a critical, and the word FAVOR never reached the screen.
          */}
         <FavorRow
           /* `favor-` and not the bare `rollId` the damage row uses: these two

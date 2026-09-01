@@ -27,6 +27,14 @@
  * also the case where the offer is worth the most, so it is not hidden: it says
  * so instead, in the detail line.
  *
+ * Both halves were driven in the running app, not only asserted in jsdom. From
+ * 5 of 6 Hope: the roll marked the sixth, the row read *"Instead of the Hope
+ * this roll gave you"*, and taking it left HOPE at 5 of 6 and FAVOR at 4. From
+ * 6 of 6: the roll's Hope was clamped away, the row read *"Your Hope was
+ * already full, so this one costs you nothing"*, and taking it left HOPE at 6
+ * of 6 and FAVOR one higher. The second is the one that silently costs a player
+ * a Hope if this is written as an unconditional `- 1`.
+ *
  * WHY IT IS ITS OWN FILE. The same two reasons `DamageRoll.tsx` gives, and the
  * first one is nearly word for word: this row asks `favorOffer` for the verdict
  * and never reads `result.succeeded` itself, because that field has three
@@ -98,6 +106,12 @@ export interface FavorOffer {
  * outcome label being `critical` rather than `success-hope`. The Stress the
  * critical clears is not part of the exchange and is not touched.
  *
+ * Driven in Chrome as well as asserted: a Warlock rolled 8/8, the bar read
+ * `Critical Success · Gain a Hope and clear a Stress · 17`, the row offered
+ * `TAKE A FAVOR` with no caveat - a critical forces `succeeded` true even with
+ * no Difficulty shared - and taking it moved Favor 3 to 4 while Stress stayed
+ * on the 2 of 6 the critical had just cleared it to.
+ *
  * ## The ordering of the two refusals
  *
  * The failure is checked before the ceiling because it is about THIS ROLL and
@@ -115,8 +129,9 @@ export interface FavorOffer {
  * appears on every success with Hope, and its absence reads as the app having
  * lost the feature rather than as the rules having a ceiling. The sentence also
  * carries the only action available: spend one. It costs the column two lines
- * and no target, which is `Refusal`'s trade next door: 31px against the 44 a
- * control would have to clear.
+ * and no target, which is `Refusal`'s trade next door - measured at 41px in
+ * Chrome at 393 against the 44 a control would have to clear, and 31 when the
+ * detail fits one line.
  *
  * The failure branch is the same trade made on a commoner roll - a failure with
  * Hope is one of the five outcomes the rules name, not an edge - and it is paid
@@ -244,13 +259,26 @@ function Statement({ label, detail }: { label: string; detail: string }): React.
  * ## Ergonomics
  *
  * TARGET SIZE: `minHeight: var(--tap)` and the full width of the column, so the
- * control is 44 tall on every layout - this project's coarse floor exactly, and
- * the smallest of the three controls in this block against `DamageRow`'s 52 and
- * ROLL's 56. That ordering is deliberate and is read by size alone: ROLL is the
- * turn, the damage is the number the table is waiting for, and this is a
- * bookkeeping choice. `minHeight` and not `height`, so the two-sentence
- * `unknown` detail wraps to a second 10px line and grows the box instead of
- * being sawn off.
+ * control is 44 tall - this project's coarse floor exactly, and the smallest of
+ * the three controls in this block against `DamageRow`'s 52 and ROLL's 56. That
+ * ordering is deliberate and is read by size alone: ROLL is the turn, the damage
+ * is the number the table is waiting for, and this is a bookkeeping choice.
+ *
+ * MEASURED IN CHROME rather than derived, on a Warlock driven through the real
+ * app at two widths. At **393x852** the row is **369x44**, laid out 6px under a
+ * ROLL bar that measured 317x56 - the floor binds, because the worst label
+ * (`TAKE A FAVOR IF YOU SUCCEEDED`, the one carrying both sentences) takes one
+ * 15px line and two 10px lines, so 15 + 4 + 20 = 39 of content in 44. At
+ * **320x568** it is **296x66**: the label wraps to two lines and the detail to
+ * three, 30 + 4 + 30 = 64, and the box GROWS past its floor to hold them with
+ * `document.scrollWidth === clientWidth` throughout. That growth is the whole
+ * reason this is `minHeight` and not `height`; at 320 a fixed 44 would have
+ * sawn 22px off the sentence that says what the trade costs.
+ *
+ * The two statements measured **369x41** at 393 - their details wrap to two
+ * lines - and the record **369x31**, its one line fitting. So what the column
+ * pays is 50 for the control, 47 for a statement and 37 for the record, each
+ * including the stack's 6px gap.
  *
  * THUMB ARC: it sits between ROLL and the damage row, and not below both.
  * `DamageRow` holds the bottom edge because "when it exists it is the thing you
