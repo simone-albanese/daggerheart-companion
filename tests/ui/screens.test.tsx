@@ -40,7 +40,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adversary, Environment } from '@shared/types.ts';
 import type { SessionItem } from '@shared/campaigns.ts';
-import { cryptoRng } from '../../src/engine/dice.ts';
+import { cryptoRng, rollDuality } from '../../src/engine/dice.ts';
 import * as db from '../../src/store/db.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
@@ -123,6 +123,7 @@ import { Cards } from '../../src/ui/player/Cards.tsx';
 import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions, ConditionsControl } from '../../src/ui/player/Conditions.tsx';
 import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
+import { FavorRow } from '../../src/ui/player/FavorRow.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
 import { DualityRoll, ExperienceRow } from '../../src/ui/player/DualityRoll.tsx';
 import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
@@ -797,6 +798,16 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     />
   ),
   'player/DeathMove.tsx::DeathMoveOffer': () => <DeathMoveOffer />,
+  // A real success with Hope, so the prop side of this row is exercised even
+  // though the sheet side refuses it: the fixture is a Bard and only a class
+  // with the Favor feature is ever offered the trade. See DRAWS_NOTHING.
+  'player/FavorRow.tsx::FavorRow': () => (
+    <FavorRow
+      result={rollDuality({ modifier: 0, difficulty: 5, fixed: { hope: 10, fear: 3 } })}
+      hopeGained={1}
+      layout="desktop"
+    />
+  ),
   'player/DualityRoll.tsx::DualityRoll': () => (
     <DualityRoll
       stats={stats()}
@@ -984,6 +995,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
 const DRAWS_NOTHING: Record<string, string> = {
   'player/Beastform.tsx::Beastform': 'Only a class with a Beastform draws it; the fixture is a Bard.',
   'player/DeathMove.tsx::DeathMoveOffer': 'The fixture has HP left, so no death move is offered.',
+  'player/FavorRow.tsx::FavorRow':
+    'Only a class with the Warlock’s Favor feature is offered the trade, and the fixture is a Bard - ' +
+    'the same shape as Beastform above. `tests/ui/favorRow.test.tsx` mounts every branch of it.',
 };
 
 /** Every PascalCase value export under `src/ui`, derived rather than listed. */

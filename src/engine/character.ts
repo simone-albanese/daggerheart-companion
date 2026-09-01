@@ -149,13 +149,47 @@ const STARTING_FAVOR = 3;
  * predicate exists to end.
  *
  * Takes the class and not the character, because the question it answers is
- * what a sheet is CREATED holding. The live question - does this sheet DRAW a
- * Favor row - has a second arm, `multiclassRef`, the way `hasBeastform` does.
- * That arm belongs beside this predicate when something finally draws the row,
- * not in a second predicate written somewhere else.
+ * what a sheet is CREATED holding. The live question - does this sheet HOLD
+ * Favor - has a second arm, `multiclassRef`, the way `hasBeastform` does, and
+ * that arm is `holdsFavor` directly below rather than a second predicate
+ * written somewhere else.
  */
 export const grantsFavor = (klass: CharClass | undefined): boolean =>
   klass?.classFeatures.some((f) => /\bfavor\b/i.test(f.name)) === true;
+
+/**
+ * Whether THIS character holds Favor, both classes asked.
+ *
+ * The live question, and it is a different one from `grantsFavor` above rather
+ * than a convenience wrapper over it. That predicate answers what a sheet is
+ * created holding, which is why it reads one class: multiclassing happens at
+ * level 5 to somebody already playing, and `tests/favor.test.tsx` pins that a
+ * level-5 pact seeds no starting three. This one answers what a sheet can DO
+ * now, so it reads both - the shape `hasBeastform` uses, for the same two
+ * reasons it gives: a layer that renames the class keeps the feature, and a
+ * multiclass into the class acquires it.
+ *
+ * THE SECOND ARM IS THE APP'S OWN ANSWER AND NOT A READING OF THE SRD. The
+ * advancement reads *"Choose an additional class, select one of its domains,
+ * and gain its class feature"* - singular, against a Warlock that has two,
+ * Patron's Pact and Favor - so the sentence alone does not say which. What
+ * settles it here is that `characterFeatures` in `src/engine/features.ts` already
+ * pushes the multiclass's WHOLE `classFeatures` list onto the sheet, under the
+ * site `multiclass`: the app has been printing "Favor" among a multiclassed
+ * Warlock's features since before this predicate existed. A row that then
+ * refused the trade would be the app contradicting its own feature list, which
+ * is a worse failure than either reading of the singular.
+ *
+ * Nothing here reads `favor.max`. A sheet that holds no Favor still carries the
+ * track - every one of the thirteen classes does, which is the argument on
+ * `Character.favor` - so a `favor.max > 0` test would answer yes for all
+ * thirteen and this predicate would be decorative.
+ */
+export function holdsFavor(c: Character, ix: DatasetIndex): boolean {
+  return [c.classRef, c.multiclassRef]
+    .filter((r): r is Ref => typeof r === 'string' && r !== '')
+    .some((r) => grantsFavor(ix.classes.get(r)));
+}
 
 /** Tier 1 is level 1, tier 2 is 2-4, tier 3 is 5-7, tier 4 is 8-10. */
 export function tierOf(level: number): Tier {
