@@ -487,6 +487,26 @@ export function readCharacterRecord(
     stress: readCounter(value['stress'], 'Stress', where),
     hope: readCounter(value['hope'], 'Hope', where),
     armorSlots: readCounter(value['armorSlots'], 'armor', where),
+    /*
+     * SCHEMA 8'S TWO FIELDS, WHICH ARRIVED UNGUARDED.
+     *
+     * `focus` is typed `Counter` and was not read through `readCounter` the way
+     * its four siblings above are; `stanceRefs` is typed `Ref[]` and was not
+     * read through `strings` the way `loadout` and `vault` are. Both reached the
+     * store through the wholesale spread instead. Measured before this line
+     * existed: `{ focus: 'not a counter' }` was ACCEPTED and stored the string,
+     * while the identical abuse of `hp` was refused with "has no readable HP
+     * track" - so a brand-new field was the one hole in a guard this file had
+     * otherwise held since the companion defect.
+     *
+     * `focus` uses the blank sheet rather than throwing when ABSENT, because
+     * this function's rule is the one stated on `checkShapes`: anything present
+     * has to have the right shape, anything absent is just terse. A v8 file
+     * hand-edited to drop the track opens at 0/6 instead of at `undefined`,
+     * which is what every reader of `.marked` would otherwise meet.
+     */
+    focus: value['focus'] === undefined ? base.focus : readCounter(value['focus'], 'Focus', where),
+    stanceRefs: strings('stanceRefs') ?? [],
     loadout: strings('loadout') ?? [],
     vault: strings('vault') ?? [],
     subclassRefs: strings('subclassRefs') ?? [],
