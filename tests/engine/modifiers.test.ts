@@ -185,7 +185,19 @@ const STATIC_SHAPES: RegExp[] = [
    * all your damage thresholds" - the only place in either book that spells it
    * that way.
    */
-  /[+−-]\s?\d+\s+(bonus\s+|penalty\s+)?to\s+(your\s+)?(all\s+your\s+)?(Evasion|Armor Score|Agility|Strength|Finesse|Instinct|Presence|Knowledge|Severe damage threshold|damage thresholds|all character traits)/i,
+  /*
+   * `to` IS OPTIONAL, and that is a THIRD spelling, not a tidy-up.
+   *
+   * The book writes a static bonus three ways, not two. The Spidersilk Tunic's
+   * *Wall-Crawling* is "+1 Evasion" - no `to`, no `bonus`, the digit simply
+   * abutting the stat - and it is the ONLY site in either book that spells it
+   * that way. Measured over all 933 feature-bearing sites: making `to` optional
+   * adds exactly one, and it is that one.
+   *
+   * It was worth an Evasion point on a played sheet. See `spidersilk-tunic` in
+   * `modifiers.ts`, which now prices it.
+   */
+  /[+−-]\s?\d+\s+(bonus\s+|penalty\s+)?(to\s+)?(your\s+)?(all\s+your\s+)?(Evasion|Armor Score|Agility|Strength|Finesse|Instinct|Presence|Knowledge|Severe damage threshold|damage thresholds|all character traits)/i,
   /Gain an additional (Hit Point|Stress) slot/i,
   /*
    * `Armor Score` was missing from this alternation and Earthkin's Stoneskin -
@@ -201,7 +213,14 @@ const STATIC_SHAPES: RegExp[] = [
    * your Presence", "equal to your unmarked Armor Slots" - and every one of
    * them slipped a regex written when Galapa's Shell was the only instance.
    */
-  /Gain a bonus to your (damage thresholds|Armor Score|Evasion) equal to your \w+/i,
+  /*
+   * `half your` as well as `your`. `Untouchable` (Bone 1) is "Gain a bonus to
+   * your Evasion equal to HALF your Agility" - the same construct as
+   * `fortified-armor` and `armorer`, which this file already excuses, and it
+   * went through on one word. Measured: `half|twice` adds two sites, this one
+   * and `rage-up`, and no others in either book.
+   */
+  /Gain a bonus to your (damage thresholds|Armor Score|Evasion) equal to (half |twice )?your \w+/i,
   /^You gain a [+−-]\d+ bonus to your (Agility|Strength|Finesse|Instinct|Presence|Knowledge)\./i,
   /-1 to all character traits and Evasion/i,
 ];
@@ -254,6 +273,17 @@ const UNPRICED_AMOUNT: Record<string, string> = {
   'armor|coffinwood-armor-tier-2': 'Splintering, as coffinwood-armor-tier-1.',
   'armor|coffinwood-armor-tier-3': 'Splintering, as coffinwood-armor-tier-1.',
   'armor|coffinwood-armor-tier-4': 'Splintering, as coffinwood-armor-tier-1.',
+  /*
+   * A FIFTH quantity, and the one the widened shape 4 caught on a single word.
+   * `Amount` names four - a plain number, `proficiency`, a trait, a tier - and
+   * "half your Agility" is none of them. Halving is arithmetic the register has
+   * no way to say, and the lane it would need does not exist either
+   * (`collectModifiers` has no `domainCards` register), so this is the one
+   * entry that belongs in BOTH maps and is filed here because the amount is the
+   * harder half: give it a lane tomorrow and it still could not be written.
+   */
+  'domainCard|untouchable':
+    'Untouchable (Bone 1): "Gain a bonus to your Evasion equal to HALF your Agility." No cost, no clock and no room-condition - the same shape as `fortified-armor` and `armorer` above, which is why its absence was a miss and not a judgement. It went through on one word: shape 4 read "equal to your \\w+" and the book writes "equal to half your Agility".',
   'domainCard|eldritch-flesh':
     'Eldritch Flesh: "Gain a +1 bonus to your damage thresholds FOR EACH STRESS YOU HAVE MARKED." The same shape as Splintering and the harder half of the same problem - the multiplicand is a track the player moves several times a scene, and `stress.marked` climbs and clears mid-fight. (It is also in a collection no register lane reads; see `UNPRICED_LANE`.) Surfaced for the first time by walking `domainCards` AND by letting the shape see `bonus`.',
 };
@@ -637,9 +667,14 @@ describe('the register against the book', () => {
           const n = row.amount as number;
           const sign = n > 0 ? '\\+' : '-';
           // "-1 to Evasion", "+3 to Severe damage threshold", "+1 bonus to your Agility",
-          // and savior chainmail's "-1 to all character traits and Evasion".
+          // savior chainmail's "-1 to all character traits and Evasion", and the
+          // Spidersilk Tunic's "+1 Evasion" - the one place the book omits `to`
+          // altogether, which is why `to` is optional here exactly as it is in
+          // `STATIC_SHAPES[0]`. This check had the SAME two-word blind spot as
+          // the scan, pointing the other way: it could not confirm a row whose
+          // sentence omits the word, so pricing that row turned it red.
           const near = new RegExp(
-            `${sign}\\s?${Math.abs(n)}\\s+(bonus\\s+)?to\\s+(your\\s+|all character traits and\\s+)?${word}`,
+            `${sign}\\s?${Math.abs(n)}\\s+(bonus\\s+)?(to\\s+)?(your\\s+|all character traits and\\s+)?${word}`,
             'i',
           );
           const sweeping =
@@ -718,6 +753,33 @@ describe('the book against the register', () => {
       'Gain an additional Hit Point slot at character creation.',
       'Gain a bonus to your damage thresholds equal to your Spellcast trait.',
       'You gain a +1 bonus to your Agility.',
+      /*
+       * ONE PER ALTERNATION MEMBER, and this is the half the list was missing.
+       *
+       * The entries above pin SPELLINGS - `bonus`, `penalty`, `all your`, the
+       * anchored forms. None of them pinned the STATS, so four traits could be
+       * deleted from `STATIC_SHAPES[0]`'s alternation and the whole suite stayed
+       * green while the scan went blind to 22 real dataset sites. That is the
+       * Earthkin failure a third time: `Armor Score` once went missing from this
+       * very alternation and Stoneskin shipped through the gap.
+       *
+       * Every sentence below is the book's own, read out of `data/srd-2.0.json`
+       * rather than invented, so a member cannot be removed without one of these
+       * going quiet.
+       */
+      'You gain a +1 bonus to your Strength. You can only carry one relic.',
+      'Cumbersome: -1 to Finesse',
+      'You gain a +1 bonus to your Instinct until your next rest.',
+      'Gilded: +1 to Presence',
+      'You gain a +1 bonus to your Knowledge until your next rest.',
+      'Difficult: -1 to all character traits and Evasion',
+      /*
+       * The two spellings this revision added, pinned so they cannot be
+       * narrowed back: the Spidersilk Tunic's missing `to`, and Untouchable's
+       * `half`.
+       */
+      'Wall-Crawling: +1 Evasion; you can walk on walls as easily as on the ground.',
+      'Gain a bonus to your Evasion equal to half your Agility.',
     ];
     const missed = MUST_FLAG.filter((t) => !looksStatic(t));
     expect(
@@ -820,6 +882,24 @@ describe('what a sheet actually reads', () => {
    * prende evasion e il gamberson che da evasione. Il conteggio non sale.
    * Resta fermo alla base di classe.»
    */
+  it('adds the Spidersilk Tunic\'s +1, which the book writes without the word "to"', () => {
+    /*
+     * A REAL NUMBER THAT WAS MISSING FROM A PLAYED SHEET, not a coverage
+     * exercise. *Wall-Crawling* is "+1 Evasion" and nothing priced it, so a
+     * character wearing this armour read one Evasion less than folio 72 gives
+     * them - and the check whose whole job is to notice that could not see it,
+     * because it required a `to` the SRD does not print here. It is the only
+     * site in either book with that spelling, measured over all 933.
+     *
+     * The neighbour is `improved-leather-armor`, and it is chosen rather than
+     * assumed: same tier, same Armor Score 4, the same thresholds [9, 20], and
+     * `feature: ""`. So the difference below cannot be the armour's numbers or
+     * the act of wearing armour at all - it is the feature or nothing.
+     */
+    expect(evasionOf({ activeArmor: 'improved-leather-armor' })).toBe(12);
+    expect(evasionOf({ activeArmor: 'spidersilk-tunic' })).toBe(13);
+  });
+
   it('adds a Simiah\'s Nimble and a Gambeson\'s Flexible to the class base', () => {
     expect(evasionOf({})).toBe(12);
     expect(evasionOf({ ancestryRefs: ['simiah'] })).toBe(13);

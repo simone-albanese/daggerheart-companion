@@ -288,6 +288,21 @@ const WEAPON_MODS: Record<Ref, Row[]> = {
 
 /** Worn as `activeArmor`. */
 const ARMOR_MODS: Record<Ref, Row[]> = {
+  /*
+   * Wall-Crawling: "+1 Evasion" - the ONE row in either book written without
+   * the word `to`, and the reason the reverse scan in `modifiers.test.ts` now
+   * makes `to` optional.
+   *
+   * It shipped unpriced: a player in a Spidersilk Tunic read an Evasion one
+   * lower than the book gives them, and no check anywhere said so, because the
+   * scan whose entire job is to notice that required a `to` the SRD did not
+   * print here. Measured over all 933 feature-bearing sites - this spelling
+   * occurs exactly once.
+   *
+   * The walking half is not a row: this register has no stat for it, the same
+   * reason `sledge-axe`'s extra damage die is absent.
+   */
+  'spidersilk-tunic': [{ stat: 'evasion', amount: 1, feature: 'Wall-Crawling' }],
   // Flexible: +1 to Evasion
   'gambeson-armor': [{ stat: 'evasion', amount: 1, feature: 'Flexible' }],
   'improved-gambeson-armor': [{ stat: 'evasion', amount: 1, feature: 'Flexible' }],
@@ -398,7 +413,7 @@ const ARMOR_MODS: Record<Ref, Row[]> = {
    * than assumed: `deriveStats` reports `loadoutLimit`, but `src/engine/
    * loadout.ts` enforces the flat `MAX_LOADOUT` when a card is actually added,
    * and `tools/simulate.ts` asserts `stats.loadoutLimit === MAX_LOADOUT` as an
-   * invariant. Moving the reported limit alone would put "6 of 4 active" on the
+   * invariant. Moving the reported limit alone would put "5 of 4 active" on the
    * printed sheet of a character the app had just let add a sixth card - a
    * disagreement between the app and its own sheet, which is worse than the
    * silence. `UNPRICED_LANE` in the test carries the debt and the exact edit.
