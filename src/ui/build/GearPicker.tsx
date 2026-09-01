@@ -1661,10 +1661,10 @@ export function GearSlot({
    *
    * It is the only part of this slot that changes without anybody touching the
    * slot: a two-handed weapon arriving in the OTHER hand rewrites this line,
-   * and so does a level-up. Two inline warnings in the same creation flow are
-   * already `role="status"` for exactly that - `Wizard.tsx`'s blocking reason
-   * and its refused write - and this one was a bare `<span>`, so a screen
-   * reader was told nothing at all.
+   * and so does a level-up. `Wizard.tsx` already draws its blocking reason as
+   * `role="status"` for exactly that, in both of the two places it appears -
+   * once in the phone nav and once beside the desktop buttons - and this one
+   * was a bare `<span>`, so a screen reader was told nothing at all.
    *
    * Mounted whether or not there is anything in it, because a live region has
    * to exist before its contents change for the change to be spoken;

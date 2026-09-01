@@ -513,9 +513,9 @@ describe('putting something down, and being able to see that you can', () => {
 describe('the sentence under a slot, spoken as well as printed', () => {
   it('is a live region on every slot, mounted before it has anything to say', () => {
     /*
-     * Two inline warnings in this same creation flow are already
-     * `role="status"`; this one was a bare `<span>`, so the line that changes
-     * when the OTHER hand is filled reached a screen reader as nothing at all.
+     * The wizard's own blocking reason is `role="status"` in both places it is
+     * drawn; this one was a bare `<span>`, so the line that changes when the
+     * OTHER hand is filled reached a screen reader as nothing at all.
      * Mounted empty rather than conditionally, because a live region has to
      * exist before its contents change for the change to be spoken -
      * `NameRefusal` writes that rule down.
