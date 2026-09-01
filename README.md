@@ -3,19 +3,42 @@
 **Daggerheart Compatible.** A digital character sheet and GM toolkit.
 Local-first, offline, no account, no server, no telemetry.
 
-The app ships with the whole SRD already in it — 210 domain cards, 264
-adversaries, 47 environments, 13 classes and every table — so nothing has to
-be loaded before it is usable. The book it publishes is **SRD 2.0**, and the
-edition before it is still parsed and still checked, because that is the only
-proof the pipeline did not quietly change its mind about the older one. The first screen asks **who is at the table**:
-two questions for a player, three for a GM, and for somebody whose character
-already exists on another device, a door to bring it over rather than a
-question. It is skippable at every step, and a skip lands on the same summary
-card as answering, carrying the shipped defaults. Before that the app opened on
-the character wizard's class step — the same nine cards whether you were making
-a character, running the game, or arriving with a finished sheet in your pocket.
+The whole SRD is already inside it — **210 domain cards, 264 adversaries, 47
+environments, 13 classes** and every table — so nothing has to be downloaded,
+unlocked or imported before the app is usable. The book it publishes is
+**SRD 2.0**; the edition before it is still parsed and still checked, because
+that is the only thing that can prove the pipeline did not quietly change its
+mind about the older one.
+
+The first screen asks **who is at the table**: two questions for a player,
+three for a GM, and for somebody whose character already exists on another
+device, a door to bring it over rather than a question. It is skippable at
+every step, and a skip lands on the same summary card as answering, carrying
+the shipped defaults. Before that, the app opened on the character wizard's
+class step — the same list whether you were making a character, running the
+game, or arriving with a finished sheet in your pocket.
 
 ---
+
+## Contents
+
+**The app**
+&nbsp;&nbsp;[What it does, and what it deliberately doesn't](#what-it-does-and-what-it-deliberately-doesnt) · [The five screens](#the-five-screens-and-what-is-on-each) · [What the app ships](#what-the-app-ships) · [Moving a character between devices](#getting-a-character-onto-another-device) · [Why a character cannot be lost](#your-character-is-the-thing-that-must-not-be-lost)
+
+**The book, and building from it**
+&nbsp;&nbsp;[One parser, at build time](#one-parser-and-it-runs-at-build-time) · [Getting started](#getting-started) · [Rebuilding the dataset](#rebuilding-the-dataset) · [Layout of the repo](#layout-of-the-repo)
+
+**When something goes wrong**
+&nbsp;&nbsp;[Runbook: a blank rectangle](#runbook-the-app-opens-to-a-blank-rectangle)
+
+**Language and legal**
+&nbsp;&nbsp;[Language](#language) · [Legal](#legal)
+
+---
+
+# The app
+
+*What it does at a table, and what it refuses to do.*
 
 ## What it does, and what it deliberately doesn't
 
@@ -53,8 +76,6 @@ anybody's sheet. The same is promised for features with a *declared* numeric
 effect — *"Tusks: +1d6 damage"* — and that half is not built: `rollDamage` takes
 a flat modifier and has no notion of an added die. `BACKLOG.md` P1-1 says so
 under what it leaves out.
-
----
 
 ## The five screens, and what is on each
 
@@ -135,7 +156,25 @@ this project — the Core Book's lists are not in this app), and the reference.
 Export and import, printing, and the switches for the GM tools and the GM
 section as a whole.
 
----
+## What the app ships
+
+Sixteen collections, and the app reads every one of them. The counts are the
+shipped file's own, not a promise about it:
+
+| | | | |
+|---|---|---|---|
+| domains 10 | domain cards 210 | classes 13 | subclasses 26 |
+| ancestries 24 | communities 15 | beastforms 22 | transformations 6 |
+| martial stances 16 | weapons 391 | armors 85 | loot 120 |
+| consumables 120 | adversaries 264 | environments 47 | rules 74 |
+
+Two of those are **shown and never applied**, and it is a decision rather than
+an omission. A transformation and a martial stance both grant effects the sheet
+would have to be *in* to be entitled to — and the book ties those states to the
+scene, to Severe damage, to the last Hit Point. Deciding when a character drops
+out of one would be the app interpreting the rules, which is the line the
+section above draws. So the records are carried, searchable and drawn in full,
+and they move no number. The engine is measured to prove it.
 
 ## Getting a character onto another device
 
@@ -147,7 +186,82 @@ Three ways, and none of them needs a server or an account.
 | **Animated QR** | one phone paints a loop of QR codes, the other watches. No handshake, no pairing, no channel — the phone holding the camera never has to talk back, which is what makes it work between two devices that have never met |
 | **Print** | the character sheet onto paper |
 
+## Your character is the thing that must not be lost
+
+Safari's ITP can evict IndexedDB after roughly seven days of inactivity, and
+`navigator.storage.persist()` is granted inconsistently. A group that plays
+every three weeks would lose a character between sessions.
+
+So: persistence is requested at the right moment and with an explanation; the
+indicator says how long it has been since the last export, and gets loud at
+five days; and every launch checks that what the last session left behind is
+still there. When it is not, the app names the missing characters rather than
+counting them, and points at the screen that can restore them. Past seven idle
+days it also names the browser as the likely cause — and only then, because
+that is when there is evidence for it rather than a guess.
+
+**The automatic export has a precondition, and the app does not pretend
+otherwise.** Choose a folder once in Settings and a copy is written into it
+when you put the app down and when the page goes away. Until you do, nothing is
+exported automatically, and Settings says exactly that instead of implying a
+copy exists. Choosing a folder needs `showDirectoryPicker`; where the browser
+does not have it, the app says so and the export stays a button you press.
+
+A character is months of someone's work; losing it is the one unforgivable bug
+in an app like this.
+
 ---
+
+# The book, and building from it
+
+*One parser, one committed dataset, and nothing parsed in a browser.*
+
+## One parser, and it runs at build time
+
+The most important structural decision in the project, and the reason the app
+no longer has a second one.
+
+```
+BUILD TIME (your machine, CI)         RUNTIME (the user's browser)
+─────────────────────────────         ────────────────────────────
+tools/build-srd.ts                    nothing parses anything
+     ↓
+SRD 2.0 (224 pp, 2.3 MB)              ← the book the app publishes
+SRD 1.0  (68 pp, 0.9 MB)              ← kept, and still checked
+     ↓
+data/srd-2.0.json, committed
+data/srd-1.0.json, committed
+     ↓
+precached by the service worker
+```
+
+If the build parser is wrong, CI says so. If a runtime parser were wrong,
+a player would find out at a table, mid-session, on a device you cannot
+reproduce. That asymmetry justified the whole separation while there were two
+parsers, and in the end it is what removed the second. `src/import/` used to
+put the 397-page Core Rulebook through pdf.js in a Web Worker, on the user's
+own desktop, and lay its illustrations and flavour over the SRD as an optional
+layer in IndexedDB. It has been deleted: domain cards are text-only, and the
+browser parses nothing.
+
+Three things the SRD does that break a naive parser, all handled and all
+regression-tested:
+
+1. **It is imposed as spreads.** Every page after the cover is 1224×792pt —
+   two letter pages side by side. Nothing in the file says so.
+2. **Each book page is set in two columns**, and the column structure changes
+   *within* a page: two columns of prose above a full-width table, a
+   four-column contents list above two-column stat blocks. A recursive XY-cut
+   handles it; a single projection onto either axis does not.
+3. **Tier numbers are not digits.** They are decorative glyphs in the Unicode
+   Private Use Area. A parser that ignores them produces a dataset that looks
+   correct and is quietly wrong. They are remapped, cross-checked against the
+   section headings and the prose, and an *unknown* PUA glyph fails the build.
+
+A fourth, found while building: poppler splits a word wherever a ligature glyph
+sits, so `Difficulty` arrives as `Diffi` + `culty:`. The repair is geometric,
+not a word list — a spurious split has no advance at all, a real space has
+about a quarter of the glyph height.
 
 ## Getting started
 
@@ -198,77 +312,6 @@ on the machine are relying on, unpack a release of that major into
 `env.sh` warns when the Node you end up with is a different major from the one
 CI runs, so the mismatch surfaces on the machine that has it.
 
----
-
-## One parser, and it runs at build time
-
-The most important structural decision in the project, and the reason the app
-no longer has a second one.
-
-```
-BUILD TIME (your machine, CI)         RUNTIME (the user's browser)
-─────────────────────────────         ────────────────────────────
-tools/build-srd.ts                    nothing parses anything
-     ↓
-SRD 2.0 (224 pp, 2.3 MB)              ← the book the app publishes
-SRD 1.0  (68 pp, 0.9 MB)              ← kept, and still checked
-     ↓
-data/srd-2.0.json, committed
-data/srd-1.0.json, committed
-     ↓
-precached by the service worker
-```
-
-### What comes out of it
-
-Sixteen collections, and the app reads every one of them. The counts are the
-shipped file's own, not a promise about it:
-
-| | | | |
-|---|---|---|---|
-| domains 10 | domain cards 210 | classes 13 | subclasses 26 |
-| ancestries 24 | communities 15 | beastforms 22 | transformations 6 |
-| martial stances 16 | weapons 391 | armors 85 | loot 120 |
-| consumables 120 | adversaries 264 | environments 47 | rules 74 |
-
-Two of those are **shown and never applied**, and it is a decision rather than
-an omission. A transformation and a martial stance both grant effects the sheet
-would have to be *in* to be entitled to — and the book ties those states to the
-scene, to Severe damage, to the last Hit Point. Deciding when a character drops
-out of one would be the app interpreting the rules, which is the line the
-section above draws. So the records are carried, searchable and drawn in full,
-and they move no number. The engine is measured to prove it.
-
-If the build parser is wrong, CI says so. If a runtime parser were wrong,
-a player would find out at a table, mid-session, on a device you cannot
-reproduce. That asymmetry justified the whole separation while there were two
-parsers, and in the end it is what removed the second. `src/import/` used to
-put the 397-page Core Rulebook through pdf.js in a Web Worker, on the user's
-own desktop, and lay its illustrations and flavour over the SRD as an optional
-layer in IndexedDB. It has been deleted: domain cards are text-only, and the
-browser parses nothing.
-
-Three things the SRD does that break a naive parser, all handled and all
-regression-tested:
-
-1. **It is imposed as spreads.** Every page after the cover is 1224×792pt —
-   two letter pages side by side. Nothing in the file says so.
-2. **Each book page is set in two columns**, and the column structure changes
-   *within* a page: two columns of prose above a full-width table, a
-   four-column contents list above two-column stat blocks. A recursive XY-cut
-   handles it; a single projection onto either axis does not.
-3. **Tier numbers are not digits.** They are decorative glyphs in the Unicode
-   Private Use Area. A parser that ignores them produces a dataset that looks
-   correct and is quietly wrong. They are remapped, cross-checked against the
-   section headings and the prose, and an *unknown* PUA glyph fails the build.
-
-A fourth, found while building: poppler splits a word wherever a ligature glyph
-sits, so `Difficulty` arrives as `Diffi` + `culty:`. The repair is geometric,
-not a word list — a spurious split has no advance at all, a real space has
-about a quarter of the glyph height.
-
----
-
 ## Layout of the repo
 
 ```
@@ -286,31 +329,9 @@ src/ui/         shell, player, build, gm, settings, print, and what they share
 
 ---
 
-## Your character is the thing that must not be lost
+# When something goes wrong
 
-Safari's ITP can evict IndexedDB after roughly seven days of inactivity, and
-`navigator.storage.persist()` is granted inconsistently. A group that plays
-every three weeks would lose a character between sessions.
-
-So: persistence is requested at the right moment and with an explanation; the
-indicator says how long it has been since the last export, and gets loud at
-five days; and every launch checks that what the last session left behind is
-still there. When it is not, the app names the missing characters rather than
-counting them, and points at the screen that can restore them. Past seven idle
-days it also names the browser as the likely cause — and only then, because
-that is when there is evidence for it rather than a guess.
-
-**The automatic export has a precondition, and the app does not pretend
-otherwise.** Choose a folder once in Settings and a copy is written into it
-when you put the app down and when the page goes away. Until you do, nothing is
-exported automatically, and Settings says exactly that instead of implying a
-copy exists. Choosing a folder needs `showDirectoryPicker`; where the browser
-does not have it, the app says so and the export stays a button you press.
-
-A character is months of someone's work; losing it is the one unforgivable bug
-in an app like this.
-
----
+*The failure no error boundary can report.*
 
 ## Runbook: the app opens to a blank rectangle
 
@@ -385,6 +406,10 @@ the app's own `db.ts` wrote, and fails if the hardcoded names drift.
 
 ---
 
+# Language and legal
+
+*Whose words these are.*
+
 ## Language
 
 English throughout — interface, data, errors, filenames, code, commits. The
@@ -393,8 +418,6 @@ Stress", a translated label beside it adds a beat of mental translation every
 time your eye passes over it, which is exactly what a sheet you read mid-scene
 cannot afford. `Architecture.md` is in Italian because it is the author's
 working document.
-
----
 
 ## Legal
 
