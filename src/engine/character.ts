@@ -131,9 +131,15 @@ const STARTING_FAVOR = 3;
  * The word boundary is the half that earns its keep: the Martial Stances
  * chapter has a tier-1 stance called *Favored*, and `\b` refuses that along
  * with "Disfavor" and "Favoritism". Measured over both shipped datasets rather
- * than assumed - exactly one class feature name matches in either, the
- * Warlock's, and nothing among the subclass or Hope feature names matches at
- * all.
+ * than assumed, and the two do not answer the same: `srd-2.0.json` has exactly
+ * one match, the Warlock's, while `srd-1.0.json` has NONE - that book ships
+ * nine classes and the Warlock is not among them. It is the safety property
+ * that holds in both, not the count: no name in either file matches that is not
+ * the Warlock's. The count was first written here as "one in either", which is
+ * wrong for half of what it claims to have measured, and it reached the commit
+ * message before it was caught - so the number is spelled out per file now
+ * rather than summarised. Nothing among the subclass or Hope feature names
+ * matches in either book.
  *
  * The name and not the text, deliberately: the Warlock's OTHER feature,
  * Patron's Pact, says *"spend a Favor"* in its text, so a text match would

@@ -567,7 +567,13 @@ export function buildCharacter(options: BuildOptions): Sample {
     gold: { handfuls: n % 10, bags: n % 5, chests: n % 3 },
     createdAt: whenFor(n, 9),
     updatedAt: whenFor(n, 21),
-  });
+    // The index, because `newCharacter` asks it which class this is before it
+    // seeds anything a class earns. Without it every sample Warlock in the
+    // matrix was born with an empty Favor track - measured: 0 of 133 sheets
+    // carried Favor, so no matrix row exercised the field at all and a codec
+    // mutant on that path went unnoticed. `ix` was already destructured above
+    // for `eligibleCards`; it was only this call that did not receive it.
+  }, ix);
 
   // Two level 1 domain cards from the class's own domains, as the sheet starts.
   // Rotated by the same offset as every other card pick, so a matrix does not
