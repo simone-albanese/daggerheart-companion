@@ -47,7 +47,8 @@ interface Site {
     | 'consumable'
     | 'domainCard'
     | 'beastform'
-    | 'transformation';
+    | 'transformation'
+    | 'stance';
   ref: string;
   what: string;
   text: string;
@@ -63,14 +64,14 @@ interface Site {
  * so that the reverse scan can see a bonus arriving somewhere the collector does
  * not yet look at all.
  *
- * AND THEN IT READ EIGHT OF FIFTEEN COLLECTIONS. `domainCards`, `beastforms`
- * and `transformations` were never walked - 210, 22 and 6 records, which is 265
- * of the 1086 feature-bearing sites this now sweeps, because a Beastform and a
- * Transformation each carry several features and a domain card carries one. (265
- * and not the 238 a record count gives: the two are different questions and this
- * file is where that distinction is the whole job.) Every static bonus in them
- * was invisible to the check whose entire job is to notice one. They are walked
- * here.
+ * AND THEN IT READ EIGHT OF THE FIFTEEN COLLECTIONS THERE THEN WERE.
+ * `domainCards`, `beastforms` and `transformations` were never walked - 210,
+ * 22 and 6 records, which is 265 of the 1102 feature-bearing sites this now
+ * sweeps, because a Beastform and a Transformation each carry several features
+ * and a domain card carries one. (265 and not the 238 a record count gives:
+ * the two are different questions and this file is where that distinction is
+ * the whole job.) Every static bonus in them was invisible to the check whose
+ * entire job is to notice one. They are walked here.
  *
  * What they surfaced is reported in `UNPRICED_LANE` below, and it is NOT what a
  * reviewer predicted. Adding the three walks on their own surfaces exactly
@@ -126,6 +127,20 @@ function everySite(): Site[] {
     for (const f of t.features) {
       sites.push({ lane: 'transformation', ref: t.id, what: `${t.name} · ${f.name}`, text: f.text });
     }
+  }
+  /*
+   * The FOURTH collection this sweep never read, and it arrived after the other
+   * three were fixed - which is the whole argument for walking it here rather
+   * than trusting that someone will remember.
+   *
+   * Martial Stances are shown and never applied, exactly as transformations
+   * are, and transformations are swept. A collection being unapplied is the
+   * REASON to sweep it, not an excuse: the sweep's job is to notice a printed
+   * bonus that reaches no number, and "nothing walks this collection" is the
+   * commonest way for one to hide.
+   */
+  for (const st of dataset.stances) {
+    sites.push({ lane: 'stance', ref: st.id, what: `${st.name} · tier ${st.tier}`, text: st.text });
   }
   return sites;
 }
@@ -259,12 +274,12 @@ const UNPRICED_AMOUNT: Record<string, string> = {
  * book, which is exactly the dishonesty the split between those two exists to
  * prevent.
  *
- * ALL THIRTEEN ARRIVED WITH THIS COMMIT - the map did not exist before it - and
- * none of them is new content: they were in `data/srd-2.0.json` the whole time,
- * invisible because `everySite()` read eight of fifteen collections and because
- * the first shape could not see the word `bonus`. Nothing regresses - the app
- * has never applied any of them - but the backlog is now written down instead
- * of merely absent.
+ * ALL THIRTEEN ARRIVED WITH THIS COMMIT - the map did not exist before it -
+ * and none of them is new content: they were in `data/srd-2.0.json` the whole
+ * time, invisible because `everySite()` read eight of the fifteen collections
+ * there then were, and because the first shape could not see the word `bonus`.
+ * Nothing regresses - the app has never applied any of them - but the backlog
+ * is now written down instead of merely absent.
  *
  * To clear one: give `collectModifiers` the lane, and the gate a row can read.
  */
@@ -312,10 +327,32 @@ const UNPRICED_LANE: Record<string, string> = {
 };
 
 const SITUATIONAL: Record<string, string> = {
+  /*
+   * The two stances that print a static bonus, and why they are HERE rather
+   * than in `UNPRICED_LANE`.
+   *
+   * It is true that no lane walks `stances` - `collectModifiers` has no
+   * register for it - and that is what `UNPRICED_LANE` records. But it is not
+   * the REASON, and filing them there would say the app has merely not got
+   * round to a number it could hold. Both are gated on BEING IN the stance,
+   * and that is the one fact this app deliberately does not store:
+   * `Character.stanceRefs` is the stances a character KNOWS - the marked
+   * circles on the printed sheet - and `shared/types.ts` refuses an
+   * `activeStanceRef` in writing, because the book ties the active stance to
+   * the scene, to Severe damage and to the last Hit Point, so the app would
+   * have to decide when a character drops out of one.
+   *
+   * So the honest entry is the same one Steelskin Salve gets: the book does
+   * not state a fact this sheet stores.
+   */
+  'stance|anchored':
+    'Anchored (tier 2): "Gain a +2 bonus to your damage thresholds. WHILE IN THIS STANCE, you can\'t be moved against your will." The bonus lasts exactly as long as the stance, and the stance is not a state the sheet holds.',
+  'stance|aggressive':
+    'Aggressive (tier 2): "Gain a -1 PENALTY to your Evasion. On a successful attack, roll an additional damage die and discard the lowest result." As anchored - it applies while in the stance and nowhere else.',
   'consumable|steelskin-salve':
     'Steelskin Salve: "You can APPLY this salve to gain a bonus to your damage thresholds equal to your tier UNTIL THE END OF THE SCENE." A consumable with a duration - carrying it grants nothing, and using it grants it once. Surfaced by widening shape 4 off the hardcoded word Proficiency.',
   'subclass|martial-artist':
-    'Keen Defenses: "When you\'re targeted by an attack, you can SPEND A FOCUS to gain a bonus to your Evasion equal to your tier AGAINST THE ATTACK." A cost, a trigger and a duration of one attack. (Focus is also a track SRD 2.0 prints and this app does not carry - see the handoff.)',
+    'Keen Defenses: "When you\'re targeted by an attack, you can SPEND A FOCUS to gain a bonus to your Evasion equal to your tier AGAINST THE ATTACK." A cost, a trigger and a duration of one attack. (Focus IS a track this app now carries - `Character.focus`, ceiling `MAX_FOCUS` - but SPENDING one is an action taken at the table, not a state the sheet holds.)',
   'subclass|pact-of-the-endless':
     'Patron\'s Mantle: "SPEND A FAVOR to cloak yourself ... that LASTS UNTIL you take Severe damage or the scene ends." A cost and a duration.',
   'weapon|eldritch-vambrace':
@@ -731,10 +768,13 @@ describe('the book against the register', () => {
     const sites = everySite();
     const lanes = new Set(sites.map((s) => s.lane));
     /*
-     * ELEVEN, and the last three are the point of this revision. The six the
-     * collector walks, plus classes and consumables so the scan sees a bonus
-     * arriving where the collector does not look, plus `domainCards`,
-     * `beastforms` and `transformations` - 238 sites that were never read.
+     * TWELVE. The six the collector walks, plus classes and consumables so the
+     * scan sees a bonus arriving where the collector does not look, plus
+     * `domainCards`, `beastforms` and `transformations` - 265 sites that were
+     * never read - plus `stances`, which arrived AFTER those three were fixed
+     * and would have hidden two more. 265 is measured, not derived from record
+     * counts: 210 domain cards, 43 beastform features and 12 transformation
+     * features.
      */
     expect([...lanes].sort()).toEqual([
       'ancestry',
@@ -745,16 +785,18 @@ describe('the book against the register', () => {
       'consumable',
       'domainCard',
       'loot',
+      'stance',
       'subclass',
       'transformation',
       'weapon',
     ]);
     // Per lane, so that dropping one walk fails HERE and says which - a total
-    // of 1086 hides the loss of six transformations behind 210 domain cards.
+    // of 1102 hides the loss of six transformations behind 210 domain cards.
     const per = (lane: Site['lane']): number => sites.filter((s) => s.lane === lane).length;
     expect(per('domainCard')).toBe(dataset.domainCards.length);
     expect(per('beastform')).toBeGreaterThanOrEqual(dataset.beastforms.length);
     expect(per('transformation')).toBeGreaterThanOrEqual(dataset.transformations.length);
+    expect(per('stance')).toBe(dataset.stances.length);
     expect(sites.length).toBeGreaterThan(1000);
   });
 });
