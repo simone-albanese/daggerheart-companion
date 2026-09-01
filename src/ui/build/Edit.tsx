@@ -702,6 +702,38 @@ function TransformationSection({
  * smallest target in the section is therefore 44x44, which is the floor
  * `var(--tap)` names, and nothing is under it.
  *
+ * ## The fourth gesture: putting one down
+ *
+ * Three of the gestures above are the ones this section was built around. The
+ * fourth was missing, and the shape of the gap is the exact reverse of the
+ * lesson `GearSlot` already learned: **the stance you could read was less
+ * removable than the one you could not.**
+ *
+ * An unresolved ref got a `Drop it` button on its ghost row. A resolved one got
+ * nothing of its own - the only way off the sheet was a second tap inside the
+ * picker, and the picker is gated on the Martial Artist subclass. So for the
+ * exact character the gate above exists to protect - somebody carrying stances
+ * who did not take that subclass - a readable stance was undroppable, while it
+ * went on being written to storage. `GearSlot`'s docblock says it in the words
+ * this is repairing: *"gating the control on a name the build cannot read meant
+ * the only way out of the state was to equip something over the top of it."*
+ *
+ * It is a ✕ on the row rather than the ghost row's `Drop it`, and that is a
+ * decision about pixels. A `Drop it` under each block is a full 44px control
+ * plus a gap for every stance known - about 150px on a three-stance sheet
+ * against a 603px scroll area, which is a quarter of the screen spent on the
+ * rarest gesture in the section. The ✕ takes 44px of WIDTH beside a block that
+ * is already taller than 44px, so it adds no row of its own; it is also the
+ * shape this app already uses for "empty this", on all three gear slots.
+ *
+ * WHAT THAT COSTS IS WIDTH, and the honest version is that it has not been
+ * re-measured. The ✕ and its gap take 52px off the text column, which can wrap
+ * a stance's rule onto one more line. Every figure above - 83.5px, 354.47px,
+ * 1750.75px, 58.37/58.37/74.23 - was measured BEFORE this control existed and
+ * is left standing as what it was rather than re-derived by guess. The one
+ * claim that does not depend on them is the one that matters here: the smallest
+ * target is still 44x44.
+ *
  * ## Shown, never applied
  *
  * Nothing here computes. It writes a `Ref[]` and a `Counter` and renders the
@@ -872,7 +904,33 @@ function StancesSection({
           {all
             .filter((s) => character.stanceRefs.includes(s.id))
             .map((s) => (
-              <FeatureBlock key={s.id} name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
+              <div key={s.id} className="row" style={{ gap: 8, alignItems: 'stretch' }}>
+                <div className="stack" style={{ flex: 1, minWidth: 0 }}>
+                  <FeatureBlock name={s.name} text={s.text} tag={`TIER ${s.tier}`} />
+                </div>
+                {/*
+                  The way back out of a stance you can read - see the section
+                  docblock. `toggle`, not a second write of `stanceRefs`: the
+                  picker's row and this ✕ do the same thing to the same field,
+                  and two routes to one write is two behaviours eventually.
+                */}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  aria-label={`Drop ${s.name}`}
+                  onClick={() => {
+                    toggle(s.id);
+                  }}
+                  style={{
+                    flex: 'none',
+                    minWidth: 'var(--tap)',
+                    minHeight: 'var(--tap)',
+                    padding: 0,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             ))}
         </div>
       )}

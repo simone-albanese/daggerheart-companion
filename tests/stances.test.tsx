@@ -984,6 +984,13 @@ function mount(character: Character, ds: Dataset): void {
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 const named2 = (text: string): HTMLButtonElement | undefined =>
   buttons().find((b) => (b.textContent ?? '').trim().toLowerCase().includes(text.toLowerCase()));
+/**
+ * A control whose whole name is its `aria-label`, which is what a ✕ is. Not
+ * `named2`: the glyph is the same on every one of them, so the label is the
+ * only thing that says which stance a press is about.
+ */
+const labelled = (label: string): HTMLButtonElement | undefined =>
+  buttons().find((b) => b.getAttribute('aria-label') === label);
 const press = (b: HTMLButtonElement | undefined): void => {
   expect(b, 'no such control on the sheet').toBeDefined();
   act(() => b!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
@@ -1031,7 +1038,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(named2('Add a stance'), 'no way in either').toBeUndefined();
   });
 
-  it('still shows what a non-Martial-Artist already carries, and offers no more', () => {
+  it('still shows what a non-Martial-Artist already carries, and lets them drop it', async () => {
     /*
      * The other half, and the one a hard gate would have broken. A sheet can
      * arrive carrying stances - from another device, or from a subclass chosen
@@ -1039,6 +1046,20 @@ describe('adding, removing and moving Focus on the sheet', () => {
      * while they went on being written to storage. So they are drawn; only the
      * picker is withheld, because seeing what you carry is not permission to
      * take more.
+     *
+     * THIS TEST USED TO STOP AT THE FIRST HALF, and the comment above it
+     * promised the second. It did not hold. The only gesture that removed a
+     * RESOLVED stance was a second tap inside the picker, and the picker is
+     * exactly what this character does not get - so the sentence "hiding them
+     * would make them invisible and undroppable" was describing the state the
+     * code was already in for everyone it was written about. Meanwhile an
+     * UNRESOLVED ref, four assertions down, had its own `Drop it` button: the
+     * stance you could read was the one you could not put down.
+     *
+     * `GearSlot` had already learned this and written it out - "gating the
+     * control on a name the build cannot read meant the only way out of the
+     * state was to equip something over the top of it" - and here there was
+     * nothing to equip over the top of it with.
      */
     mount(
       sheet({ classRef: 'test-class', subclassRefs: ['school-of-knowledge'], stanceRefs: ['favored'] }),
@@ -1048,6 +1069,48 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(container.textContent).toContain('Favored');
     expect(named2('Add a stance'), 'no picker for someone it is not for').toBeUndefined();
     expect(named2('Change stances (1)'), 'nor the other label').toBeUndefined();
+
+    const drop = labelled('Drop Favored');
+    expect(drop, 'a readable stance with no way off the sheet').toBeDefined();
+    // The same 44px floor the Focus steppers and the picker rows are held to.
+    expect(drop!.style.minWidth).toBe('var(--tap)');
+    expect(drop!.style.minHeight).toBe('var(--tap)');
+
+    press(drop);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(active().stanceRefs, 'the ✕ drew and did nothing').toEqual([]);
+    expect(container.textContent, 'the section outlived what it was drawn for').not.toContain(
+      'Martial Stances',
+    );
+  });
+
+  it('gives a Martial Artist the same one-tap way out, beside every rule they know', async () => {
+    /*
+     * Not only for the gated case. The picker's second tap is two gestures deep
+     * - open, then find the row again among sixteen - and it is the gesture the
+     * section folds away on purpose. The ✕ sits beside the rule being read.
+     */
+    mount(
+      sheet({
+        classRef: 'test-class',
+        subclassRefs: [MARTIAL_ARTIST],
+        stanceRefs: ['favored', 'reliable'],
+      }),
+      withStances,
+    );
+    expect(labelled('Drop Favored'), 'no way out beside the first rule').toBeDefined();
+    expect(labelled('Drop Reliable'), 'nor beside the second').toBeDefined();
+
+    press(labelled('Drop Reliable'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // One row, and only that row.
+    expect(active().stanceRefs).toEqual(['favored']);
+    expect(labelled('Drop Favored')).toBeDefined();
+    expect(labelled('Drop Reliable')).toBeUndefined();
   });
 
   it('adds no nav entry, because the section lives on a screen that exists', () => {
