@@ -22,6 +22,7 @@ import { deriveStats } from '../../src/engine/character.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { usePools } from '../../src/ui/player/poolStore.ts';
+import { MAX_HELD, useHeldDice } from '../../src/ui/player/heldDice.ts';
 import type { Character } from '@shared/types.ts';
 import { dataset, index, playedCharacter } from './fixture.ts';
 
@@ -41,6 +42,8 @@ beforeEach(() => {
   // The pools are session state in localStorage and this store is a module
   // singleton, so one test's dice would otherwise be the next one's.
   act(() => usePools.setState({ byCharacter: {} }));
+  // And the tray is the other one, now that a Patron Die is bought into it.
+  act(() => useHeldDice.setState({ byCharacter: {} }));
 });
 
 afterEach(() => {
@@ -591,5 +594,227 @@ describe('what the two dice switches leave the pools able to do', () => {
         act(() => usePools.setState({ byCharacter: {} }));
       }
     }
+  });
+});
+
+/**
+ * THE ONE POOL THE BOOK CHARGES FOR, and the two states it must not reach.
+ *
+ * *"Before making an action roll that relates to your patron's sphere of
+ * influence, you can spend a Favor to call upon their aid, rolling your Patron
+ * Die and adding its result to the total."* One Favor, one die, one decision -
+ * so a Favor taken with no die handed over, and a die handed over for nothing,
+ * are both states this screen must not be able to produce. `heldDice.test.ts`
+ * proves that of the store; these prove it of the control the player actually
+ * presses, which is the half a rewrite of this file could break on its own.
+ *
+ * The die goes into the ROLL'S TRAY and not into `poolStore`, because there is
+ * nothing to hold: it is bought at the moment of the roll and gone after it.
+ * That is why every assertion below reads `useHeldDice` rather than `faces()`.
+ */
+describe('the Warlock`s Patron Die, which costs a Favor', () => {
+  /** A Warlock holding `favor` Favor and nothing else out of the ordinary. */
+  function warlock(
+    favor: number,
+    patch: Partial<Character> = {},
+    prefs: Partial<typeof DEFAULT_PREFS> = {},
+  ): Character {
+    return mount(
+      {
+        classRef: 'warlock',
+        subclassRefs: [],
+        multiclassRef: null,
+        level: 1,
+        levelUpHistory: [],
+        favor: { marked: favor, max: 6 },
+        ...patch,
+      },
+      prefs,
+    );
+  }
+
+  /**
+   * Tear the mounted tree down before mounting another sheet.
+   *
+   * `mount` writes `useApp` BEFORE it renders, so a `DicePools` still on the
+   * screen from the previous sheet sees that write outside `act` and React says
+   * so. The loop at the end of this file has done this from the start; these
+   * tests mount twice as well, so they do it too.
+   */
+  const fresh = (): void => {
+    act(() => root.unmount());
+    root = createRoot(container);
+  };
+
+  /** The sizes in the roll's tray for this character, in order. */
+  const tray = (c: Character): number[] =>
+    (useHeldDice.getState().byCharacter[c.id] ?? []).map((d) => d.sides);
+
+  const has = (fragment: string): boolean =>
+    buttons().some(
+      (b) =>
+        (b.textContent ?? '').includes(fragment) ||
+        (b.getAttribute('aria-label') ?? '').includes(fragment),
+    );
+
+  it('draws the die, its price and its size, and none of the held-pool controls', () => {
+    warlock(3);
+    expect(text()).toContain('Patron Die');
+    expect(text(), 'the price is not on the control that charges it').toContain('1 FAVOR');
+    expect(text(), 'a Patron Die starts as a d6').toContain('d6');
+    // Nothing is held, so nothing is handed out, banked or cleared. A block
+    // that offered those would be offering to store a die that is spent the
+    // moment it is bought.
+    expect(has('Take your'), 'a pool with nothing to hold offered to hand itself out').toBe(
+      false,
+    );
+    expect(has('Bank a d')).toBe(false);
+    expect(has('Clear the pool')).toBe(false);
+  });
+
+  it('takes exactly one Favor and puts exactly one die in the roll`s tray', () => {
+    const c = warlock(3);
+    click(named('Spend a Favor'));
+    expect(character().favor.marked, 'the Favor did not come off the track').toBe(2);
+    expect(tray(c), 'the die that was paid for never arrived').toEqual([6]);
+
+    click(named('Spend a Favor'));
+    expect(character().favor.marked).toBe(1);
+    expect(tray(c)).toEqual([6, 6]);
+  });
+
+  it('says where the die went, and does not claim it is in the roll', () => {
+    /*
+     * `DualityRoll` keeps its own `armedDice` list and a tray die starts OFF
+     * it: the player taps the chip to put it in the roll. A confirmation
+     * reading "in your next roll" would be disproved one tap later, on the
+     * screen below this one, by a player who trusted it.
+     */
+    const c = warlock(2);
+    click(named('Spend a Favor'));
+    expect(text()).toContain('DICE TRAY');
+    expect(text(), 'the player is not told the die still needs arming').toContain(
+      'TAP IT THERE',
+    );
+    expect(tray(c)).toEqual([6]);
+  });
+
+  it('answers the tap above the refusal, and not the other way round', () => {
+    /*
+     * Found on the screen, at 393px, and not in the source: spending the LAST
+     * Favor shows both lines at once, and with the refusal written first the
+     * answer to the gesture sat two paragraphs below the gesture with an
+     * unrelated "No Favor to spend" in the gap. Order is the only thing under
+     * test here, so it is asserted as an index and not as a rendering.
+     */
+    warlock(1);
+    click(named('Spend a Favor'));
+    const taken = text().indexOf('TAKEN');
+    const refused = text().indexOf('No Favor to spend');
+    expect(taken, 'the confirmation is missing').toBeGreaterThan(-1);
+    expect(refused, 'the last Favor was spent and the button did not say why it is now dead').toBeGreaterThan(-1);
+    expect(taken, 'the refusal was put between the button and its own confirmation').toBeLessThan(
+      refused,
+    );
+  });
+
+  it('refuses with an empty track, and says what to do about it', () => {
+    const c = warlock(0);
+    const call = named('Spend a Favor');
+    expect(call.disabled, 'a patron was called on with nothing to pay them').toBe(true);
+    // The control keeps its place rather than vanishing, and the reason is
+    // under it - the remedy is on this sheet, not two screens away.
+    expect(text(), 'nothing on screen says why the button is dead').toMatch(/No Favor to spend/);
+    expect(text(), 'the way to get Favor is not named').toMatch(/tribute/);
+    click(call);
+    expect(tray(c), 'a die was armed for free').toEqual([]);
+    expect(character().favor.marked).toBe(0);
+  });
+
+  it('takes no Favor when the roll has no room for the die', () => {
+    /*
+     * The direction that COSTS something. `add` drops a die silently at
+     * `MAX_HELD` and tells nobody, so a screen that paid first and added
+     * second would take a Favor for a die that never arrives. The button is
+     * shut, and the store would refuse it anyway.
+     */
+    const c = warlock(3);
+    act(() => {
+      for (let i = 0; i < MAX_HELD; i += 1) useHeldDice.getState().add(c.id, 12);
+    });
+    // Re-render against the full tray. No `fresh()`: this is the same sheet
+    // rendered again, and no store write happens outside `act`.
+    render(createElement(DicePools, { stats: deriveStats(character(), dataset, index) }));
+
+    const call = named('Spend a Favor');
+    expect(call.disabled, 'a Favor could be spent on a die with nowhere to go').toBe(true);
+    expect(text()).toMatch(/already holding/);
+    click(call);
+    expect(character().favor.marked, 'a Favor was taken for a die that was dropped').toBe(3);
+    expect(tray(c)).toHaveLength(MAX_HELD);
+  });
+
+  it('grows to a d8 at level 5, and buys the size it is drawing', () => {
+    const c = warlock(3, { level: 5 });
+    expect(text(), '"increases to a d8 at level 5"').toContain('d8');
+    click(named('Spend a Favor'));
+    expect(tray(c), 'the block drew a d8 and bought something else').toEqual([8]);
+  });
+
+  it('is offered whatever the two dice switches say, because buying is not rolling', () => {
+    /*
+     * `PoolBlock` reads `rollAffordance` because it puts FACES on dice. This
+     * block puts a die in the tray, which is what the tray's own `+ DIE`
+     * control does for every table. A table that told the app to stay out of
+     * it still spends the Favor, picks up their own d6 and types the face into
+     * the roll panel - a road that already exists.
+     */
+    for (const prefs of [{}, TYPED, OFF]) {
+      const c = warlock(2, {}, prefs);
+      expect(named('Spend a Favor').disabled, JSON.stringify(prefs)).toBe(false);
+      click(named('Spend a Favor'));
+      expect(tray(c), JSON.stringify(prefs)).toEqual([6]);
+      fresh();
+      act(() => useHeldDice.setState({ byCharacter: {} }));
+    }
+  });
+
+  it('draws no end-of-session control for a sheet with nothing held between sessions', () => {
+    /*
+     * A Warlock's only pool puts nothing in `poolStore`, so the button would
+     * clear an entry that was never written and report CLEARED for it. The
+     * sentence it comes from - "At the end of each session, clear all unspent
+     * Rally Dice" - is not written about this die anywhere in the book.
+     */
+    warlock(3);
+    expect(has('End of session'), 'a control that clears nothing said it had').toBe(false);
+
+    // And the three that DO hold something still have it.
+    fresh();
+    mount({ classRef: 'bard', level: 1, multiclassRef: null });
+    expect(has('End of session')).toBe(true);
+  });
+
+  it('gives the die to a Ranger who multiclassed into Warlock, with no Favor to spend', () => {
+    /*
+     * `characterFeatures` grants a multiclass's class features, so this sheet
+     * holds `Patron’s Pact` and has the die. `newCharacter` seeds three Favor
+     * only for a FIRST class, on the argument it makes about the word "start",
+     * so the sheet arrives with a die it cannot yet pay for - and the screen
+     * has to be honest about that rather than hide either half.
+     */
+    const c = mount({
+      classRef: 'ranger',
+      multiclassRef: 'warlock',
+      subclassRefs: [],
+      level: 5,
+      levelUpHistory: [],
+      favor: { marked: 0, max: 6 },
+    });
+    expect(text()).toContain('Patron Die');
+    expect(text(), 'the multiclass source is not named').toContain('MULTICLASS');
+    expect(named('Spend a Favor').disabled).toBe(true);
+    expect(text()).toMatch(/No Favor to spend/);
+    expect(tray(c)).toEqual([]);
   });
 });

@@ -12,6 +12,15 @@
  * and sit on the sheet showing what they came up, and you spend a die whose
  * number you already know.
  *
+ * AND ONE OF THEM IS BOUGHT RATHER THAN HELD. A Warlock spends a Favor to roll
+ * their Patron Die into an action roll, so there is no pool to keep and nothing
+ * to put a face on: the die is paid for and goes into the roll's tray, where
+ * every other loose die in this app already lives. That is `PaidDie` below, a
+ * second shape rather than three more conditions on the first, and `cost` on
+ * the pool is what picks between them. The payment and the die are one call -
+ * `heldDice.ts::buy` - so this screen cannot spend a Favor and fail to hand
+ * over the die, or hand one over for nothing.
+ *
  * BOTH ROADS TO A FACE, because a table that rolls physical dice is not a table
  * that wants the app to roll for them. Every die can be rolled by the app or
  * typed in by hand, and the numeric entry is the same gesture `Counter` uses
@@ -56,7 +65,9 @@ import {
   type Spend,
 } from '../../engine/dicePools.ts';
 import type { DerivedStats } from '../../engine/character.ts';
+import type { Character } from '../../../shared/types.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { MAX_HELD, useHeldDice, useHeldFor } from './heldDice.ts';
 // The same helper the Duality Roll and the damage row read, and for the same
 // reason: three surfaces deciding for themselves what the two dice switches
 // mean is three answers that can disagree about what this build can do.
@@ -528,6 +539,160 @@ function PoolBlock({
 }
 
 /**
+ * A pool you buy from one die at a time, drawn as the purchase it is.
+ *
+ * THE WARLOCK'S PATRON DIE IS NOT THE OTHER THREE, and giving it a `PoolBlock`
+ * with three extra conditions on it would have been the wrong economy. There is
+ * nothing to hand out at the start of a session, nothing to bank, nothing to
+ * clear at the end and no die sitting on the sheet with a face on it: *"you can
+ * spend a Favor to call upon their aid, rolling your Patron Die and adding its
+ * result to the total"* is one Favor, one die, at the moment of one roll. So
+ * `poolStore` never sees it. It goes into the roll's own tray, which is where
+ * "adding its result to the total" happens on this app - and it gets there
+ * through `heldDice.ts::buy`, which takes the charge as an argument so that the
+ * payment and the die cannot come apart. That docblock is the argument; this
+ * one is what the player sees.
+ *
+ * ## The die lands in the tray, and the screen says exactly that
+ *
+ * It does not land ARMED. `DualityRoll` keeps its own `armedDice` list, every
+ * held die starts off it, and the player taps the chip to put it in the roll.
+ * A Patron Die is a held die like the rest once it has been paid for, so it
+ * takes the same tap - and the confirmation line says so rather than claiming a
+ * total this component cannot see. Wording it "in your next roll" would have
+ * been a claim the roll panel disproves one tap later.
+ *
+ * ## Nothing here is gated on the two dice switches, and that is deliberate
+ *
+ * Buying a die is not rolling one. `PoolBlock` above reads `rollAffordance`
+ * because it puts FACES on dice; this block puts a die in a tray, which is what
+ * the tray's own `+ DIE` control does for every table, roller on or off. A
+ * table rolling real dice spends the Favor, picks up their own d6 and types the
+ * face into the roll panel, which is a road that already exists.
+ *
+ * ## Ergonomics: one target, and it keeps its place when it is refused
+ *
+ * One touch target in the whole block, at the 44px floor `TAP` declares and
+ * full width like every other control in this fold; everything else is read.
+ * With no Favor the button is DISABLED AND STAYS PUT, with the reason under it,
+ * rather than being taken away - which is the opposite of what
+ * `rollAffordance` argues for the roller, and the difference is what the player
+ * can do about it. A greyed ROLL says the app could roll and won't, and the
+ * remedy is two screens away in Settings; a greyed **Spend a Favor** says
+ * exactly what is true, that the app would call the patron and there is nothing
+ * to pay with, and the remedy is on the sheet within the hour. A control that
+ * vanished at zero would move the whole block every time a Favor was spent, on
+ * a fold the player is reaching past to get to the roll.
+ *
+ * ## Two guards behind one disabled attribute, and neither is dead code
+ *
+ * `disabled` is the affordance; `spendAFavor`'s check on the track and `buy`'s
+ * check on the room are the invariants. The same shape is already in this file
+ * - `SET` is `disabled={!isFace(...)}` AND its handler opens with `if
+ * (!isFace(pool, n)) return;`. The two layers answer different questions: what
+ * a player may reach for, and what may be written. A screen with only the first
+ * is one refactor away from spending a Favor nothing checked for.
+ *
+ * The honest cost: with the control shut at zero, no test can drive a click
+ * into the refusing branch, because the DOM does not dispatch a click on a
+ * disabled button. `setBought` sits behind `buy`'s return value for the same
+ * reason - a confirmation must never outlive a purchase that did not happen -
+ * and that branch is unreachable from this screen today as well. Both are
+ * proved at the store instead, in `tests/ui/heldDice.test.ts`, where a refusal
+ * is a first-class case rather than a state an affordance is preventing.
+ */
+function PaidDie({
+  pool,
+  character,
+}: {
+  pool: DicePool;
+  character: Character;
+}): React.JSX.Element {
+  const buy = useHeldDice((s) => s.buy);
+  const update = useApp((s) => s.update);
+  const held = useHeldFor(character.id);
+  const [bought, setBought] = useState(false);
+
+  const favor = character.favor.marked;
+  const full = held.length >= MAX_HELD;
+
+  /*
+   * Read from the store and not from the prop this component rendered with.
+   * The prop is a snapshot, and the charge has to be decided against the sheet
+   * as it is when the button is pressed - `buy` calls this back synchronously,
+   * so "how much Favor is there" and "take one" have to be the same read.
+   */
+  const spendAFavor = (): boolean => {
+    const live = useApp.getState().characters.find((c) => c.id === character.id);
+    if (live === undefined || live.favor.marked <= 0) return false;
+    update((c) => ({ ...c, favor: { ...c.favor, marked: Math.max(0, c.favor.marked - 1) } }));
+    return true;
+  };
+
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 8 }}>
+      <div className="spread">
+        <span style={{ font: '700 14px/1.2 var(--sans)' }}>{pool.name}</span>
+        <span className="t-meta" style={{ color: 'var(--muted)' }}>
+          d{pool.sides} · 1 FAVOR
+        </span>
+      </div>
+      <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.05em' }}>
+        {pool.source.toUpperCase()}
+      </span>
+
+      <button
+        type="button"
+        className="btn"
+        style={{ flex: '1 1 auto', minHeight: TAP }}
+        disabled={favor <= 0 || full}
+        aria-label={`Spend a Favor to call on your patron and take a d${String(pool.sides)}. You hold ${String(favor)} Favor.`}
+        onClick={() => {
+          if (buy(character.id, pool.sides, spendAFavor)) setBought(true);
+        }}
+      >
+        Spend a Favor · take a d{pool.sides}
+      </button>
+
+      {/* WHAT JUST HAPPENED, THEN WHY IT CANNOT HAPPEN AGAIN, in that order.
+          Written the other way round first, and it was wrong on the screen:
+          spending the last Favor put "No Favor to spend" BETWEEN the button and
+          the confirmation of the tap that had just emptied the track, so the
+          answer to the gesture was two paragraphs below the gesture with an
+          unrelated refusal in the gap. Measured in Chrome at 393px wide - the
+          block is 190px at rest, 218px with the confirmation, 274px with both. */}
+      {bought && (
+        <span className="t-meta" style={{ color: 'var(--hope)' }}>
+          TAKEN · A D{pool.sides} IS IN YOUR ROLL&apos;S DICE TRAY · TAP IT THERE TO
+          ADD IT TO THE ROLL · {favor} FAVOR LEFT
+        </span>
+      )}
+      {favor <= 0 && (
+        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          No Favor to spend, so there is nothing to call on. Show tribute to
+          your patron with a downtime move to gain Favor equal to your Spellcast
+          trait, or take one instead of a Hope when you succeed with Hope.
+        </span>
+      )}
+      {favor > 0 && full && (
+        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          The roll is already holding {MAX_HELD} dice. Take one out down there
+          first — a Favor spent on a die with nowhere to go is a Favor gone.
+        </span>
+      )}
+
+      {/* The feature, verbatim, for the same reason `PoolBlock` prints one: the
+          app does one of the things this paragraph describes and the player
+          does the rest, including the part about the patron's sphere of
+          influence, which is a conversation and not a control. */}
+      <span className="t-dense" style={{ color: 'var(--text-2)', whiteSpace: 'pre-line' }}>
+        {pool.rule}
+      </span>
+    </div>
+  );
+}
+
+/**
  * The section, drawn only for a character who has a pool at all.
  *
  * Returning null rather than an empty heading is what keeps this free for the
@@ -565,14 +730,22 @@ export function DicePools({ stats }: { stats: DerivedStats }): React.JSX.Element
 
   return (
     <div className="stack" style={{ flex: 'none', gap: 14 }}>
-      {pools.map((pool) => (
-        <PoolBlock
-          key={pool.id}
-          pool={pool}
-          characterId={character.id}
-          affordance={affordance}
-        />
-      ))}
+      {/* Two shapes, on `cost`. A pool you are given is held in `poolStore`
+          and spent out of it; a pool you buy from has nothing to hold, so it
+          draws a purchase instead. `PaidDie` says why that is a second
+          component rather than three more conditions inside the first. */}
+      {pools.map((pool) =>
+        pool.cost === null ? (
+          <PoolBlock
+            key={pool.id}
+            pool={pool}
+            characterId={character.id}
+            affordance={affordance}
+          />
+        ) : (
+          <PaidDie key={pool.id} pool={pool} character={character} />
+        ),
+      )}
       {/*
        * END OF SESSION, WHICH EVERY ONE OF THE THREE FEATURES ASKS FOR AND
        * NOTHING IN THIS APP HAS EVER DONE. "At the end of each session, clear
@@ -586,24 +759,36 @@ export function DicePools({ stats }: { stats: DerivedStats }): React.JSX.Element
        * it. The button says how much before it is pressed, because a control
        * that silently moves Hope is the thing this app spends its docblocks
        * refusing to be.
+       *
+       * DRAWN ONLY WHEN SOMETHING IS ACTUALLY HELD BETWEEN SESSIONS, which
+       * matters from the moment a pool arrived that holds nothing. A Warlock's
+       * only pool is the Patron Die: it puts nothing in `poolStore`, so
+       * `clearAll` empties an entry that was never written, `owed` is zero, and
+       * the control would sit on their sheet all season doing nothing and
+       * saying it had. A button that reports CLEARED after clearing nothing is
+       * a worse lie than a missing button, and the sentence it comes from -
+       * "At the end of each session, clear all unspent Rally Dice" - is not
+       * written about this die anywhere in the book.
        */}
-      <button
-        type="button"
-        className="btn btn-ghost"
-        style={{ flex: 'none', minHeight: TAP }}
-        onClick={() => {
-          if (owed > 0) {
-            update((c) => ({
-              ...c,
-              hope: { ...c.hope, marked: Math.min(c.hope.max, c.hope.marked + owed) },
-            }));
-          }
-          clearAll(character.id);
-          setEnded(owed);
-        }}
-      >
-        End of session — clear every pool{owed > 0 ? ` (+${String(owed)} Hope)` : ''}
-      </button>
+      {pools.some((p) => p.cost === null) && (
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ flex: 'none', minHeight: TAP }}
+          onClick={() => {
+            if (owed > 0) {
+              update((c) => ({
+                ...c,
+                hope: { ...c.hope, marked: Math.min(c.hope.max, c.hope.marked + owed) },
+              }));
+            }
+            clearAll(character.id);
+            setEnded(owed);
+          }}
+        >
+          End of session — clear every pool{owed > 0 ? ` (+${String(owed)} Hope)` : ''}
+        </button>
+      )}
       {ended !== null && (
         <span className="t-meta" style={{ color: 'var(--hope)' }}>
           {ended > 0 ? `CLEARED · +${String(ended)} HOPE` : 'CLEARED'}

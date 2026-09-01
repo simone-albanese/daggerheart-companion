@@ -108,8 +108,10 @@ const play = (c: Character): void => {
  * The fixture's class is `dataset.classes[0]`, which today is the Bard - and a
  * Bard has a Rally Die, so `Play` draws it the `Dice pools` fold. That fold is
  * real and it costs 52px, but it is NOT what the budget below is a budget for:
- * `STACK` and `INDEX` sum the sheet every character has, and three archetypes
- * out of the book carry one more section than that. `carries one more fold for
+ * `STACK` and `INDEX` sum the sheet every character has, and FOUR archetypes
+ * out of the book carry one more section than that - a Warlock joined them with
+ * the Patron Die, which is a `Dice pools` fold like the other three even though
+ * nothing in it is held between rolls. `carries one more fold for
  * a character with a dice pool, and says what it costs` asserts the other half.
  *
  * Derived by asking `poolsFor` rather than by writing `wizard` here, for the
@@ -1465,12 +1467,12 @@ describe('the budget the pin came off for', () => {
      * THE DICE POOLS ARE NOT IN THIS TABLE EITHER, AND THAT IS 52PX MORE.
      *
      * Same shape as the conditions above and a different sign. A Bard's Rally
-     * Die, a Seraph's Prayer Dice and a Warrior who took Call of the Slayer all
-     * draw a `Dice pools` fold; every other character in the book draws
-     * nothing, because `DicePools` returns null and `PlayPhone` does not render
-     * the `Disclosure` at all. So it is a 44px header plus this column's 8px
-     * gap for three archetypes and zero for the rest, and this budget is the
-     * budget for the sheet everybody has.
+     * Die, a Seraph's Prayer Dice, a Warrior who took Call of the Slayer and a
+     * Warlock's Patron Die all draw a `Dice pools` fold; every other character
+     * in the book draws nothing, because `DicePools` returns null and
+     * `PlayPhone` does not render the `Disclosure` at all. So it is a 44px
+     * header plus this column's 8px gap for four archetypes and zero for the
+     * rest, and this budget is the budget for the sheet everybody has.
      *
      * IT IS THE FIRST SECTION IN THIS FILE'S LIFE THAT TAKES 375x667 BACK OUT
      * OF THE FIT, and that is stated rather than buried: 532 + 52 is 584
@@ -1612,7 +1614,7 @@ describe('the budget the pin came off for', () => {
 
   it('carries one more fold for a character with a dice pool, and says what it costs', () => {
     /*
-     * The fixture IS one of the three - `dataset.classes[0]` is the Bard - so
+     * The fixture IS one of the four - the class it names is the Bard - so
      * this is the sheet the file's own `seed()` builds, and `noPool()` is the
      * one the budget above is measured on. Both are asserted here so that
      * neither can drift into the other quietly.
@@ -1649,7 +1651,7 @@ describe('the budget the pin came off for', () => {
     expect(
       narrowWithPool - column(667),
       'the 375x667 overflow for a character with a dice pool has moved. It is 39px, it was ' +
-        'accepted knowing the number, and it is paid only by the three archetypes that have ' +
+        'accepted knowing the number, and it is paid only by the four archetypes that have ' +
         'a pool - see the note in the fold index.',
     ).toBe(39);
   });
