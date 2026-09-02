@@ -179,12 +179,23 @@ export const grantsFavor = (klass: CharClass | undefined): boolean =>
  * other candidate and it puts a fact about ONE subclass into the shape of all
  * twenty-six.
  *
- * **`src/ui/build/Edit.tsx` writes this same slug down a second time**, under
- * `STANCE_SUBCLASS`, and that duplication is deliberate for exactly one round:
- * that file belongs to another lane this pass and must not be edited from here.
- * It is not left to drift - `classTracks.test.tsx` reads Edit.tsx's source and
- * fails if the two literals ever disagree - and the next hand to open Edit.tsx
- * should delete its copy and import this one.
+ * **This is the only place in `src/` the slug is written.** It was not, for one
+ * round: `src/ui/build/Edit.tsx` declared a second copy of its own while that
+ * file belonged to another lane, and two copies of one address is how the Build
+ * screen and the Focus row come to disagree about whose sheet the stances are -
+ * one drawing the track, the other refusing it, with nothing red anywhere to
+ * say so. Edit.tsx imports this constant now, and `classTracks.test.tsx` holds
+ * the invariant the unification leaves behind: it walks `src/` and reddens on
+ * any file but this one that writes the slug down again.
+ *
+ * The test that stood there before asked the weaker question - do the two
+ * literals match - by searching Edit.tsx's source FOR the string, and it
+ * carried a comment that pointed the next hand the wrong way: that the
+ * assertion would survive the unification "because the import carries the same
+ * literal into the file it reads". It does not. An `import` puts a NAME in the
+ * importing file and never the string behind it, so a second copy was exactly
+ * what kept it green and the correct repair was the one thing that reddened
+ * it.
  */
 export const STANCE_SUBCLASS = 'martial-artist';
 
