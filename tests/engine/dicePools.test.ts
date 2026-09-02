@@ -2,11 +2,20 @@
  * The dice-pool register against the book, both ways, plus the numbers it feeds.
  *
  * Same contract as `modifiers.test.ts` beside it and for the same reason:
- * `src/engine/dicePools.ts` is a hand-typed reading of three features, and a
- * hand can be wrong. So this walks `data/srd-1.0.json` FORWARD - every key in
+ * `src/engine/dicePools.ts` is a hand-typed reading of four features, and a
+ * hand can be wrong. So this walks the SHIPPED DATASET forward - every key in
  * the register still naming a feature that exists, with that exact name - and
- * BACKWARD - every sentence in the book that talks about a pool of dice having
+ * backward - every sentence in the book that talks about a pool of dice having
  * an entry, or a written reason for not having one.
+ *
+ * THE SHIPPED DATASET, and this file used to say `data/srd-1.0.json` in three
+ * places. It has never read that file: it reads `baseDataset`, which imports
+ * `data/srd-2.0.json`. The difference is not bookkeeping. Nine classes ship in
+ * SRD 1.0 and thirteen in SRD 2.0, and the Warlock - the whole of the Patron
+ * Die, four of the exclusions below, and the only priced pool in the register -
+ * is in the second book and not the first. A reader taking the old sentence at
+ * its word would conclude that `warlock:Patron’s Pact` is checked against a
+ * file that has never heard of it, which is exactly backwards.
  *
  * The backward direction is the one that matters. The app shipped for months
  * with a generic tray and no idea that a Rally Die grows at level 5, that a
@@ -39,8 +48,15 @@ function everyFeatureKey(): Map<string, string> {
   return out;
 }
 
-/** A pool of dice, as the book names one. */
-const POOL_WORDS = /\b(Rally|Prayer|Slayer) (Die|Dice)\b/;
+/**
+ * A pool of dice, as the book names one.
+ *
+ * `Patron` is here because the register now opens one, and adding it found four
+ * subclass features that nothing had ever read - see `NOT_A_POOL`. That is the
+ * backward direction earning its keep on the day it was widened: the pattern is
+ * only worth as much as the names in it, and a name is added when a pool is.
+ */
+const POOL_WORDS = /\b(Rally|Prayer|Slayer|Patron) (Die|Dice)\b/;
 
 /**
  * Sentences that name a pool and open or change none, with why.
@@ -56,6 +72,29 @@ const NOT_A_POOL: Record<string, string> = {
     '"once per long rest when you roll your Slayer Dice, reroll any 1s." A reroll the player takes, once per rest, on dice they are already holding: neither the size, the count nor the cap moves, and a once-per-rest allowance is not a fact this sheet stores.',
   'call-of-the-slayer:Martial Preparation':
     'It grants the party a downtime move and mentions the pool only in passing; the dice it hands out are the GM-facing side of a rest.',
+  /*
+   * THE FOUR WARLOCK SUBCLASS FEATURES, and they are one judgement made four
+   * times rather than four judgements. Every one of them spends Favor to roll
+   * Patron Dice - `Patron's Pact`'s dice, at `Patron's Pact`'s size - for an
+   * effect that is NOT the action-roll bonus the register opens. None of them
+   * changes the size, none grants a count this sheet can hold, and none caps
+   * anything, which is the whole of what a register entry or an `UPGRADES`
+   * entry can say. So each is listed with its own sentence, because a pattern
+   * that swept all four up would sweep up the fifth one a printing adds.
+   *
+   * What the app does for them is what it does for every other feature: it
+   * prints the text on the sheet, out of `characterFeatures`. Two of them roll
+   * into a DAMAGE roll rather than an action roll, which is a different surface
+   * (`ui/player/DamageRoll.tsx`) and a different lane.
+   */
+  'pact-of-the-endless:Deathless Embrace':
+    '"Once per rest, spend any number of Favor to roll an equal number of Patron Dice. For each result of 4 or higher, clear a Hit Point." A once-per-rest USE of the die at a count the player chooses, and its result clears Hit Points rather than joining a roll. The die is the same d6/d8 `Patron’s Pact` opens; nothing here is a second pool.',
+  'pact-of-the-wrathful:Patron’s Fury':
+    '"you also roll a number of Patron Dice equal to your tier and add their total to the damage dealt." A scene-long effect on DAMAGE rolls, bought with one Favor rather than one per die. The size is still `Patron’s Pact`’s, and the surface is the damage row, not the action roll this register arms.',
+  'pact-of-the-wrathful:Deadly Vengeance':
+    '"When you mark any number of Hit Points from an attack, you can spend a Favor to roll an equal number of Patron Dice." A reaction, at a count set by the damage just taken, whose result marks an adversary’s Hit Points. It changes nothing about the pool.',
+  'pact-of-the-wrathful:Otherworldly Ire':
+    '"Once per rest when you take damage, you can spend any number of Favor to roll that many Patron Dice and target a number of creatures within Close range equal to the highest result." A reaction that reads the highest face to pick targets - GM-facing arithmetic on creatures this build does not hold. It changes nothing about the pool.',
 };
 
 describe('the pool register against the book', () => {
@@ -68,7 +107,7 @@ describe('the pool register against the book', () => {
     expect(
       missing,
       'the register opens or changes a pool from a feature that is not in ' +
-        `data/srd-1.0.json under that name any more:\n  ${missing.join('\n  ')}`,
+        `the shipped dataset under that name any more:\n  ${missing.join('\n  ')}`,
     ).toEqual([]);
   });
 
@@ -89,6 +128,31 @@ describe('the pool register against the book', () => {
       'the book talks about a pool of dice that nothing opens, changes or excuses. Add it to ' +
         'src/engine/dicePools.ts, or add it to NOT_A_POOL above with the reason:\n\n    ' +
         unexplained.join('\n    '),
+    ).toEqual([]);
+  });
+
+  it('can see, with that pattern, every pool it has already registered', () => {
+    /*
+     * The backward direction is only worth the names in `POOL_WORDS`, and
+     * nothing made the pattern grow when the register did. Narrowing it back to
+     * `(Rally|Prayer|Slayer)` broke no test at all until this one existed: the
+     * four Warlock exclusions still named real features, the forward direction
+     * still matched, and the whole Patron family simply stopped being looked
+     * for - which is the failure mode the backward direction exists to prevent,
+     * reintroduced one word at a time.
+     *
+     * So: whatever a pool is opened from, the pattern has to be able to find
+     * that feature. Same test the loop above applies, run over the register.
+     */
+    const known = everyFeatureKey();
+    const invisible = Object.keys(POOL_REGISTER.pools).filter((key) => {
+      const text = known.get(key) ?? '';
+      return !POOL_WORDS.test(text) && !POOL_WORDS.test(key);
+    });
+    expect(
+      invisible,
+      'POOL_WORDS cannot see these registered pools, so nothing would report a ' +
+        `sibling feature of theirs going unread:\n  ${invisible.join('\n  ')}`,
     ).toEqual([]);
   });
 
@@ -235,6 +299,81 @@ describe('what a sheet is actually given', () => {
     const rally = pools({ classRef: 'bard', level: 1 })[0]!;
     expect(rally.rule).toBe(dataset.classes.find((k) => k.id === 'bard')!.classFeatures.find((f) => f.name === 'Rally')!.text);
     expect(rally.source).toBe('Bard');
+  });
+
+  it('gives a Warlock a Patron Die that costs a Favor, and grows at 5 like a Rally Die', () => {
+    const patron = (level: number): ReturnType<typeof poolsFor>[number] =>
+      pools({ classRef: 'warlock', level }).find((p) => p.id === 'patron')!;
+
+    // "Your Patron Die starts at a d6 and increases to a d8 at level 5." The
+    // same sentence-inside-a-feature the Rally Die's d8 is written in, which is
+    // why `growsTo` is on the spec now instead of an `id === 'rally'` branch.
+    expect(patron(1).sides, 'a Patron Die starts as a d6').toBe(6);
+    expect(patron(4).sides).toBe(6);
+    expect(patron(5).sides, '"increases to a d8 at level 5"').toBe(8);
+    expect(patron(10).sides).toBe(8);
+
+    /*
+     * THE PRICE IS THE POINT. Every other pool in the register is `null` here,
+     * and a screen reading `cost` is what stops a Patron Die being armed for
+     * nothing. `heldDice.ts::arm` is where the charge and the die are made one
+     * call; this field is how a surface knows there is a charge at all.
+     */
+    expect(patron(1).cost).toBe('favor');
+    expect(pools({ classRef: 'bard', level: 1 })[0]!.cost, 'a Rally Die is free').toBeNull();
+
+    // Bought one at a time, never handed over and never banked - and capped by
+    // the Favor ceiling, because that is the most you can have paid for.
+    expect(patron(1).granted).toBeNull();
+    expect(patron(1).cap).toBe(6);
+    expect(patron(1).beneficiary, 'the die joins a roll you are making').toBe('self');
+    expect(patron(1).rolledAt).toBe('spend');
+    expect(patron(1).clearGrantsHope).toBe(false);
+    expect(patron(1).source).toBe('Warlock');
+  });
+
+  it('gives the Patron Die to nobody else, including the other twelve classes', () => {
+    /*
+     * Asked of every class in the book rather than of a couple by hand. The
+     * register is keyed on `warlock:Patron’s Pact` - a name with a U+2019 in it
+     * - and the failure this guards is not "some other class got one" so much
+     * as the whole entry silently naming nothing: a straight apostrophe typed
+     * here matches no feature, `poolsFor` finds no spec, and the Warlock gets
+     * NOTHING while every assertion about the other twelve still passes.
+     */
+    const withPatron = dataset.classes
+      .filter((k) => pools({ classRef: k.id, level: 10 }).some((p) => p.id === 'patron'))
+      .map((k) => k.id);
+    expect(withPatron, 'the Patron Die is the Warlock’s and only the Warlock’s').toEqual([
+      'warlock',
+    ]);
+  });
+
+  it('carries the Patron Die through a multiclass, and the Favor seed does not', () => {
+    /*
+     * The two halves of the Warlock disagree on purpose, and this is the test
+     * that says so out loud. `characterFeatures` grants a multiclass's CLASS
+     * features, so a Ranger who multiclassed into Warlock holds `Patron’s Pact`
+     * and has a Patron Die - the same rule that gives a multiclassed Bard a
+     * Rally Die two tests below. But `newCharacter` seeds three Favor only for
+     * a first class (`src/engine/character.ts`, on the word "start"), so this
+     * sheet arrives with a die it cannot yet pay for.
+     *
+     * That is not a contradiction to be smoothed over: the screen's control is
+     * gated on the Favor track, so a Ranger/Warlock sees the die, is told there
+     * is no Favor to spend, and gains Favor by showing tribute like anybody
+     * else. Smoothing it here would mean either withholding a feature the book
+     * grants or seeding a resource `character.ts` argues at length against.
+     */
+    const multi = pools({ classRef: 'ranger', multiclassRef: 'warlock', level: 5 });
+    const patron = multi.find((p) => p.id === 'patron');
+    expect(patron, 'a multiclass grants the second class`s class feature').toBeDefined();
+    expect(patron!.source).toBe('Warlock · Multiclass');
+    expect(patron!.sides, 'level 5 is the multiclass level and the d8 level').toBe(8);
+    expect(
+      sheet({ classRef: 'ranger', multiclassRef: 'warlock', level: 5 }).favor.marked,
+      'the multiclass seeded Favor, which `newCharacter` argues it must not',
+    ).toBe(0);
   });
 
   it('follows the multiclass rule, because it reads the same collector the sheet does', () => {

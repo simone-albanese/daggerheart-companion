@@ -40,9 +40,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adversary, Environment } from '@shared/types.ts';
 import type { SessionItem } from '@shared/campaigns.ts';
-import { cryptoRng } from '../../src/engine/dice.ts';
+import { cryptoRng, rollDuality } from '../../src/engine/dice.ts';
 import * as db from '../../src/store/db.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
+import { STANCE_SUBCLASS } from '@engine/character.ts';
+import { MAX_FAVOR, MAX_FOCUS } from '@shared/types.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
 import { Build } from '../../src/ui/build/Build.tsx';
@@ -120,9 +122,11 @@ import {
 import { Beastform } from '../../src/ui/player/Beastform.tsx';
 import { DicePools } from '../../src/ui/player/DicePools.tsx';
 import { Cards } from '../../src/ui/player/Cards.tsx';
+import { ClassTracks } from '../../src/ui/player/ClassTracks.tsx';
 import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions, ConditionsControl } from '../../src/ui/player/Conditions.tsx';
 import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
+import { FavorRow } from '../../src/ui/player/FavorRow.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
 import { DualityRoll, ExperienceRow } from '../../src/ui/player/DualityRoll.tsx';
 import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
@@ -156,7 +160,7 @@ import { NameField, RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { RuleTableView } from '../../src/ui/shared/RuleTableView.tsx';
 import { ruleSection, type SectionBlock } from '../../src/ui/shared/srdReference.ts';
 import type { RuleTable } from '../../src/ui/shared/ruleText.ts';
-import { Counter } from '../../src/ui/shared/Counter.tsx';
+import { Counter, Step } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
@@ -773,6 +777,25 @@ const COMPONENTS: Record<string, () => ReactElement> = {
 
   'player/Beastform.tsx::Beastform': () => <Beastform stats={stats()} layout="desktop" />,
   'player/Cards.tsx::Cards': () => <Cards stats={stats()} />,
+  /*
+   * The one fixture here that reseeds the store before it returns, and it is
+   * deliberate rather than a shortcut. `seed()` puts a Bard on the store with
+   * both class tracks empty, which is precisely the state this component
+   * answers `null` for - so listing it under `DRAWS_NOTHING` would file its
+   * only render path under the one case that never draws it. A Martial Artist
+   * with a patron draws both strips, which is what this sweep is for.
+   */
+  'player/ClassTracks.tsx::ClassTracks': () => {
+    const bard = playedCharacter();
+    const holder = {
+      ...bard,
+      subclassRefs: [...bard.subclassRefs, STANCE_SUBCLASS],
+      focus: { marked: 2, max: MAX_FOCUS },
+      favor: { marked: 3, max: MAX_FAVOR },
+    };
+    useApp.setState({ characters: [holder], activeId: holder.id });
+    return <ClassTracks />;
+  },
   'player/Companion.tsx::WhoSwitch': () => <WhoSwitch who="you" setWho={noop} compact={false} />,
   'player/Companion.tsx::CompanionPanel': () => (
     <CompanionPanel stats={stats()} layout="desktop" />
@@ -797,6 +820,16 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     />
   ),
   'player/DeathMove.tsx::DeathMoveOffer': () => <DeathMoveOffer />,
+  // A real success with Hope, so the prop side of this row is exercised even
+  // though the sheet side refuses it: the fixture is a Bard and only a class
+  // with the Favor feature is ever offered the trade. See DRAWS_NOTHING.
+  'player/FavorRow.tsx::FavorRow': () => (
+    <FavorRow
+      result={rollDuality({ modifier: 0, difficulty: 5, fixed: { hope: 10, fear: 3 } })}
+      hopeGained={1}
+      layout="desktop"
+    />
+  ),
   'player/DualityRoll.tsx::DualityRoll': () => (
     <DualityRoll
       stats={stats()}
@@ -927,6 +960,11 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'shared/Counter.tsx::Counter': () => (
     <Counter kind="stress" value={2} max={6} onChange={noop} label="STRESS" />
   ),
+  // Exported since `ClassTracks` began pressing it, so the sweep mounts it on
+  // its own as well as inside the two cards that frame it.
+  'shared/Counter.tsx::Step': () => (
+    <Step label="STRESS minus one" glyph="−" disabled={false} onPress={noop} />
+  ),
   'shared/Disclosure.tsx::Disclosure': () => (
     <Disclosure id="fixture" characterId="c1" label="Carried" summary="2 ITEMS" defaultOpen>
       <p>Inside the fold.</p>
@@ -984,6 +1022,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
 const DRAWS_NOTHING: Record<string, string> = {
   'player/Beastform.tsx::Beastform': 'Only a class with a Beastform draws it; the fixture is a Bard.',
   'player/DeathMove.tsx::DeathMoveOffer': 'The fixture has HP left, so no death move is offered.',
+  'player/FavorRow.tsx::FavorRow':
+    'Only a class with the Warlock’s Favor feature is offered the trade, and the fixture is a Bard - ' +
+    'the same shape as Beastform above. `tests/ui/favorRow.test.tsx` mounts every branch of it.',
 };
 
 /** Every PascalCase value export under `src/ui`, derived rather than listed. */
