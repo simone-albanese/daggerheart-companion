@@ -2,17 +2,36 @@
  * Active conditions.
  *
  * The app has always shown the *text* of Hidden, Restrained and Vulnerable and
- * tracked none of them, while 26 of the 129 adversaries can leave a PC
- * Vulnerable and 17 can Restrain one. This is the strip that remembers.
+ * tracked none of them, while 65 of the 264 adversaries can leave a PC
+ * Vulnerable and 46 can Restrain one. This is the strip that remembers.
+ *
+ * (Those two read `26 of the 129` and `17`. The measurement did not change and
+ * the shipped book did: the count is the word `Vulnerable`, then `Restrained`,
+ * matched against each adversary record whole, and run against `srd-1.0.json`
+ * it still returns 26 and 17. It is a proxy - a record can name a condition
+ * without being able to inflict it - but it is the proxy that reproduces the
+ * old pair digit for digit, so what stands here is the old measurement re-run
+ * rather than a new one substituted for it.)
  *
  * It remembers and nothing else. A chip is the token the player would push
  * across the table, and the rules beside it are the SRD's own words, quoted
  * from the dataset, because applying them is the player's job.
  *
- * The two free-text chips are the load-bearing part: eight of the nine classes
- * carry a persistent named state - Cloaked, Focus, No Mercy, Strange Patterns -
- * and 43 of the 189 domain cards create a lasting one. A label the player types
+ * The two free-text chips are the load-bearing part: every class but the
+ * Sorcerer carries a persistent named state - Cloaked, Focus, No Mercy, Strange
+ * Patterns - and domain cards create lasting ones too. A label the player types
  * is not the app executing card text. It is a sticky note.
+ *
+ * (`43 of the 189 domain cards` stood in that sentence. The 189 is SRD 1.0's
+ * deck and the book ships 210, so the figure is stale on its denominator alone;
+ * the 43 is worse than stale, because no reading of the deck reproduces it -
+ * the nearest, every card whose text contains "until", returns 39 there and 42
+ * here. It was a hand tally, and a hand tally nobody can re-run is not a
+ * measurement. Retired rather than restated: the chips are justified by cards
+ * creating lasting states at all, which is not in doubt, and inventing a
+ * replacement number would be repeating exactly the mistake that put 189 in a
+ * sentence about a 210-card book. The class half is recounted in
+ * `conditionsStore.ts`, which owns `MAX_NAMED`.)
  */
 import { useMemo, useState } from 'react';
 import { isVulnerableFromStress } from '../../engine/damage.ts';

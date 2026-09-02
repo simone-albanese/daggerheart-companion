@@ -50,6 +50,7 @@ import {
   type IntegrityReport,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
+import { SHIPPED_COUNTS } from '../../store/dataset.ts';
 import { allowedScreen, needsOnboarding } from '../../store/prefs.ts';
 import { useApp, useStats, type WriteFailure } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
@@ -786,9 +787,22 @@ function EmptyState(): React.JSX.Element {
       <AppMark size={26} />
       <div style={{ textAlign: 'center', maxWidth: 420 }}>
         <div className="t-vital">No character yet</div>
+        {/*
+          Counted, not typed. These three read `189 domain cards, 129
+          adversaries, nine classes` for as long as the app shipped SRD 1.0 and
+          for four months after it stopped - see `SHIPPED_COUNTS`, which records
+          what they said and why nothing went red. This panel is the first prose
+          a new user meets and its whole claim is completeness, so an undercount
+          here is the app disparaging itself in its own welcome.
+
+          One template literal rather than four JSX children, because the
+          children version needs a `{' '}` between the first count and the noun
+          after it - JSX drops the newline - and a sentence whose spacing
+          depends on a spacer nobody can see is a sentence that renders
+          `210domain cards` the first time somebody reflows the file.
+        */}
         <p className="t-body" style={{ marginTop: 10 }}>
-          Every rule, card and adversary from the SRD is already here — 189 domain cards, 129
-          adversaries, nine classes. Nothing to download.
+          {`Every rule, card and adversary from the SRD is already here — ${String(SHIPPED_COUNTS.domainCards)} domain cards, ${String(SHIPPED_COUNTS.adversaries)} adversaries, ${String(SHIPPED_COUNTS.classes)} classes. Nothing to download.`}
         </p>
       </div>
       <button type="button" className="btn btn-primary" onClick={() => setScreen('build')}>
