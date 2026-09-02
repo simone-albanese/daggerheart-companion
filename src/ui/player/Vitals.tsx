@@ -297,8 +297,12 @@ export function Vitals({
        * The height argument that used to sit on the deleted `rowHeight` line is
        * still the constraint and is kept here: on a desktop the mouse is
        * precise and the vertical budget is not - a 1440x695 laptop viewport is
-       * the real one, not the 900px mock - which is why this block giving 70px
-       * back matters more than the two it costs the panel's width.
+       * the real one, not the 900px mock - which is why this block giving 34px
+       * back matters more than the two it costs the panel's width. (**70** stood
+       * here for the height this block gave back before the card: the paragraph
+       * that derives it came down to 62 and then to 34 and this line was left
+       * behind, so it is the derivation above and not this number that was ever
+       * checked.)
        */}
       {/*
        * `minmax(0, 1fr)` AND NOT `1fr`, WHICH IS TWO WORDS AND A DEFECT.
@@ -409,8 +413,9 @@ export function Vitals({
        * from one line, and the companion branch above returns before it - a
        * wolf has no patron.
        *
-       * It renders NOTHING for a sheet with neither track - which is twelve
-       * of the thirteen classes this dataset ships and all nine of the older
+       * It renders NOTHING for a sheet with neither track - which is eleven of
+       * the thirteen classes this dataset ships outright, plus every Brawler who
+       * did not take the Martial Artist subclass, and all nine of the older
        * one's - so this line costs the general sheet no pixel and no gap.
        * What it costs a sheet that HAS one is 52px of column on the phone (a
        * 46px strip and this panel's 6px gap) and 56 in the cockpit (the same
