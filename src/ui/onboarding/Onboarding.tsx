@@ -2,11 +2,19 @@
  * The questions the app asks before it asks for a class.
  *
  * A brand-new device used to open on `Build`, and `Build` with an empty library
- * is the creation wizard, whose first step is the nine classes. So the very
- * first thing this app ever showed anybody was nine cards asking which one they
- * wanted to be - before it knew whether they were making a character at all.
- * A GM got the same nine, and so did somebody whose character was already
- * finished and sitting on another phone.
+ * is the creation wizard, whose first step is the class picker. So the very
+ * first thing this app ever showed anybody was a wall of class cards asking
+ * which one they wanted to be - before it knew whether they were making a
+ * character at all. A GM got the same wall, and so did somebody whose character
+ * was already finished and sitting on another phone.
+ *
+ * (That paragraph counted the cards - "the nine classes", "nine cards", "the
+ * same nine" - and stayed at nine after the shipped book became SRD 2.0 and the
+ * picker started drawing thirteen. It is a chronicle of a screen this app no
+ * longer opens on, so the tense was right and the figure was still wrong: a
+ * reader checking whether the story still holds counts what `Wizard.tsx` draws
+ * today, not what it drew in 2026. The count is not what the paragraph is for,
+ * so it is gone rather than restated.)
  *
  * Two questions for a player, three for a GM, and one for somebody importing.
  * That is the whole shape and it is the owner's decision rather than a
@@ -216,6 +224,7 @@
  * and the nav stays put through it. The Play screen scrolls and so does this.
  */
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { SHIPPED_COUNTS } from '../../store/dataset.ts';
 import { useApp } from '../../store/state.ts';
 import type { Prefs } from '../../store/prefs.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -284,7 +293,7 @@ const QUESTIONS: Question[] = [
       {
         glyph: 'PC',
         label: "A player — I'll make a character now",
-        sub: 'NEXT: THE NINE CLASSES',
+        sub: `NEXT: THE ${String(SHIPPED_COUNTS.classes)} CLASSES`,
         set: { gmSection: false },
       },
       {
@@ -539,7 +548,7 @@ export function Onboarding(): React.JSX.Element {
    * its own import, so a character that arrived by QR was written to the store
    * and nothing else happened: `onboarded` was never written, the one answer
    * this route gives was dropped, and the person was thrown out of the flow
-   * mid-scan onto the nine class cards - because `needsOnboarding` flipped on
+   * mid-scan onto the class cards - because `needsOnboarding` flipped on
    * the character count rather than because the run had finished. Worse, the
    * `onboarded: false` left behind is durable, so the first time that library
    * was next empty the app would ask an established user who they are.
@@ -837,7 +846,7 @@ function Summary({
       <p className="t-dense" style={{ margin: 0, maxWidth: '46ch' }}>
         {isGm
           ? 'Next: name your first session. Nothing here left this device.'
-          : 'Next: the nine classes, each one readable in full. Nothing here left this device.'}
+          : `Next: the ${String(SHIPPED_COUNTS.classes)} classes, each one readable in full. Nothing here left this device.`}
       </p>
 
       <div className="stack" role="group" aria-label="What this writes" style={{ gap: 6 }}>

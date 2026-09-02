@@ -106,13 +106,38 @@
  * 0 and three at 6; the ends of the range disable a stepper rather than
  * removing it, which is opacity and not layout; and the label is a constant.
  * Measured in all three states - `2/6 · 3/6`, `0/6 · 0/6`, `6/6 · 6/6` - the
- * strips are 181.5x46 at x12 and x199.5, y389; the readouts 91.5x30 at y397;
+ * strips are 181.5x46 at x12 and x199.5, y389; the readouts 91.5x34 at y395;
  * the labels 37.41x11 at x84.05 and x271.55; the values 28.81x16 at y411; and
  * all four buttons 44x44 at y390. Every one of those figures is identical to
  * the hundredth of a pixel across the three, and the only thing that changes is
  * which stepper is disabled. Driven through the app rather than reasoned about:
  * tapping `FAVOR plus one` moved 3/6 to 4/6, and `FOCUS minus one` twice moved
  * 2/6 to 0/6 and disarmed the minus, with every box above unmoved.
+ *
+ * **THE READOUT IS 34 AND NOT 30, AND THAT IS A REPAIR RATHER THAN A CHOICE.**
+ * As first shipped it was 30 - the label's 11, the 3px gap and the value's 16,
+ * which is exactly the sum - and it clipped: `clientH 30` against `scrollH 32`,
+ * two `unscrollable` boxes on every viewport the rig measures, desktop
+ * included. The cause is not the gap and not the strip: it is that `.t-num`
+ * sets its line box to the font size while IBM Plex Mono's content area is
+ * 1.25em, so at 16px the text occupies 20px in a 16px box and hangs 2px past
+ * each end - 0.21px of it the tail of the `/`, the rest the face's own descent.
+ * The clip was given that 2px as padding instead, which is the change the
+ * `TrackStrip` readout carries the arithmetic for.
+ *
+ * It cost nothing that had been measured, and that was checked rather than
+ * assumed. Before -> after, at the three viewports the composition scored:
+ *
+ *   393x852    unscrollable 2 -> 0    readout 91.5x30 -> 91.5x34
+ *   320x568    unscrollable 2 -> 0    readout   55x30 ->   55x34
+ *   1180x820   unscrollable 2 -> 0    readout  108x30 ->  108x34
+ *
+ * The readout is centred in the strip, so its top rose the 2px the padding
+ * added back - 397 to 395 at 393 - and every figure inside it stayed put: the
+ * label 37.41x11 at the same y, the value 28.81x16 at the same y, all four
+ * steppers 44x44, the strips 181.5x46 / 145x46 / 198x46 unchanged, `clipped`
+ * and `smallTargets` still 0 and `overflowX` still 0. The only number in this
+ * file that moved is the readout's own height.
  *
  * ## THE COCKPIT PAYS FOR THIS ROW OUT OF THE ROLL PANEL, AND AT ONE VIEWPORT
  * ## IT PAYS THE LAST OF WHAT IT HAD
@@ -235,7 +260,32 @@ function TrackStrip({
           justifyContent: 'center',
           gap: 3,
           overflow: 'hidden',
-          padding: '0 6px',
+          /*
+           * 2px top and bottom is the room the CLIP needs, and it is the mono
+           * face's own descent rather than a nudge.
+           *
+           * Both children set their line box to their font size - `.t-label` is
+           * `10px/1` and `.t-num` is `13px/1`, and a unitless 1 re-resolves
+           * against the size declared here. IBM Plex Mono's content area is not
+           * 1em: measured off the loaded face, at 16px its ascent is 16 and its
+           * descent 4, so the text occupies 20px inside a 16px box. Half-leading
+           * is `(16 - 20) / 2`, so the value hangs 2px past its box at each end,
+           * and the label - 11 + 3 at 11px - hangs 1.5.
+           *
+           * With `0 6px` those 2px landed outside a box that clips, which the
+           * rig read as `clientH 30` against `scrollH 32` on all three viewports
+           * it measures, desktop included, and 0.21px of which was the tail of
+           * the `/` glyph rather than empty metrics. Padding is the honest half
+           * of that pair: the type keeps the tight line the whole app sets, and
+           * the box that hides things is made as tall as what it holds.
+           *
+           * It costs nothing that was measured. The readout grows 30 -> 34, it
+           * is centred in a 44px strip by `.row`, so its top moves up exactly
+           * the 2px the padding adds back: the label stays 37.41x11 and the
+           * value 28.81x16 at the same y they were measured at, the strip stays
+           * 181.5x46 at 393, and 46 is still the whole of what the row costs.
+           */
+          padding: '2px 6px',
         }}
       >
         <span

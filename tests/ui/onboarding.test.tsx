@@ -180,7 +180,7 @@ const answerRows = (): HTMLButtonElement[] =>
   [...container.querySelectorAll<HTMLButtonElement>('[role="group"] > button')];
 
 describe('the first thing a new device shows', () => {
-  it('asks who is at the table, instead of showing the nine classes', async () => {
+  it('asks who is at the table, instead of showing the class picker', async () => {
     await boot();
 
     expect(

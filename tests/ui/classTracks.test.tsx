@@ -33,7 +33,7 @@
  * declared floor is declared.
  */
 import 'fake-indexeddb/auto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -208,20 +208,65 @@ describe('the address this row writes down', () => {
     expect(index.subclasses.get(STANCE_SUBCLASS)?.name).toBe('Martial Artist');
   });
 
-  it('is the same string the Build screen writes down, which is the only other copy', () => {
+  it('is written down once in the whole of `src/`, and nowhere a second time', () => {
     /*
-     * `src/ui/build/Edit.tsx` declares `STANCE_SUBCLASS` of its own. That
-     * duplication is deliberate for exactly one round - that file belongs to
-     * another lane this pass - and this is what stops it drifting. Two copies
-     * of one address is how the Build screen and this row come to disagree
-     * about whose sheet the stances are, drawing the Focus track in one place
-     * and refusing it in the other, with nothing red anywhere to say so. The
-     * next hand to open Edit.tsx should delete its copy and import the engine's;
-     * this assertion goes green either way, because the import carries the same
-     * literal into the file it reads.
+     * The question this replaces, and why it had to be replaced.
+     *
+     * `src/ui/build/Edit.tsx` used to declare a `STANCE_SUBCLASS` of its own,
+     * and the test standing here asked whether the two literals still MATCHED.
+     * That question died with the second copy: Edit.tsx imports the engine's
+     * constant now, so there is nothing left to compare. The question that
+     * survives the unification is the one that made two copies dangerous in the
+     * first place - HAS ANYONE WRITTEN IT DOWN AGAIN - because two copies of an
+     * address is how the Build screen and this row come to disagree about whose
+     * sheet the stances are, drawing the Focus track in one place and refusing
+     * it in the other, with nothing red anywhere to say so.
+     *
+     * The old test could not ask this. It searched Edit.tsx FOR the literal, so
+     * a second copy was exactly what kept it green; and note what that means
+     * for the comment it carried, which claimed the assertion "goes green
+     * either way, because the import carries the same literal into the file it
+     * reads". An `import` puts a NAME in the importing file, never the string
+     * behind it, so the honest repair - delete the copy, import the engine's -
+     * reddened the very assertion meant to survive it.
+     *
+     * The whole of `src/` and not just Edit.tsx: the defect is a second
+     * declaration, and the file it lands in is not part of what makes it one.
+     * The slug is matched bare rather than quoted, so a double-quoted or
+     * backticked copy is caught alongside the single-quoted one.
+     */
+    const declarant = 'src/engine/character.ts';
+    const files: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) walk(path);
+        else files.push(path);
+      }
+    };
+    walk('src');
+
+    const copies = files
+      .filter((f) => f !== declarant)
+      .filter((f) => readFileSync(f, 'utf8').includes(STANCE_SUBCLASS));
+    expect(copies).toEqual([]);
+    // The scan is only worth anything if it read the one file that DOES hold
+    // the address - a walk that silently found nothing would pass too.
+    expect(readFileSync(declarant, 'utf8')).toContain(`'${STANCE_SUBCLASS}'`);
+  });
+
+  it('is what the Build screen reads, and it reads it from the engine', () => {
+    /*
+     * The other half, and it is not decoration. `no second copy` is satisfied
+     * for free by a Build screen that stopped asking about the subclass at all
+     * - which is not the invariant, it is the Focus section quietly ungating
+     * its picker. This pins the direction of the dependency: Edit.tsx names the
+     * constant and takes it from `character.ts`.
      */
     const editSource = readFileSync('src/ui/build/Edit.tsx', 'utf8');
-    expect(editSource).toContain(`'${STANCE_SUBCLASS}'`);
+    expect(editSource).toMatch(
+      /import \{[^}]*\bSTANCE_SUBCLASS\b[^}]*\} from '\.\.\/\.\.\/engine\/character\.ts'/,
+    );
   });
 });
 
@@ -422,6 +467,69 @@ describe('the floor this file declares for itself', () => {
         /^[A-Z]+\d\/\d$/,
       );
       expect(px(readout.style.minWidth), `${name} readout floor`).toBe(floor);
+    }
+  });
+
+  it('is as tall as the type it hides, because it is the box that hides it', () => {
+    /*
+     * The readout CLIPS - `overflow: hidden` on both axes - and it stacks two
+     * lines whose line box is deliberately tighter than the face they are set
+     * in. Both those things are wanted; together, and only together, they cut
+     * the type.
+     *
+     * The arithmetic, measured in Chrome off the loaded IBM Plex Mono rather
+     * than read off a spec sheet: at 16px the face reports `fontBoundingBox`
+     * ascent 16 and descent 4, so its content area is 20px - `PLEX_BOX` below,
+     * 1.25em - while `.t-num` sets `13px/1`, whose unitless 1 re-resolves to the
+     * 16px this row declares. Half-leading is `(16 - 20) / 2`, so the text hangs
+     * 2px past its own box at each end and the clip takes the lower 2, of which
+     * 0.21px is the tail of the `/` glyph and not empty metrics. The rig read
+     * that as `clientH 30` against `scrollH 32` on all three of the viewports it
+     * measures - 393x852, 320x568 and 1180x820, desktop included - and scored
+     * two `unscrollable` boxes on each. With this padding: `34` and `34`, and
+     * zero on all three.
+     *
+     * The number is DERIVED from the size the component declares, not copied
+     * from the run above, because the rule is the one that survives a resize:
+     * a clipping box owes each of its lines half the difference between the
+     * face's content area and the line box. At 11px the label wants 1.375 and
+     * at 16px the value wants 2, so the padding is the larger of the two.
+     *
+     * jsdom computes no layout, so this cannot see a scroll height; what it CAN
+     * hold is that the room is declared, and it is the declaration that the
+     * Chrome A/B in `ClassTracks.tsx`'s docblock proves is enough. Dropping this
+     * padding to `0 6px` puts the two boxes straight back in the rig's
+     * `unscrollable` list.
+     */
+    const PLEX_BOX = 1.25;
+    render({
+      subclassRefs: [STANCE_SUBCLASS],
+      focus: { marked: 2, max: MAX_FOCUS },
+      favor: { marked: 3, max: MAX_FAVOR },
+    });
+    expect(strips()).toHaveLength(2);
+    for (const strip of strips()) {
+      const name = strip.getAttribute('aria-label') ?? '?';
+      const readout = strip.children[1] as HTMLElement;
+      // The premise. Without the clip there is nothing here to pay for.
+      expect(readout.style.overflow, `${name} readout clips`).toBe('hidden');
+      const lines = [...readout.children] as HTMLElement[];
+      expect(lines, `${name} readout is the label over the value`).toHaveLength(2);
+      const overhang = Math.max(
+        ...lines.map((line) => {
+          const size = Number.parseFloat(line.style.fontSize);
+          expect(size, `${name} line declares its own size`).toBeGreaterThan(0);
+          return (size * PLEX_BOX - size) / 2;
+        }),
+      );
+      expect(
+        Number.parseFloat(readout.style.paddingTop),
+        `${name} readout top padding against ${String(overhang)} of overhang`,
+      ).toBeGreaterThanOrEqual(overhang);
+      expect(
+        Number.parseFloat(readout.style.paddingBottom),
+        `${name} readout bottom padding against ${String(overhang)} of overhang`,
+      ).toBeGreaterThanOrEqual(overhang);
     }
   });
 });

@@ -209,11 +209,58 @@ export function Vitals({
        * ROLL at painted 0 of 54 at 1180x695 and 1366x768 in both banner states,
        * and at 1280x800 with the backup banner up - a default state of a fresh
        * install. It is a scroll rather than P2-1's unreachable ROLL, because the
-       * panel is `.scroll` now; but that scroll was argued as the floor beneath
-       * a fit, not as budget. The owner asked for the mobile STYLE, and the
+       * panel is `.scroll` now. What refuses the 90 is therefore not the scroll
+       * but what the 84 would buy: the owner asked for the mobile STYLE, and the
        * style is the shape - the card, the steppers at the outer edges, the
        * number on a line of its own - not the height a thumb at arm's length
-       * needs and a mouse at desk distance does not.
+       * needs and a mouse at desk distance does not. A height nobody at desk
+       * distance asked for buys nothing, so no price for it is cheap. That is
+       * still the answer, and it is the answer for all thirteen classes.
+       *
+       * THAT SCROLL HAS SINCE BEEN SPENT AS BUDGET - ONCE, DELIBERATELY - AND
+       * THIS PARAGRAPH USED TO DENY IT COULD BE. It read *"that scroll was
+       * argued as the floor beneath a fit, not as budget"*, and the sentence
+       * stopped being true the day `ClassTracks` shipped: the owner spent
+       * exactly this scroll on the Focus/Favor row that draws below the grid.
+       * The bill is **56px** of the middle column - a 46px strip and this
+       * panel's 10px gap - and every one of them comes out of `DualityRoll`,
+       * which goes 428x404 -> 428x348 while this panel goes 428x211 -> 428x267.
+       * Measured at 1180x695 with the dice fold open and a roll on the glass,
+       * ROLL goes from painted **54 of 54** - whole, in that state, before the
+       * row existed - to **7.3 of 54**, and reaching it is a scroll:
+       * `reachable: true`, `hardClips: []`. That is a state and not a verdict on
+       * the viewport; `ClassTracks`'s own four-viewport table measures the same
+       * 1180x695 idle, where the panel was already scrolling and the reading is
+       * 26.1 -> 0.
+       *
+       * AND THE TWO COST THE PANEL THE SAME 56, WHICH IS WHY THE PRICE CANNOT BE
+       * WHAT SEPARATES THEM. The 90px cell would make this panel
+       * 2 + 24 + 90 + 6 + 90 + 10 + 45 = **428x267**; the 62px cell with the
+       * tracks row under it makes it 211 + 46 + 10 = **428x267**. Identical, to
+       * the pixel, and `DualityRoll` loses the identical pixels either way. (The
+       * **84** above is the same option measured from the other end - against
+       * the 102 the pre-card 48px cell made, which is the baseline ONE SHAPE NOW
+       * quotes its 28 against.) So the ledger that decided this is the other
+       * side of it, and it has two entries.
+       *
+       * WHAT THE 56 BUYS, AND WHO IS BILLED. The row is the only way to spend
+       * Favor on the desktop - it is drawn on no other screen - so refusing it
+       * is a control that does not exist, set against a control that has to be
+       * scrolled to. And it is charged to the sheets that were given the
+       * feature: **2 classes of 13** grant it - Warlock by a class feature and
+       * Brawler on one of its two subclasses - and the other eleven never see
+       * the row or pay a pixel for it unless a player multiclassed into one of
+       * the two, which is the sheet asking for the track by name. The 90px cell
+       * has neither entry - it buys no capability at all, and it bills every
+       * sheet in the app for a height that answers a thumb this layout does not
+       * have.
+       *
+       * SO, FOR THE NEXT THING THAT WANTS HEIGHT HERE, IN BOTH DIRECTIONS. The
+       * roll panel's scroll is spendable and has been spent, so it is not a
+       * floor that may never be touched; it is also not a pool, and what bought
+       * those 56 was a capability available nowhere else, paid for by the two
+       * classes that receive it. Height for its own sake stays refused at every
+       * viewport and for every class.
        *
        * WHAT A COCKPIT CELL IS. The middle column is `minmax(360px, 428px)` and
        * takes its 428 at every width the cockpit is drawn at: 1180 less 40 of
@@ -250,8 +297,12 @@ export function Vitals({
        * The height argument that used to sit on the deleted `rowHeight` line is
        * still the constraint and is kept here: on a desktop the mouse is
        * precise and the vertical budget is not - a 1440x695 laptop viewport is
-       * the real one, not the 900px mock - which is why this block giving 70px
-       * back matters more than the two it costs the panel's width.
+       * the real one, not the 900px mock - which is why this block giving 34px
+       * back matters more than the two it costs the panel's width. (**70** stood
+       * here for the height this block gave back before the card: the paragraph
+       * that derives it came down to 62 and then to 34 and this line was left
+       * behind, so it is the derivation above and not this number that was ever
+       * checked.)
        */}
       {/*
        * `minmax(0, 1fr)` AND NOT `1fr`, WHICH IS TWO WORDS AND A DEFECT.
@@ -362,8 +413,9 @@ export function Vitals({
        * from one line, and the companion branch above returns before it - a
        * wolf has no patron.
        *
-       * It renders NOTHING for a sheet with neither track - which is twelve
-       * of the thirteen classes this dataset ships and all nine of the older
+       * It renders NOTHING for a sheet with neither track - which is eleven of
+       * the thirteen classes this dataset ships outright, plus every Brawler who
+       * did not take the Martial Artist subclass, and all nine of the older
        * one's - so this line costs the general sheet no pixel and no gap.
        * What it costs a sheet that HAS one is 52px of column on the phone (a
        * 46px strip and this panel's 6px gap) and 56 in the cockpit (the same
