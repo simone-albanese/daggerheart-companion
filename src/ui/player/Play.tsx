@@ -2996,7 +2996,7 @@ function PlayDesktop({
           <FeatureList stats={stats} />
         </div>
         {/*
-         * The dice pools, for the three archetypes that have one.
+         * The dice pools, for the four archetypes that have one.
          *
          * Renders nothing at all for everyone else - a Ranger has no pool and
          * must not be charged a heading for a Seraph's dice. In this column
@@ -3581,7 +3581,7 @@ function PlayPhone({
   /*
    * Whether this character has a dice pool at all, read here because it is a
    * hook and this is above the `!character` guard. It is the gate on a fold
-   * that is drawn for three archetypes and nobody else - see the note beside
+   * that is drawn for four archetypes and nobody else - see the note beside
    * the fold itself for what it costs the column when it IS drawn.
    */
   const pools = usePoolsFor(stats);
@@ -4060,9 +4060,19 @@ function PlayPhone({
        *
        * The conditions are the precedent and the arithmetic is theirs: a fold
        * is a 44px header plus this column's 8px gap, so this costs **52px** to
-       * the three archetypes that have a pool - a Bard, a Seraph, a Warrior who
-       * took Call of the Slayer - and **nothing at all** to everybody else,
-       * because `DicePools` returns null and this block is not rendered.
+       * the four archetypes that have a pool - a Bard, a Seraph, a Warrior who
+       * took Call of the Slayer and a Warlock - and **nothing at all** to
+       * everybody else, because `DicePools` returns null and this block is not
+       * rendered.
+       *
+       * THE WARLOCK IS THE FOURTH AND HE MOVED THE COUNT, NOT THE PRICE. The
+       * Patron Die is a pool in `engine/dicePools.ts` like the other three -
+       * keyed on `Patron's Pact`, not on `Favor`, which is the currency - so
+       * `pools.length > 0` is true for him and this same single `Disclosure` is
+       * drawn. One fold is one header and one gap whatever is inside it, so the
+       * 52 below is the 52 it always was; what changed is that a fourth
+       * archetype now pays it. A pool that had arrived as a second fold, or as
+       * a strip outside one, would have had to restate the number instead.
        *
        * The 52 matters and is stated rather than absorbed. `playSheet.test.tsx`
        * holds the whole folded sheet to 532px against 545 of column at 375x667,
