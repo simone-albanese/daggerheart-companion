@@ -12,7 +12,7 @@
  */
 import { useState } from 'react';
 import { TRAITS, TRAIT_LABELS, type Character, type Ref, type Trait } from '../../../shared/types.ts';
-import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
+import { STANCE_SUBCLASS, TIER_LEVELS, tierOf } from '../../engine/character.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { cryptoRng } from '../../engine/dice.ts';
 import { ignoresBurden } from '../../engine/burden.ts';
@@ -795,26 +795,6 @@ function TransformationSection({
  * draws the same ghost row the armor and transformation paths draw, naming the
  * raw ref and offering the one honest thing: drop it.
  */
-/**
- * The subclass the book ties martial stances to, as an ADDRESS and not a
- * sentence.
- *
- * Folio 13: "When you choose the Martial Artist subclass, take the Martial
- * Stances sheet." So the sheet is that subclass's, and drawing it on a wizard
- * is the app promising something the book does not give them.
- *
- * A slug is written here rather than derived because the two ways of deriving
- * it are both worse. Matching the feature text for "martial stance" is the trap
- * this branch already fell into once - `stance` is a substring of
- * `circumstance` - and adding a flag to `Subclass` would put a fact about ONE
- * subclass into the shape of all twenty-six. `chapters.ts` writes addresses the
- * same way, under the same rule: an address may be written down WHEN IT IS
- * CHECKED AGAINST THE DATASET EVERY RUN, and `stances.test.tsx` does that - if
- * a printing renames the subclass, the test reddens instead of the section
- * quietly never drawing again.
- */
-const STANCE_SUBCLASS = 'martial-artist';
-
 function StancesSection({
   character,
   onPatch,
