@@ -75,6 +75,38 @@ export const SRD_LABEL: string = baseDataset.layers[0]?.label ?? 'SRD';
 export const srdStamp = (page: number | null | undefined): string =>
   page === null || page === undefined ? SRD_LABEL : `${SRD_LABEL} · P.${String(page)}`;
 
+/**
+ * How much book is in the app, counted from the book.
+ *
+ * The welcome panel in `App.tsx` opens with "Every rule, card and adversary
+ * from the SRD is already here" and then names three figures. They were typed
+ * in - `189 domain cards, 129 adversaries, nine classes` - and they were right
+ * about `srd-1.0.json`. They stayed typed in when the import at the top of this
+ * file became `srd-2.0.json`, whose arrays are 210, 264 and 13, so the first
+ * sentence a new user reads understated the bestiary by 135 - more than half of
+ * it - on the one screen whose entire job is to say the download is already
+ * done.
+ *
+ * Counted rather than retyped, for the reason `SHIPPED_SRD` in
+ * `CompatibleMark.tsx` is derived rather than retyped: retyping is what put the
+ * SRD 1.0 figures on that screen, and a hand-corrected `210 / 264 / 13` would
+ * be exactly as wrong the day the next book lands, in exactly the same silent
+ * way - nothing throws when a sentence undercounts.
+ *
+ * Three fields and not a census, because three is what the sentence names.
+ * `.length` on `baseDataset` rather than on a resolved dataset: this is a claim
+ * about what the app SHIPS WITH, made to somebody who has imported nothing.
+ *
+ * `tests/ui/shippedCounts.test.tsx` reads whichever book this file imports,
+ * counts it itself, and fails both if a rendered figure disagrees and if any of
+ * the three is written as a literal again.
+ */
+export const SHIPPED_COUNTS = {
+  domainCards: baseDataset.domainCards.length,
+  adversaries: baseDataset.adversaries.length,
+  classes: baseDataset.classes.length,
+} as const;
+
 export interface ResolvedDataset {
   dataset: Dataset;
   index: DatasetIndex;
