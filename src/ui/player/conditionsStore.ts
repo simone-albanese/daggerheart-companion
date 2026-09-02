@@ -16,9 +16,19 @@ export type Standard = 'hidden' | 'restrained' | 'vulnerable';
 export const STANDARD: Standard[] = ['hidden', 'restrained', 'vulnerable'];
 
 /**
- * Two, and not more. Eight of the nine classes carry one persistent named
- * state at a time - Cloaked, Focus, No Mercy - and a strip that can grow
- * without limit stops being glanceable, which is the only thing it is for.
+ * Two, and not more. Every class but the Sorcerer carries one persistent named
+ * state at a time - Cloaked, Focus, No Mercy, Marked for Death, Hex - and a
+ * strip that can grow without limit stops being glanceable, which is the only
+ * thing it is for.
+ *
+ * "Eight of the nine" stood here, and the nine was SRD 1.0's class list. The
+ * count itself was never the argument - `MAX_NAMED` follows from *one at a
+ * time*, not from how many classes have one - but a denominator that is four
+ * short of the shipped book is the kind of stale figure a reader trusts. The
+ * partition behind it survives the change and is what is written now: read the
+ * `classFeatures` of all thirteen and exactly one class, the Sorcerer, ends a
+ * feature with nothing left standing on the sheet. Twelve today, eight of nine
+ * then, and the same one left out both times.
  */
 export const MAX_NAMED = 2;
 
