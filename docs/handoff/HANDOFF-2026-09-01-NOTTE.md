@@ -28,6 +28,25 @@ autorizza ad aprire le PR non è quello che autorizza a unirle.
 
 ## 1. L'ONDATA IN VOLO — leggere prima di tutto
 
+> **CORREZIONE DEL 2 SETTEMBRE, scritta prima di unire questa consegna.** Quello che segue è
+> l'istantanea del 1 settembre a notte, ed è stata **smentita dai fatti il mattino dopo**:
+> l'ondata **non era ferma, stava ancora girando**. Il `/clear` aveva azzerato il contesto ma
+> non il processo, e `wf_7c6439b6-0d2` continuava a scrivere. Tre segnali lo provavano in due
+> minuti: i suoi transcript erano **migrati nella cartella della sessione nuova** e crescevano;
+> `ps` mostrava due shell che eseguivano `vitest` dentro i worktree; i file erano stati scritti
+> novanta secondi prima.
+>
+> **Nessuna istruzione dell'elenco qui sotto va più eseguita.** Le tre corsie hanno finito,
+> sono state composte, unite nella **PR #74** e **pubblicate**: `main` è a `dde8794` e il sito
+> serve quel commit (verificato scaricando `sw.js`). I sette commit dell'ondata sono tutti su
+> origin. Il punto 1 — *«quello che non era committato è perso»* — **non si applica: non è
+> andato perso niente.**
+>
+> Resta vero il punto 3, ed è la ragione per cui questa correzione esiste: *«started senza
+> result non è prova di morte»*. Mancava il suo complemento, che ora c'è: **esiste una prova
+> positiva di vita, ed è la migrazione dei transcript.** Il seguito sta nella consegna del
+> 2 settembre.
+
 Un workflow stava costruendo **la UI di Focus e Favor** quando questa consegna è stata
 scritta. **Non era finito.**
 
