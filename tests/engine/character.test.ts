@@ -15,6 +15,7 @@ import {
   weaponDamage,
 } from '@engine/character.ts';
 import { MAX_FAVOR, MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
+import { newCompanion } from '@engine/companion.ts';
 import { hasDataset, loadDataset } from '../../tools/sampleCharacters.ts';
 import {
   advancement,
@@ -204,6 +205,61 @@ describe('scars', () => {
   it('never goes below zero Hope', () => {
     const many = Array.from({ length: BASE_HOPE + 4 }, (_, i) => `scar ${i}`);
     expect(stats({ scars: many }).maxHope).toBe(0);
+  });
+});
+
+/**
+ * SRD 2 p22, the Beastbound companion's level-up options: "Light in the Dark:
+ * Use this as an additional Hope slot your character can mark." The tick is
+ * stored on the companion sheet and, until this, nothing derived from it - a
+ * Ranger who marked it kept six slots, and could not even set a seventh by
+ * hand, because `syncCounters` wrote `maxHope` back over the track.
+ */
+describe('Light in the Dark', () => {
+  const BEASTBOUND = makeSubclass({
+    id: 'beastbound',
+    name: 'Beastbound',
+    foundationFeatures: [{ name: 'Companion', text: 'You have an animal companion of your choice.' }],
+  });
+  const withCompanion = makeDataset({
+    classes: [makeClass({ id: 'ranger' })],
+    subclasses: [BEASTBOUND, MARTIAL],
+  });
+  const wix = indexDataset(withCompanion);
+  const ranger = (p: Partial<Character> = {}): Character =>
+    makeCharacter({ classRef: 'ranger', subclassRefs: ['beastbound'], ...p });
+  const companion = (upgrades: string[]): Character['companion'] => ({
+    ...newCompanion('Ash', 'a raven'),
+    upgrades,
+  });
+
+  it('adds one Hope slot when the companion has it (p22)', () => {
+    const c = ranger({ companion: companion(['light-in-the-dark']) });
+    expect(deriveStats(c, withCompanion, wix).maxHope).toBe(BASE_HOPE + 1);
+  });
+
+  it('adds nothing for a companion without it, or with the other seven options', () => {
+    expect(deriveStats(ranger({ companion: companion([]) }), withCompanion, wix).maxHope).toBe(BASE_HOPE);
+    expect(
+      deriveStats(ranger({ companion: companion(['intelligent', 'resilient']) }), withCompanion, wix).maxHope,
+    ).toBe(BASE_HOPE);
+  });
+
+  it('still lets a scar cross the seventh slot out', () => {
+    const c = ranger({ companion: companion(['light-in-the-dark']), scars: ['a'] });
+    expect(deriveStats(c, withCompanion, wix).maxHope).toBe(BASE_HOPE);
+  });
+
+  it('is only counted on a sheet the Companion feature is granting a companion to', () => {
+    // A companion record left behind by a subclass change is not a Beastbound's.
+    const c = ranger({ subclassRefs: ['martial'], companion: companion(['light-in-the-dark']) });
+    expect(deriveStats(c, withCompanion, wix).maxHope).toBe(BASE_HOPE);
+  });
+
+  it('reaches the Hope track through syncCounters, so the seventh box is drawn', () => {
+    const c = ranger({ companion: companion(['light-in-the-dark']) });
+    const synced = syncCounters(c, deriveStats(c, withCompanion, wix));
+    expect(synced.hope.max).toBe(BASE_HOPE + 1);
   });
 });
 

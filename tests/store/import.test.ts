@@ -477,14 +477,17 @@ describe('the store, against a real database', () => {
     expect(report.imported[0]!.hp).toEqual({ marked: 9, max: 11 });
   });
 
-  it('bounds Hope at six, which is a different ceiling from HP’s twelve', async () => {
+  it('bounds Hope at seven, which is a different ceiling from HP’s twelve', async () => {
+    // Seven and not six: SRD 2 p22's Light in the Dark adds one Hope slot, the
+    // only slot the rules add to that track, so `COUNTER_CEILINGS.hope` is
+    // `BASE_HOPE + 1`.
     const arriving = {
       ...makeCharacter({ name: 'Hopeful', classRef: '?60007' }),
       hope: { marked: 900, max: 900 },
     };
 
     const report = await store.useApp.getState().importCharacters([arriving]);
-    expect(report.imported[0]!.hope).toEqual({ marked: 6, max: 6 });
+    expect(report.imported[0]!.hope).toEqual({ marked: 7, max: 7 });
   });
 
   it('bounds the companion’s Stress, which syncCounters has never touched', async () => {

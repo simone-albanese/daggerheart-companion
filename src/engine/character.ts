@@ -33,6 +33,7 @@ import type {
   Transformation,
   Weapon,
 } from '../../shared/types.ts';
+import { hasCompanionFeature } from './companion.ts';
 import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
 import { collectModifiers, sumOf, traitDeltas, type Ledger } from './modifiers.ts';
 
@@ -41,6 +42,15 @@ export const MAX_STRESS = 12;
 export const MAX_ARMOR_SCORE = 12;
 export const MAX_LOADOUT = 5;
 export const BASE_HOPE = 6;
+/**
+ * The one slot the rules add to the Hope track. SRD 2 p22, a Beastbound
+ * companion's level-up option: *"Light in the Dark: Use this as an additional
+ * Hope slot your character can mark."* One option, taken at most once, so the
+ * ceiling is `BASE_HOPE + 1` and `deriveStats` adds it when the companion
+ * sheet carries the tick.
+ */
+export const LIGHT_IN_THE_DARK = 'light-in-the-dark';
+export const MAX_HOPE = BASE_HOPE + 1;
 export const MAX_LEVEL = 10;
 
 /**
@@ -53,11 +63,13 @@ export const MAX_LEVEL = 10;
  * `normalizeIncoming` refuses to clamp against one. These are the rules'
  * ceilings instead. Hit Points and Stress are capped at twelve by the
  * advancement tables above, Armor Score by the same cap in `deriveStats`, and
- * Hope at six before scars start crossing slots out. No layer, no homebrew and
- * no class from a future book makes a thirteenth Hit Point box legal, so a
- * maximum above one of these did not come from a device with content this build
- * has not met - it is not a number at all. That is what lets the codec refuse
- * one and the store clamp one without either of them destroying a real reading.
+ * Hope at seven: six before scars start crossing slots out, plus the one slot
+ * the book adds anywhere - a Beastbound companion's *Light in the Dark* (SRD 2
+ * p22), `MAX_HOPE` above. No layer, no homebrew and no class from a future
+ * book makes a thirteenth Hit Point box legal, so a maximum above one of these
+ * did not come from a device with content this build has not met - it is not
+ * a number at all. That is what lets the codec refuse one and the store clamp
+ * one without either of them destroying a real reading.
  *
  * The companion's Stress track takes the character's ceiling because it is a
  * Stress track and the engine has exactly one; the arithmetic agrees anyway -
@@ -70,7 +82,7 @@ export const MAX_LEVEL = 10;
 export const COUNTER_CEILINGS = {
   hp: MAX_HP,
   stress: MAX_STRESS,
-  hope: BASE_HOPE,
+  hope: MAX_HOPE,
   focus: MAX_FOCUS,
   favor: MAX_FAVOR,
   armorSlots: MAX_ARMOR_SCORE,
@@ -790,8 +802,23 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     MAX_STRESS,
     BASE_STRESS + advancementCount(c, 'stress') + sumOf(modifiers, 'maxStress'),
   );
-  // A scar permanently crosses out a Hope slot.
-  const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
+  /*
+   * A scar permanently crosses out a Hope slot, and one companion option adds
+   * one. SRD 2 p22, *"Light in the Dark: Use this as an additional Hope slot
+   * your character can mark"* - the tick lives on the companion sheet, and it
+   * counts only while the Companion feature is actually granting that sheet:
+   * a record left behind by a subclass change is not a Beastbound's. This was
+   * the one companion option whose effect lands on a track the character's
+   * own sheet owns, and the only one a player could not record by hand,
+   * because `syncCounters` wrote this number back over the track.
+   */
+  const lightInTheDark =
+    c.companion !== null &&
+    c.companion.upgrades.includes(LIGHT_IN_THE_DARK) &&
+    hasCompanionFeature(c, ix)
+      ? 1
+      : 0;
+  const maxHope = Math.max(0, BASE_HOPE + lightInTheDark - c.scars.length);
 
   const domains: DomainId[] = [...(klass?.domains ?? [])];
   if (c.multiclassDomain && !domains.includes(c.multiclassDomain)) {
