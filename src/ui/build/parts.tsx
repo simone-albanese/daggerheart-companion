@@ -167,7 +167,7 @@ export function Choice({
       </span>
       {body !== undefined && body !== '' && (
         <span
-          className="t-dense"
+          className="t-read"
           style={
             clamp === undefined
               ? { whiteSpace: 'pre-line' }
@@ -407,7 +407,7 @@ export function Callout({
         {word ?? t.word}
       </span>
       {items.map((item) => (
-        <span key={item} className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <span key={item} className="t-read" style={{ color: 'var(--text-2)' }}>
           {item}
         </span>
       ))}
@@ -437,7 +437,7 @@ export function FeatureBlock({
         <span style={{ font: '700 12.5px/1.2 var(--sans)', color: 'var(--text-2)' }}>{name}</span>
         {tag !== undefined && <span className="chip">{tag}</span>}
       </span>
-      <span className="t-dense" style={{ whiteSpace: 'pre-line' }}>
+      <span className="t-read" style={{ whiteSpace: 'pre-line' }}>
         {text}
       </span>
     </span>
@@ -661,7 +661,7 @@ export function GoldEditor({
         })}
       </div>
       <div className="spread" style={{ alignItems: 'baseline', maxWidth: 320 }}>
-        <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <span className="t-hint" style={{ color: 'var(--text-2)' }}>
           {formatGold(gold)}
         </span>
         <span className="t-meta">
@@ -753,7 +753,7 @@ export function InventoryEditor({
             </button>
           </div>
           {entry.note !== undefined && entry.note !== '' && (
-            <span className="t-dense" style={{ color: 'var(--muted)' }}>
+            <span className="t-read" style={{ color: 'var(--muted)' }}>
               {entry.note}
             </span>
           )}
@@ -778,7 +778,7 @@ export function InventoryEditor({
         </button>
       </div>
       {value.length === 0 && (
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           Nothing carried yet.
         </span>
       )}

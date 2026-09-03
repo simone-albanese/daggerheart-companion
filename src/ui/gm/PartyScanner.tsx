@@ -90,7 +90,7 @@ export function PartyScanner({
         <span style={{ font: '800 18px/1 var(--sans)' }}>
           {error !== null ? 'Cannot read' : (progress?.label ?? 'Waiting for a code')}
         </span>
-        <p className="t-dense" style={{ margin: 0, maxWidth: '52ch' }}>
+        <p className="t-hint" style={{ margin: 0, maxWidth: '52ch' }}>
           {error ??
             'Have the player open Transfer on their own device and show the codes. Frames arrive in any order; a missed one comes round again.'}
         </p>

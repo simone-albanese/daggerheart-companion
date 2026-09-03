@@ -115,15 +115,19 @@ describe('a card you are choosing between', () => {
     expect(both).toBe(reading);
   });
 
-  it('sets the rules text at the reading size, not the glance size', () => {
+  it('sets the rules text at the reading size, in both variants', () => {
+    // The showcase card was `.t-dense` - the 11.5px glance size - until the
+    // readability ramp; a card's rules text is read in every grid it lands in,
+    // so both variants take `.t-read` now and the glance size is gone.
     expect(reading).toContain('class="t-read"');
     expect(reading).not.toContain('t-dense');
-    expect(showcase).toContain('class="t-dense"');
+    expect(showcase).toContain('class="t-read"');
+    expect(showcase).not.toContain('t-dense');
   });
 
   it('spends the reclaimed banner on the text rather than on a louder domain', () => {
     // The showcase head sets the domain at 900 weight and 26% of its own
-    // height - 20px on a phone, against a 15px card name and 11.5px rules
+    // height - 20px on a phone, against a 15px card name and 16px rules
     // text. The reading card has no display type on it at all.
     expect(showcase).toMatch(/font:900 \d+px/);
     expect(reading).not.toMatch(/font:900/);
@@ -380,7 +384,7 @@ describe('the screens that share this card', () => {
   it('still gives the cards browser a full-height card with no clamp', () => {
     const html = render({ card, height: 268, headHeight: 78, dimmed: true });
     expect(html).toContain('height:268px');
-    expect(html).toContain('class="t-dense"');
+    expect(html).toContain('class="t-read"');
     expect(html).not.toContain('-webkit-line-clamp');
     expect(html).toContain('opacity:0.42');
   });
@@ -410,8 +414,12 @@ describe('the reading type role', () => {
   const tokens = readFileSync(TOKENS, 'utf8');
 
   it('is a token, so the card can count lines instead of pixels', () => {
-    expect(tokens).toMatch(/--read-size:\s*13px/);
-    expect(tokens).toMatch(/--read-lh:\s*1\.45/);
+    // 1rem/1.5 - 16px at the default root - on a phone, and 0.9375rem from
+    // 720px, where the columns are wider and a three-up grid keeps a line per
+    // card that 16px loses. In rem, so the OS text size reaches it.
+    expect(tokens).toMatch(/--read-size:\s*1rem/);
+    expect(tokens).toMatch(/--read-lh:\s*1\.5\b/);
+    expect(tokens).toMatch(/@media[^{]*min-width:\s*720px[\s\S]*?--read-size:\s*0\.9375rem/);
   });
 
   it('is built from those two values rather than restating them', () => {
@@ -420,12 +428,14 @@ describe('the reading type role', () => {
     expect(role).toContain('var(--read-lh)');
   });
 
-  it('sits above the glance size and takes the higher body ink', () => {
-    // 13px against .t-dense's 11.5px, at --text-2 rather than --text-3: 9.7:1
+  it('sits above the hint size and takes the higher body ink', () => {
+    // 16px against .t-hint's 13px, at --text-2 rather than --text-3: 9.7:1
     // on the dark panel and 12.4:1 on the light one, both past AAA. This card
-    // is read in a dim room to answer the question the step is asking.
+    // is read in a dim room to answer the question the step is asking. (It
+    // was 13px against `.t-dense`'s 11.5 before the readability ramp.)
     const role = /^\.t-read\s*\{([^}]*)\}/m.exec(tokens)?.[1] ?? '';
     expect(role).toContain('color: var(--text-2)');
-    expect(tokens).toMatch(/\.t-dense\s*\{[^}]*font:\s*400 11\.5px/);
+    expect(tokens).toMatch(/\.t-hint\s*\{[^}]*font:\s*400 0\.8125rem/);
+    expect(tokens).not.toMatch(/\.t-dense\s*\{/);
   });
 });

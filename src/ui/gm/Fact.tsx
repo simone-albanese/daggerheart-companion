@@ -21,7 +21,7 @@
  * copy of four lines that has to keep agreeing with the first.
  */
 export const Fact = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
-  <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+  <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
     {children}
   </p>
 );

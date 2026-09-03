@@ -181,7 +181,7 @@ export function LicenceFooter({
       <span style={{ flex: 'none', paddingTop: 1 }}>
         <CompatibleIcon size={14} />
       </span>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: 760 }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: 760 }}>
         {ATTRIBUTION.join(' ')}
       </p>
     </footer>

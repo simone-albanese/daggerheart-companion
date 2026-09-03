@@ -1049,7 +1049,7 @@ function RosterList({
             <li key={entry.ref} className="stack" style={{ gap: 6 }}>
               {adversary === undefined ? (
                 <span className="spread" style={{ gap: 10 }}>
-                  <span className="t-dense" style={{ color: 'var(--dim)' }}>
+                  <span className="t-hint" style={{ color: 'var(--dim)' }}>
                     {entry.ref}
                   </span>
                   <span className="t-meta" style={{ flex: 'none' }}>
@@ -1069,7 +1069,7 @@ function RosterList({
                   onClick={() => setPreview(open ? null : entry.ref)}
                   style={{ gap: 10, width: '100%', minHeight: 'var(--tap)', textAlign: 'left' }}
                 >
-                  <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+                  <span className="t-hint" style={{ color: 'var(--text-2)' }}>
                     {adversary.name}
                   </span>
                   <span className="t-meta" style={{ flex: 'none' }}>

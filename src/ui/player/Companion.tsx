@@ -410,7 +410,7 @@ function CreateForm(): React.JSX.Element {
 
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)' }}>
+      <p className="t-read" style={{ margin: 0, color: 'var(--muted)' }}>
         Work with the GM to decide what kind of animal you have. They start with Evasion{' '}
         {COMPANION_START.evasion}, a {COMPANION_START.damage} damage die at{' '}
         {COMPANION_START.range} range and {COMPANION_START.experiences} Experiences at +
@@ -748,7 +748,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                 So it says which of the two it is - the same refusal the
                 Beastform picker makes when its list comes back empty. */}
             {upgrades.length === 0 && (
-              <span className="t-dense" style={{ color: 'var(--dim)' }}>
+              <span className="t-hint" style={{ color: 'var(--dim)' }}>
                 This dataset carries no companion level-up options.
                 {companion.upgrades.length > 0
                   ? ` ${String(companion.upgrades.length)} already marked on this sheet cannot be shown.`
@@ -789,7 +789,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                   />
                   <span className="stack" style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ font: '700 13px/1.15 var(--sans)' }}>{up.name}</span>
-                    <span className="t-dense" style={{ marginTop: 4 }}>
+                    <span className="t-read" style={{ marginTop: 4 }}>
                       {up.text}
                     </span>
                   </span>

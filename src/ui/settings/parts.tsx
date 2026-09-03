@@ -138,7 +138,7 @@ export function Field({
           <div style={{ flex: '1 1 180px', minWidth: 0 }}>
             <div style={{ font: '600 14px/1.3 var(--sans)', color: 'var(--text)' }}>{label}</div>
             {hint !== undefined && (
-              <div id={hintId} className="t-dense" style={{ marginTop: 5, maxWidth: '62ch' }}>
+              <div id={hintId} className="t-hint" style={{ marginTop: 5, maxWidth: '62ch' }}>
                 {hint}
               </div>
             )}
@@ -340,7 +340,7 @@ export function Note({
   return (
     <div
       role={role}
-      className="t-dense"
+      className="t-hint"
       style={{
         background: wash,
         border: `1px solid ${edge}`,

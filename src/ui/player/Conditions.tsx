@@ -810,7 +810,7 @@ function ConditionsDialog({
 
         <div className="scroll stack" style={{ flex: 1, minHeight: 0, gap: 12, padding: '0 16px 12px' }}>
           {rules.intro !== '' && (
-            <p className="t-dense" style={{ margin: 0, color: 'var(--muted)' }}>
+            <p className="t-read" style={{ margin: 0, color: 'var(--muted)' }}>
               {rules.intro}
             </p>
           )}
@@ -915,7 +915,7 @@ function ConditionsDialog({
                     ALREADY ACTIVE — EVERY STRESS BOX IS MARKED
                   </span>
                 )}
-                <p className="t-dense" style={{ margin: 0 }}>
+                <p className="t-read" style={{ margin: 0 }}>
                   {rules.rule[key]}
                 </p>
               </div>
@@ -923,7 +923,7 @@ function ConditionsDialog({
           })}
 
           {rules.general.map((p) => (
-            <p key={p.slice(0, 24)} className="t-dense" style={{ margin: 0, color: 'var(--muted)' }}>
+            <p key={p.slice(0, 24)} className="t-read" style={{ margin: 0, color: 'var(--muted)' }}>
               {p}
             </p>
           ))}
@@ -933,11 +933,11 @@ function ConditionsDialog({
           <div className="stack" style={{ flex: 'none', gap: 8 }}>
             <span className="t-label">Your own states</span>
             {rules.temporary !== null && (
-              <p className="t-dense" style={{ margin: 0, color: 'var(--muted)' }}>
+              <p className="t-read" style={{ margin: 0, color: 'var(--muted)' }}>
                 {paragraphs(rules.temporary.text)[0]}
               </p>
             )}
-            <p className="t-dense" style={{ margin: 0, color: 'var(--dim)' }}>
+            <p className="t-hint" style={{ margin: 0, color: 'var(--dim)' }}>
               Cloaked, Focus, No Mercy, a card that lasts until your next rest — type the name and
               the app will hold on to it. It tracks the chip; it never applies the effect.
             </p>
@@ -1024,7 +1024,7 @@ function ConditionsDialog({
           */}
           <p
             role="alert"
-            className="t-dense"
+            className="t-hint"
             style={{ margin: 0, color: 'var(--text-2)' }}
           >
             {primed

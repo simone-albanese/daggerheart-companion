@@ -89,6 +89,26 @@
      which are all warm or bright: Dread should not read as another of them. */
   --dread: #6a4a7c;
 
+  /*
+   * Domain colour used AS TEXT - the card head's wordmark, the reader's meta
+   * line, the LV chip - reads these, and the washes and marks keep the hue
+   * above. Two of the ten fail AA on the dark panel as text: Midnight is 4.40:1
+   * and Dread, dark and cold by design, 2.29:1. Their inks are the same hue
+   * lifted until they clear 4.5:1 on `--panel` and on `--raised` (the chip
+   * ground), and every other ink is its own colour, verified by
+   * `stylesheets.test.ts` against the values themselves.
+   */
+  --arcana-ink: var(--arcana);
+  --blade-ink: var(--blade);
+  --bone-ink: var(--bone);
+  --codex-ink: var(--codex);
+  --grace-ink: var(--grace);
+  --midnight-ink: #9195c8;
+  --sage-ink: var(--sage);
+  --splendor-ink: var(--splendor);
+  --valor-ink: var(--valor);
+  --dread-ink: #a98bbb;
+
   --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
 
@@ -356,15 +376,12 @@
   --motion: 150ms;
 
   /*
-   * Card prose, as its own metric rather than a size.
-   *
-   * A card being *chosen* is read, not glanced at, and the only way to bound
-   * how much of it fits is to count lines - so the size and the leading are
-   * tokens a component can multiply, instead of numbers it has to re-declare
-   * and get wrong. Changing either here moves the budget with it.
+   * The text roles - `--read-size`, `--read-lh`, `--body-size`, `--body-lh`,
+   * `--meta-size`, `--chip-size`, `--body-ink` - are declared with the roles
+   * at the foot of this file, in rem, because they are one decision with the
+   * ramp they make. They used to be here, in px: `--read-size: 13px` and
+   * `--read-lh: 1.45`.
    */
-  --read-size: 13px;
-  --read-lh: 1.45;
 
   color-scheme: dark;
 }
@@ -489,6 +506,14 @@
 /*
  * Light theme: the same tokens with an inverted ramp. Domain hues drop
  * lightness and gain chroma so they keep the same separation on paper-white.
+ *
+ * Six of them - stress, bone, codex, sage, splendor, valor - are darker than
+ * the first light ramp had them, because a chip draws its ink on `--raised`
+ * and not on the white panel: on `#ebe8e1` the old values were 3.23:1 (bone)
+ * to 4.38:1 (sage), under AA for the 10-12px word inside the chip. Each is
+ * now 4.5:1 or better on `--raised`, checked by `stylesheets.test.ts` from the
+ * values themselves. On light every domain ink is its own colour, so the
+ * `-ink` variants below are aliases here and differ only on dark.
  */
 :root[data-theme='light'] {
   --app: #f4f2ed;
@@ -507,7 +532,7 @@
   --hope: #815a0d;
   --fear: #793cd3;
   --damage: #c0271c;
-  --stress: #a35c0c;
+  --stress: #96540b;
   --armor: #5a668a;
   --ok: #1e773f;
 
@@ -517,14 +542,25 @@
 
   --arcana: #3f4cc8;
   --blade: #c0271c;
-  --bone: #8a7f66;
-  --codex: #14788f;
+  --bone: #6e6552;
+  --codex: #126e84;
   --grace: #c1256b;
   --midnight: #4a4f85;
-  --sage: #1f7a41;
-  --splendor: #a56a00;
-  --valor: #b4520a;
+  --sage: #1c713c;
+  --splendor: #8d5a00;
+  --valor: #a54c09;
   --dread: #5a3a6c;
+  --arcana-ink: var(--arcana);
+  --blade-ink: var(--blade);
+  --bone-ink: var(--bone);
+  --codex-ink: var(--codex);
+  --grace-ink: var(--grace);
+  --midnight-ink: var(--midnight);
+  --sage-ink: var(--sage);
+  --splendor-ink: var(--splendor);
+  --valor-ink: var(--valor);
+  --dread-ink: var(--dread);
+  --body-ink: var(--text-3);
 
   color-scheme: light;
 }
@@ -546,7 +582,7 @@
     --hope: #815a0d;
     --fear: #793cd3;
     --damage: #c0271c;
-    --stress: #a35c0c;
+    --stress: #96540b;
     --armor: #5a668a;
     --ok: #1e773f;
     --hope-wash: rgb(176 123 18 / 0.14);
@@ -554,19 +590,128 @@
     --crit-wash: linear-gradient(90deg, rgb(176 123 18 / 0.22), rgb(123 63 212 / 0.22));
     --arcana: #3f4cc8;
     --blade: #c0271c;
-    --bone: #8a7f66;
-    --codex: #14788f;
+    --bone: #6e6552;
+    --codex: #126e84;
     --grace: #c1256b;
     --midnight: #4a4f85;
-    --sage: #1f7a41;
-    --splendor: #a56a00;
-    --valor: #b4520a;
+    --sage: #1c713c;
+    --splendor: #8d5a00;
+    --valor: #a54c09;
     --dread: #5a3a6c;
+    --arcana-ink: var(--arcana);
+    --blade-ink: var(--blade);
+    --bone-ink: var(--bone);
+    --codex-ink: var(--codex);
+    --grace-ink: var(--grace);
+    --midnight-ink: var(--midnight);
+    --sage-ink: var(--sage);
+    --splendor-ink: var(--splendor);
+    --valor-ink: var(--valor);
+    --dread-ink: var(--dread);
+    --body-ink: var(--text-3);
     color-scheme: light;
   }
 }
 
-/* Type roles. Archivo never runs at 400 below 11.5px on dark. */
+/*
+ * Type roles, and the ramp they make.
+ *
+ * ## Who this is for
+ *
+ * Someone wearing reading glasses, at a table in a dim room, holding a phone
+ * at 35-45 cm - and the same person on a tablet or a PC, with the OS text size
+ * turned up because that is what reading glasses mean. Measured before this
+ * ramp on the audit rig (48 cases: six screens, three viewports, two themes):
+ * 85.6% of the visible characters were under 12px, 71% of ALL characters sat
+ * in the old 11.5px `.t-dense` role, 164 text nodes were under 10px, 16 live
+ * AA failures were roll-readout sub-lines faded by an inline opacity, and the
+ * 11.5px paragraphs ran 136-152 characters a line on a tablet and a desktop.
+ *
+ * ## Two kinds of text, two kinds of size
+ *
+ * READ text sits mid-screen and is read with the phone held: card rules,
+ * feature text, notes, rest moves. Size and leading pay off there, and what
+ * they cost is scroll - which Play allows, by decision. So every READ role is
+ * declared in `rem` and scales with the OS text-size setting.
+ *
+ * TOUCHED text - chips, tabs, keypad keys, steppers - sits in the thumb arc,
+ * where the 44px target is the ergonomic term and the label is glanced, not
+ * read. 11-12px at 600 weight is enough there, and a label that grows into a
+ * neighbour costs a mis-tap next to a frequent control, which is a worse
+ * failure than a small word. Those labels are `rem` too, but at the small end
+ * of the ramp, and their boxes are sized by padding and the `--tap` floor
+ * rather than by a fixed height, so a 125% root does not clip them.
+ *
+ * GLANCED NUMBERS - `.t-roll`, `.t-vital`, `.t-card`, `.t-num`, the counter's
+ * `--counter-num` and `--counter-max` - stay in px on purpose: they are 13 to
+ * 56px already, and the cells they sit in are measured in px, term by term, in
+ * the docblocks above. Layout constants - paddings, radii, `--tap`,
+ * `--control`, the pip and counter and damage tokens - stay px for the same
+ * reason.
+ *
+ * ## The ramp, in rem at a 16px root
+ *
+ *   .t-body   17px/1.55 below 720, 16px/1.5 from 720    long prose, 62ch cap
+ *   .t-read   16px/1.5 below 720, 15px/1.5 from 720     rules and feature text
+ *   .t-hint   13px/1.4                                   a hint under a control
+ *   .btn      14px                                       a control's word
+ *   .t-meta   12px (any coarse pointer, or under 720)    a metadata line
+ *             11px on a fine-pointer desktop
+ *   .t-label  11px 600 caps                              a section's name
+ *   .chip     11px (any coarse pointer), 10px fine       a glanced tag;
+ *             `.chip-name` 12px where the chip carries a NAME
+ *
+ * `.t-read` at 720 steps DOWN by a pixel, not up: a tablet or a desk is read
+ * from further away than a phone, but its columns are wider, and at 16px the
+ * card grid's three-up column loses a line per card that 15px keeps.
+ *
+ * `.t-dense` is gone. Its READ uses became `.t-read`; the hint paragraphs and
+ * captions that were left became `.t-hint`. Nothing reads under 13px now, and
+ * nothing that is prose reads under 15.
+ */
+:root {
+  --read-size: 1rem;
+  --read-lh: 1.5;
+  --body-size: 1.0625rem;
+  --body-lh: 1.55;
+  /*
+   * On dark the higher body ink, on light the lower. `--text-2` is 9.7:1 on
+   * the dark panel; on the light one `--text-3` is already 8.2:1 and the
+   * higher ink at 17px reads as heavy on paper-white.
+   */
+  --body-ink: var(--text-2);
+  --meta-size: 0.6875rem;
+  --chip-size: 0.625rem;
+}
+
+@media (min-width: 720px) {
+  :root {
+    --body-size: 1rem;
+    --body-lh: 1.5;
+    --read-size: 0.9375rem;
+  }
+}
+
+/*
+ * The meta line is read from further away on a phone than on a desk, and it is
+ * touched more often - so it is 12px wherever a finger is in play or the
+ * screen is narrow, and 11 only on a fine-pointer desktop. Chips answer the
+ * pointer alone: their height comes from padding and the `--tap` floor, so the
+ * one thing the size decides is whether the word inside a 44px target is
+ * legible at arm's length.
+ */
+@media (max-width: 719px), (any-pointer: coarse) {
+  :root {
+    --meta-size: 0.75rem;
+  }
+}
+
+@media (any-pointer: coarse) {
+  :root {
+    --chip-size: 0.6875rem;
+  }
+}
+
 .t-roll {
   font: 900 clamp(38px, 5vw, 56px) / 1 var(--sans);
   letter-spacing: -0.03em;
@@ -580,39 +725,58 @@
   font: 800 clamp(15px, 1.5vw, 21px) / 1.05 var(--sans);
   letter-spacing: -0.015em;
 }
+/*
+ * Long prose: the reference tables, the stat block's features, the reader.
+ *
+ * Capped at 62ch here rather than at every call site, because the one place
+ * it was not capped - the Bestiary's stat block - ran 136 characters a line on
+ * a desktop, and a line that long loses the eye on the way back.
+ */
 .t-body {
-  font: 400 14.5px/1.5 var(--sans);
-  color: var(--text-3);
+  font: 400 var(--body-size) / var(--body-lh) var(--sans);
+  color: var(--body-ink);
+  max-width: 62ch;
   text-wrap: pretty;
-}
-.t-dense {
-  font: 400 11.5px/1.38 var(--sans);
-  color: var(--text-3);
+  hyphens: auto;
 }
 /*
  * Prose someone is reading in order to decide something.
  *
- * .t-dense is a glance size - it exists so a dozen facts fit in a panel you
- * are scanning past. Picking two domain cards is the opposite job: six cards,
- * one question, and the answer is only in the rules text. So this sits in the
- * gap the ramp had between 11.5px and 14.5px, and takes the higher of the two
- * body inks (9.7:1 on the dark panel, 12.4:1 on the light one) because the
- * room the choice is made in is usually dim.
+ * Picking two domain cards is six cards, one question, and the answer is only
+ * in the rules text - so this takes the higher of the two body inks (9.7:1 on
+ * the dark panel, 12.4:1 on the light one) because the room the choice is made
+ * in is usually dim. The size and the leading are tokens so that
+ * `DomainCardView` can count lines instead of pixels; changing them here moves
+ * that budget with them, and the browse card's own height is the term that
+ * follows.
  */
 .t-read {
   font: 400 var(--read-size) / var(--read-lh) var(--sans);
   color: var(--text-2);
   text-wrap: pretty;
+  hyphens: auto;
+}
+/*
+ * A hint: the line under a control that says what it will do, an empty
+ * state, a caption. Glanced past rather than read, so it sits at the bottom
+ * of the prose ramp - but 13px is the bottom, because the person glancing is
+ * the same person with the reading glasses.
+ */
+.t-hint {
+  font: 400 0.8125rem/1.4 var(--sans);
+  color: var(--text-3);
 }
 .t-label {
-  font: 600 10px/1 var(--mono);
-  letter-spacing: 0.16em;
+  font: 600 0.6875rem/1.2 var(--mono);
+  letter-spacing: 0.12em;
   color: var(--dim);
   text-transform: uppercase;
 }
+/* Line-height 1.25 and not 1: a meta line wraps, and stacked 10px lines at 1
+   drew their descenders into the line below. */
 .t-meta {
-  font: 500 10px/1 var(--mono);
-  letter-spacing: 0.06em;
+  font: 500 var(--meta-size) / 1.25 var(--mono);
+  letter-spacing: 0.04em;
   color: var(--muted);
 }
 .t-num {

@@ -44,7 +44,7 @@ export function UrlArm({ item }: { item: Extract<SessionItem, { kind: 'url' }> }
             WHERE IT POINTS
           </span>
           <p
-            className="t-dense"
+            className="t-hint"
             style={{ margin: 0, color: 'var(--text)', overflowWrap: 'anywhere' }}
           >
             {displayUrl(item.href, 2048)}

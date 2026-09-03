@@ -478,7 +478,7 @@ function NotSaved({
       <span className="t-label" style={{ color: 'var(--text)' }}>
         NOT ON THIS DEVICE
       </span>
-      <span className="t-dense" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
         {message}
       </span>
       {retryable && (
@@ -573,7 +573,7 @@ function ReplacedOnLoad({
         <span className="t-label" style={{ color: 'var(--text)' }}>
           THE SAVED TABLE WON
         </span>
-        <span className="t-dense" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
+        <span className="t-hint" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
           {REPLACED_ON_LOAD}
         </span>
       </span>

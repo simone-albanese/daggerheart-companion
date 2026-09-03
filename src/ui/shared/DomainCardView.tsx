@@ -20,8 +20,11 @@
  * already filtered by, in display type, across the top third of the one panel
  * where the answer to "what does this do" was supposed to go. So the reading
  * card has no banner. The domain becomes a mark and a word on one line, the
- * rules text moves up to `.t-read` and takes everything that is left, and the
- * card grows to fit its text instead of ellipsising it after three lines.
+ * rules text takes everything that is left, and the card grows to fit its
+ * text instead of ellipsising it after three lines. (Both variants set the
+ * text in `.t-read` since the readability ramp; before it the showcase card
+ * was `.t-dense`, and "moves up to `.t-read`" was the whole of the
+ * difference in type.)
  *
  * The third state is the reader: the full text, never clamped, scrolling when
  * the card is longer than the screen. (That last clause read "no scrolling"
@@ -32,7 +35,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { DomainCard } from '../../../shared/types.ts';
-import { DOMAIN_MARKS, DomainMark, domainColor } from './DomainMark.tsx';
+import { DOMAIN_MARKS, DomainMark, domainColor, domainInk } from './DomainMark.tsx';
 import { useDialog } from './useDialog.ts';
 
 /**
@@ -113,7 +116,8 @@ export type CardVariant = 'showcase' | 'reading';
  * Counted in lines rather than pixels because the thing that decides whether a
  * card fits is its measure, not its height, and the measure is set by whatever
  * grid the card lands in. Measured against the real SRD - 189 cards, median
- * 275 characters, longest 655 - at 13px Archivo:
+ * 275 characters, longest 655 - at 13px Archivo, which was `--read-size` when
+ * the count was chosen:
  *
  *   text column                | 10 lines |  12  |  14  |  16
  *   -------------------------- | -------- | ---- | ---- | ----
@@ -123,11 +127,20 @@ export type CardVariant = 'showcase' | 'reading';
  *
  * (share of the 27 level 1 cards - the ones creation actually offers - shown
  * whole.) Fourteen is where a one-column phone shows every candidate entire
- * and a three-column desktop shows all but one, and it costs about 264px of
- * text: roughly the height the card already occupied, spent on the card
- * instead of on its banner. Two of the 189 - the two longest Grimoires - still
- * run over at any measure a card grid can give them, which is why the reader
- * stays and why the "there is more" line is not dead code.
+ * and a three-column desktop shows all but one. Two of the 189 - the two
+ * longest Grimoires - still run over at any measure a card grid can give
+ * them, which is why the reader stays and why the "there is more" line is not
+ * dead code.
+ *
+ * THE TABLE IS AT 13PX AND THE ROLE IS 16PX NOW (15 from 720px). The
+ * readability ramp raised `--read-size` from 13px to 1rem and `--read-lh`
+ * from 1.45 to 1.5, and the line count was kept rather than re-derived: a
+ * line at 16px holds about four fifths of the characters a line at 13px held,
+ * so the shares in the table are upper bounds and the "there is more" line
+ * fires on more cards than it did. The budget is a length in the tokens, so it
+ * grew with them - fourteen lines is 336px at 16px against 264 at 13 - and
+ * what it buys is the same fourteen lines the count was chosen for, at the
+ * size the person choosing can read.
  */
 export const READING_LINES = 14;
 
@@ -161,6 +174,9 @@ interface HeadProps {
 function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
+  // The wordmark and the type line are words: they take the domain's text ink,
+  // which is the same hue lifted where the hue itself fails AA on the panel.
+  const ink = domainInk(card.domain);
 
   // The head gives way before the rules text does. A card in a short grid row
   // still has to say what it *does*; a bigger domain wordmark is worth nothing
@@ -198,7 +214,7 @@ function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
             display: 'block',
             font: `900 ${Math.round(height * 0.26)}px/0.88 var(--sans)`,
             letterSpacing: '-0.025em',
-            color,
+            color: ink,
             textTransform: 'uppercase',
           }}
         >
@@ -206,7 +222,7 @@ function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
         </span>
         <span
           className="t-meta"
-          style={{ display: 'block', marginTop: 6, letterSpacing: '0.2em', color, opacity: 0.75 }}
+          style={{ display: 'block', marginTop: 6, letterSpacing: '0.2em', color: ink }}
         >
           {card.type}
         </span>
@@ -256,6 +272,7 @@ export function DomainCardView({
 }: Props): React.JSX.Element {
   const reading = variant === 'reading';
   const color = domainColor(card.domain);
+  const ink = domainInk(card.domain);
 
   /*
    * Whether the rules text ran past its budget. Only a browser knows - it
@@ -373,7 +390,7 @@ export function DomainCardView({
               className="chip"
               style={{
                 background: `color-mix(in srgb, ${color} 16%, transparent)`,
-                color,
+                color: ink,
                 fontWeight: 700,
               }}
             >
@@ -431,7 +448,7 @@ export function DomainCardView({
           >
             <div
               ref={clamp === undefined ? undefined : textRef}
-              className="t-dense"
+              className="t-read"
               style={
                 clamp === undefined
                   ? undefined
@@ -566,6 +583,7 @@ export function CardReader({
 }): React.JSX.Element {
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
+  const ink = domainInk(card.domain);
   const dialog = useDialog(card.name, onClose);
 
   return (
@@ -617,7 +635,7 @@ export function CardReader({
               borderRadius: shapes ? mark.radius : '8px',
             }}
           />
-          <div className="t-meta" style={{ position: 'relative', letterSpacing: '0.18em', color }}>
+          <div className="t-meta" style={{ position: 'relative', letterSpacing: '0.18em', color: ink }}>
             {card.domain.toUpperCase()} · LV{card.level} · {card.type.toUpperCase()}
           </div>
           <div
@@ -638,7 +656,7 @@ export function CardReader({
           </div>
           {card.flavorText !== undefined && (
             <p
-              className="t-dense"
+              className="t-hint"
               style={{ marginTop: 14, fontStyle: 'italic', color: 'var(--muted)' }}
             >
               {card.flavorText}

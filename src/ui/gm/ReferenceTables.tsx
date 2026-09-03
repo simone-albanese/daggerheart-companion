@@ -166,7 +166,7 @@ export function TierBenchmarks(): React.JSX.Element {
         <BenchmarkGrid key={table.title} table={table} partyTier={partyTier} />
       ))}
       {marked && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The marked column is the tier this campaign is set to. That is this app noting where you
           already are — the tables are the SRD&rsquo;s, unchanged, all four tiers of them.
         </p>
@@ -379,7 +379,7 @@ export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.El
                     {scene.spend}
                   </span>
                 </div>
-                <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+                <span className="t-read" style={{ color: 'var(--text-3)' }}>
                   {scene.examples}
                 </span>
               </article>
@@ -669,7 +669,7 @@ export function RangeReference(): React.JSX.Element {
         <span className="t-label" style={{ color: 'var(--hope)' }}>
           THE METRES ARE THIS APP&rsquo;S ARITHMETIC
         </span>
-        <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+        <span className="t-hint" style={{ color: 'var(--text-3)' }}>
           The rules are written in feet and carry no metric figure at all. Where one of the range
           lines below gives a distance in feet, this app multiplies it by 0.3048 — the
           international foot — and rounds to the nearest half metre below ten and the nearest whole
@@ -1024,7 +1024,7 @@ export function AdversaryExperiences(): React.JSX.Element {
         {examples.items.map((item) => (
           <span
             key={item}
-            className="t-dense"
+            className="t-hint"
             style={{
               flex: 'none',
               padding: '5px 8px',

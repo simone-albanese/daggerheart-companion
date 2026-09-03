@@ -341,7 +341,7 @@ function Shell(): React.JSX.Element {
               border: '1px solid var(--fear)',
             }}
           >
-            <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+            <span className="t-hint" style={{ color: 'var(--text-2)' }}>
               {storageError}. Your characters are almost certainly still there — this is the
               browser refusing to open its own database, usually because another tab has it.
               Close the other tabs and reload
@@ -408,7 +408,7 @@ function Shell(): React.JSX.Element {
                   ? 'THE CAMPAIGNS DID NOT OPEN'
                   : 'THE LIBRARY DID NOT OPEN'}
             </span>
-            <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+            <span className="t-hint" style={{ color: 'var(--text-2)' }}>
               {integrity.message}
             </span>
             <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -543,7 +543,7 @@ function Shell(): React.JSX.Element {
               lets them know whether it is the one they care about.
             */}
             {quarantined.map((record) => (
-              <span key={record.id} className="t-dense" style={{ color: 'var(--text-2)' }}>
+              <span key={record.id} className="t-hint" style={{ color: 'var(--text-2)' }}>
                 <strong>{record.name === null || record.name === '' ? 'Unnamed' : record.name}</strong>
                 {' — '}
                 {record.reason}
@@ -739,7 +739,7 @@ function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element 
       <span className="t-label" style={{ color: 'var(--text)' }}>
         {failure.count === 1 ? 'ONE CHANGE IS NOT SAVED' : `${failure.count} CHANGES ARE NOT SAVED`}
       </span>
-      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)' }}>
         {failure.message}
       </span>
       <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -762,7 +762,7 @@ function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element 
           under it out of view.
         */}
         {note !== null && (
-          <span className="t-dense" style={{ color: 'var(--muted)', maxWidth: 420 }}>
+          <span className="t-hint" style={{ color: 'var(--muted)', maxWidth: 420 }}>
             {note}
           </span>
         )}

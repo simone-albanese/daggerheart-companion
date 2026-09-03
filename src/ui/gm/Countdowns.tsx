@@ -462,7 +462,7 @@ function NewCountdown(): React.JSX.Element {
             </option>
           ))}
         </select>
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           {KINDS.find((k) => k.id === kind)?.hint}
         </span>
       </div>

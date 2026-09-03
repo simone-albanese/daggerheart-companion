@@ -263,7 +263,7 @@ export function Names({
           {current ?? 'Nothing drawn yet.'}
         </p>
 
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           {blurb} {NAMES_PROVENANCE} {NAMES_COUNT}
         </p>
 
@@ -291,7 +291,7 @@ export function Names({
               {drawn.slice(1).map((name, at) => (
                 <li
                   key={`${name}-${String(at)}`}
-                  className="t-dense"
+                  className="t-read"
                   style={{ listStyle: 'none', color: 'var(--text-2)' }}
                 >
                   {name}

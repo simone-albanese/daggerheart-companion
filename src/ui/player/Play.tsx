@@ -725,7 +725,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
           </span>
         ))}
         {stats.domains.length === 0 && (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             No domains — this sheet has no class the app can read.
           </span>
         )}
@@ -841,7 +841,7 @@ function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] 
       <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.05em' }}>
         {feature.source.toUpperCase()}
       </span>
-      <span className="t-dense" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
+      <span className="t-read" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
         {feature.text}
       </span>
     </div>
@@ -880,7 +880,7 @@ function FeatureList({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
 
   if (all.length === 0) {
     return (
-      <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+      <div className="panel t-hint" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
         No features — this sheet has no class, ancestry or community the app can read.
       </div>
     );
@@ -1900,7 +1900,7 @@ function VanishedWeapon({
       <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
         {refId}
       </span>
-      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)' }}>
         No damage this build can roll — choose again in Build.
       </span>
     </div>
@@ -1976,7 +1976,7 @@ function Equipped({
         armor === undefined &&
         missing.primary === null &&
         missing.secondary === null && (
-          <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+          <div className="panel t-hint" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
             Nothing equipped — choose gear in Build.
           </div>
         )}
@@ -2086,7 +2086,7 @@ function Equipped({
              * over `FeatureBlock` in `build/parts.tsx`.
              */}
             {w.feature !== '' && (
-              <span className="t-dense" style={{ display: 'block', marginTop: 5, color: 'var(--text-2)' }}>
+              <span className="t-read" style={{ display: 'block', marginTop: 5, color: 'var(--text-2)' }}>
                 {w.feature}
               </span>
             )}
@@ -2151,7 +2151,7 @@ function Equipped({
               Gambeson's «Flexible: +1 to Evasion» was invisible on the one
               screen where the Evasion it changes is drawn. */}
           {armor.feature !== '' && (
-            <div className="t-dense" style={{ marginTop: 5, color: 'var(--text-2)' }}>
+            <div className="t-read" style={{ marginTop: 5, color: 'var(--text-2)' }}>
               {armor.feature}
             </div>
           )}
@@ -2310,7 +2310,7 @@ function SpellcastPanel({
           </label>
         </div>
       ) : (
-        <span className="t-dense">
+        <span className="t-hint">
           {zeroNote === null
             ? 'A Spellcast trait of +0 or lower rolls no damage dice.'
             : `“${zeroNote}”`}
@@ -2353,7 +2353,7 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
         </div>
       )}
       {carried.length === 0 && (
-        <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+        <div className="panel t-hint" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
           Nothing carried — add items in Build.
         </div>
       )}
@@ -2515,7 +2515,7 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
               )}
             </div>
             {showing && entry.note !== undefined && (
-              <p className="t-dense" style={{ margin: '6px 2px 2px', color: 'var(--text-2)' }}>
+              <p className="t-read" style={{ margin: '6px 2px 2px', color: 'var(--text-2)' }}>
                 {entry.note}
               </p>
             )}
@@ -2621,7 +2621,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
           <GhostRow key={refId} refId={refId} />
         ))}
         {vault.length === 0 && ghostVault.length === 0 && (
-          <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+          <div className="panel t-hint" style={{ padding: 14, color: 'var(--dim)' }}>
             The vault is empty. Cards you own but are not carrying live here.
           </div>
         )}
@@ -2750,7 +2750,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
           );
         })}
         {vault.length === 0 && ghostVault.length === 0 && (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             The vault is empty.
           </span>
         )}
@@ -2926,7 +2926,7 @@ function LoadoutRows(): React.JSX.Element {
         />
       ))}
       {loadout.length === 0 && ghostLoadout.length === 0 && (
-        <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+        <div className="panel t-hint" style={{ padding: 14, color: 'var(--dim)' }}>
           No cards in the loadout yet. Add some in Cards.
         </div>
       )}

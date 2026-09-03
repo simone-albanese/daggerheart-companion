@@ -180,7 +180,7 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
               />
             ))}
         {(tab === 'adversaries' ? shownAdversaries : shownEnvironments).length === 0 && (
-          <li className="t-dense" style={{ color: 'var(--dim)', padding: '10px 2px' }}>
+          <li className="t-hint" style={{ color: 'var(--dim)', padding: '10px 2px' }}>
             Nothing matches that filter.
           </li>
         )}

@@ -148,7 +148,7 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
         // rotating disc under CLOSE CAMERA reads as the camera failing.
         <Suspense
           fallback={
-            <p className="t-dense" style={{ flex: 'none', margin: 0 }}>
+            <p className="t-hint" style={{ flex: 'none', margin: 0 }}>
               Opening the camera…
             </p>
           }
@@ -176,7 +176,7 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
         >
           <p
             role="status"
-            className="t-dense"
+            className="t-hint"
             style={{ flex: 1, minWidth: 0, margin: 0, color: 'var(--text-2)' }}
           >
             {message.text}
@@ -807,7 +807,7 @@ function FallenPrompt({ member }: { member: PartyMember }): React.JSX.Element {
         Their last Hit Point is marked
       </span>
       {lead !== null && (
-        <p className="t-dense" style={{ margin: 0, maxWidth: '68ch' }}>
+        <p className="t-read" style={{ margin: 0, maxWidth: '68ch' }}>
           {lead}
         </p>
       )}
@@ -821,7 +821,7 @@ function FallenPrompt({ member }: { member: PartyMember }): React.JSX.Element {
         </div>
       )}
       {worsens !== null && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '68ch' }}>
+        <p className="t-read" style={{ margin: 0, color: 'var(--muted)', maxWidth: '68ch' }}>
           “{worsens}”
         </p>
       )}
@@ -895,7 +895,7 @@ function Drawer({
         borderTop: '1px solid var(--line-soft)',
       }}
     >
-      <p className="t-dense" style={{ margin: 0, maxWidth: '68ch' }}>
+      <p className="t-hint" style={{ margin: 0, maxWidth: '68ch' }}>
         Imported from {member.source === 'file' ? 'a file' : 'a code'}{' '}
         {describeAge(member.importedAt, now)}
         {lineage === '' ? '.' : ` · ${lineage}.`} Nothing has arrived since. The four tracks below
@@ -904,7 +904,7 @@ function Drawer({
 
       {(gaps.evasion || gaps.thresholds) && (
         <p
-          className="t-dense"
+          className="t-hint"
           style={{ margin: 0, color: 'var(--stress)', maxWidth: '68ch' }}
         >
           {gaps.evasion &&

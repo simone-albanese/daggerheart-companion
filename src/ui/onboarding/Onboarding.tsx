@@ -707,12 +707,12 @@ function Doors(): React.JSX.Element {
       <h2 className="t-vital" style={{ margin: 0, color: 'var(--text)' }}>
         Bring it across
       </h2>
-      <p className="t-dense" style={{ margin: 0, maxWidth: '46ch' }}>
+      <p className="t-hint" style={{ margin: 0, maxWidth: '46ch' }}>
         Nothing else to ask — the character you already made answers the rest. Pick a way in.
       </p>
       <Suspense
         fallback={
-          <p className="t-dense" style={{ margin: 0 }}>
+          <p className="t-hint" style={{ margin: 0 }}>
             Opening the three ways in…
           </p>
         }
@@ -785,7 +785,7 @@ function Ask({
       <h2 id={heading} className="t-vital" style={{ margin: 0, color: 'var(--text)' }}>
         {question.title}
       </h2>
-      <p className="t-dense" style={{ margin: 0, maxWidth: '46ch' }}>
+      <p className="t-hint" style={{ margin: 0, maxWidth: '46ch' }}>
         {question.why}
       </p>
       <div className="stack" role="group" aria-labelledby={heading} style={{ gap: 10 }}>
@@ -843,7 +843,7 @@ function Summary({
       <h2 className="t-vital" style={{ margin: 0, color: 'var(--text)' }}>
         {isGm ? 'Your table is ready' : 'Ready when you are'}
       </h2>
-      <p className="t-dense" style={{ margin: 0, maxWidth: '46ch' }}>
+      <p className="t-hint" style={{ margin: 0, maxWidth: '46ch' }}>
         {isGm
           ? 'Next: name your first session. Nothing here left this device.'
           : `Next: the ${String(SHIPPED_COUNTS.classes)} classes, each one readable in full. Nothing here left this device.`}
@@ -864,7 +864,7 @@ function Summary({
         ))}
       </div>
 
-      <p className="t-dense" style={{ margin: 0, maxWidth: '52ch' }}>
+      <p className="t-hint" style={{ margin: 0, maxWidth: '52ch' }}>
         Every one of these is changed later: the dice and the GM tools in Settings, the number of
         players on the PCs stepper in the encounter builder. Nothing here is asked again.
       </p>

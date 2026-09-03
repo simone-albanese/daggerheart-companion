@@ -224,7 +224,7 @@ function SpendSheet({
           one of them fills the sheet rather than sitting half-width beside a
           gap where the other used to be. */}
       {face === null && typing === null && !affordance.canRoll && !affordance.canType && (
-        <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <span className="t-hint" style={{ color: 'var(--text-2)' }}>
           Digital and typed dice are both off, so this one is yours to roll —
           Settings turns one on. The die keeps its place in the pool either way.
         </span>
@@ -315,7 +315,7 @@ function SpendSheet({
       )}
 
       {face !== null && who === 'ally' && (
-        <div className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <div className="t-hint" style={{ color: 'var(--text-2)' }}>
           Nothing is written here — their sheet is on their device. Read them the{' '}
           <strong>{face}</strong>, then mark the die spent.
         </div>
@@ -325,7 +325,7 @@ function SpendSheet({
         <div className="stack" style={{ gap: 6 }}>
           {pool.spends.map((s) =>
             s.apply === null ? (
-              <span key={s.text} className="t-dense" style={{ color: 'var(--text-2)' }}>
+              <span key={s.text} className="t-read" style={{ color: 'var(--text-2)' }}>
                 {s.text}
               </span>
             ) : (
@@ -521,7 +521,7 @@ function PoolBlock({
       </div>
 
       {pool.cap === 0 && (
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           This pool is empty by the numbers on this sheet — a Spellcast trait of
           zero or lower grants no dice, and a subclass this build cannot read
           has no Spellcast trait at all.
@@ -531,7 +531,7 @@ function PoolBlock({
       {/* The feature, verbatim, under the thing it governs. The pool does four
           of the things this paragraph describes and the player does the rest,
           so the paragraph has to be here rather than a fold away. */}
-      <span className="t-dense" style={{ color: 'var(--text-2)', whiteSpace: 'pre-line' }}>
+      <span className="t-read" style={{ color: 'var(--text-2)', whiteSpace: 'pre-line' }}>
         {pool.rule}
       </span>
     </div>
@@ -682,14 +682,14 @@ function PaidDie({
         </span>
       )}
       {favor <= 0 && (
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           No Favor to spend, so there is nothing to call on. Show tribute to
           your patron with a downtime move to gain Favor equal to your Spellcast
           trait, or take one instead of a Hope when you succeed with Hope.
         </span>
       )}
       {favor > 0 && full && (
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           The roll is already holding {MAX_HELD} dice. Take one out down there
           first — a Favor spent on a die with nowhere to go is a Favor gone.
         </span>
@@ -699,7 +699,7 @@ function PaidDie({
           app does one of the things this paragraph describes and the player
           does the rest, including the part about the patron's sphere of
           influence, which is a conversation and not a control. */}
-      <span className="t-dense" style={{ color: 'var(--text-2)', whiteSpace: 'pre-line' }}>
+      <span className="t-read" style={{ color: 'var(--text-2)', whiteSpace: 'pre-line' }}>
         {pool.rule}
       </span>
     </div>

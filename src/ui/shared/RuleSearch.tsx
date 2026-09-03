@@ -1804,7 +1804,7 @@ function RecordHit({
           </span>
         </span>
         {hit.line !== null && (
-          <span className="t-dense" style={{ color: 'var(--muted)' }}>
+          <span className="t-hint" style={{ color: 'var(--muted)' }}>
             <Marked found={preview(hit.line, query)} query={query} />
           </span>
         )}
@@ -2026,7 +2026,7 @@ function Hit({
           </span>
         </span>
         {hit.line !== null && (
-          <span className="t-dense" style={{ color: 'var(--muted)' }}>
+          <span className="t-hint" style={{ color: 'var(--muted)' }}>
             <Marked found={preview(hit.line, query)} query={query} />
           </span>
         )}
@@ -2257,14 +2257,14 @@ function AskRow({
           still qualifies the sentence rather than the sentence standing on its
           own.
 
-          `.t-dense` in `--muted` is what a shut `Hit` draws a previewed line
+          `.t-hint` in `--muted` is what a shut `Hit` draws a previewed line
           in, so the book reads the same on both kinds of row. Cut at the head
           and not through `preview`: `preview` windows around the words that
           matched, and nothing matched here - there is no query behind a
           moment's chip at all.
         */}
         {answer !== null && (
-          <span className="t-dense" style={ANSWER_LINE} title={answer}>
+          <span className="t-hint" style={ANSWER_LINE} title={answer}>
             {answer}
           </span>
         )}

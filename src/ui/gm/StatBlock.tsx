@@ -108,7 +108,7 @@ export function FeatureList({ features }: { features: Feature[] }): React.JSX.El
         </div>
       ))}
       {features.length === 0 && (
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           No features.
         </span>
       )}

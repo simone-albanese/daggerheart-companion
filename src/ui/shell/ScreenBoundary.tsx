@@ -203,7 +203,7 @@ export class ScreenBoundary extends Component<Props, State> {
             : 'Everything else still works, and nothing has been lost — your characters live in this device’s storage, not in this screen.'}
         </p>
         <code
-          className="t-dense"
+          className="t-hint"
           style={{
             maxWidth: 520,
             padding: 12,
@@ -235,7 +235,7 @@ export class ScreenBoundary extends Component<Props, State> {
               WHERE IT HAPPENED
             </summary>
             <pre
-              className="t-dense"
+              className="t-hint"
               style={{
                 margin: 0,
                 padding: 12,
@@ -253,7 +253,7 @@ export class ScreenBoundary extends Component<Props, State> {
           </details>
         )}
         {retried && (
-          <p className="t-dense" style={{ maxWidth: 420, margin: 0, textAlign: 'center' }}>
+          <p className="t-hint" style={{ maxWidth: 420, margin: 0, textAlign: 'center' }}>
             Trying again gave the same failure, so this one is not passing. Write your characters
             out to a file before you do anything else — the file opens in any copy of this app, and
             on any device.
@@ -285,20 +285,20 @@ export class ScreenBoundary extends Component<Props, State> {
           </span>
         )}
         {/*
-          `.t-dense`, not `.t-meta`, and capped like the `copied` sibling above.
+          `.t-hint`, not `.t-meta`, and capped like the `copied` sibling above.
           This line used to be a file name and a character count - 53 characters
           of metadata, which is what `.t-meta` is: 10px mono at line-height 1,
           no wrap allowance, no width. It carries prose now. `savedFiles` plus
           `outcome.notice` naming three campaigns and a quarantined record
           measures 483 characters, and on a 393px phone that is ten line boxes
           of 13px glyphs stepping 10px - three pixels of overlap on every line -
-          and 1232px of unbroken width on a desktop. `.t-dense` is 11.5px/1.38
+          and 1232px of unbroken width on a desktop. `.t-hint` is 11.5px/1.38
           sans, the role the `retried` paragraph thirty lines above already uses
           for exactly this kind of sentence.
         */}
         {saved !== null && (
           <span
-            className="t-dense"
+            className="t-hint"
             role="status"
             style={{ color: 'var(--muted)', maxWidth: 420, textAlign: 'center' }}
           >

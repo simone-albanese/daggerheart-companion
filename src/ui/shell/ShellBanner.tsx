@@ -175,7 +175,7 @@ export function ShellBanner({
         border: `1px solid ${urgent ? 'var(--hope)' : 'var(--line-soft)'}`,
       }}
     >
-      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)' }}>
         {children}
       </span>
       <span className="row" style={{ flex: 'none', gap: 6 }}>

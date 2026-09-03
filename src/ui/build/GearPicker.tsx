@@ -1151,7 +1151,7 @@ function PickerRow({
           </span>
         )}
         {body !== undefined && body !== '' && (
-          <span className="t-dense" style={{ whiteSpace: 'pre-line' }}>
+          <span className="t-read" style={{ whiteSpace: 'pre-line' }}>
             {body}
           </span>
         )}
@@ -1167,7 +1167,7 @@ function PickerRow({
 
 function Empty({ what }: { what: string }): React.JSX.Element {
   return (
-    <span className="t-dense" style={{ color: 'var(--dim)' }}>
+    <span className="t-hint" style={{ color: 'var(--dim)' }}>
       {what}
     </span>
   );

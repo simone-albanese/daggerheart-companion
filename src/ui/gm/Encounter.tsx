@@ -469,7 +469,7 @@ function Adjustments({
               }}
             />
             <span
-              className="t-dense"
+              className="t-hint"
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -728,7 +728,7 @@ function Roster({
       ))}
 
       {entries.length === 0 && missing.length === 0 && (
-        <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+        <div className="panel t-hint" style={{ padding: 14, color: 'var(--dim)' }}>
           Nothing picked yet. Every adversary you add spends its role cost — a group of Minions the
           size of the party costs 1, a Solo costs 5.
         </div>

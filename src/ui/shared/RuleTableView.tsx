@@ -150,7 +150,7 @@ export function RuleTableView({ table }: { table: RuleTable }): React.JSX.Elemen
                   {columns[c]}
                 </span>
               )}
-              <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+              <span className="t-hint" style={{ color: 'var(--text-3)' }}>
                 {cell}
               </span>
             </div>

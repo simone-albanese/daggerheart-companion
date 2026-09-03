@@ -192,7 +192,7 @@ export function ImportDoors(): React.JSX.Element {
 
       {status !== null && (
         <p
-          className="t-dense"
+          className="t-hint"
           role={status.failed ? 'alert' : 'status'}
           style={{ margin: 0, color: status.failed ? 'var(--stress)' : 'var(--text-2)' }}
         >

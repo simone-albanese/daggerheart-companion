@@ -1164,7 +1164,7 @@ describe('the results', () => {
     // when the dataset moves.
     openShow();
     type('falling damage');
-    const line = hits()[0]!.querySelector('span.t-dense')!;
+    const line = hits()[0]!.querySelector('span.t-hint')!;
     const marks = [...line.querySelectorAll('mark')].map((m) => m.textContent);
     expect(marks).toEqual(['FALLING', 'DAMAGE']);
     // Nothing between them was reworded or dropped: the line comes back whole.
@@ -1176,7 +1176,7 @@ describe('the results', () => {
     type('restrained condition');
     const header = hits()[0]!;
     expect(header.querySelector('span.t-label > mark')?.textContent).toBe('Condition');
-    expect(header.querySelector('span.t-dense > mark')?.textContent).toBe('RESTRAINED');
+    expect(header.querySelector('span.t-hint > mark')?.textContent).toBe('RESTRAINED');
     // One tap target, both words on it. Nothing has to confess a split that
     // the GM is not going to see as one.
     expect(header.style.minHeight).toBe('44px');
@@ -1216,7 +1216,7 @@ describe('the results', () => {
     expect(Math.max(...spots) - Math.min(...spots)).toBeGreaterThan(150);
     expect(hit.line!.length).toBeGreaterThan(400);
 
-    const line = hits()[hitTitles().indexOf('Tag Team Rolls')]!.querySelector('span.t-dense')!;
+    const line = hits()[hitTitles().indexOf('Tag Team Rolls')]!.querySelector('span.t-hint')!;
     const marked = [...line.querySelectorAll('mark')].map((m) => (m.textContent ?? '').toLowerCase());
     // Every word, still. This is the half that must never be traded away.
     for (const t of terms) if (low.includes(t)) expect(marked, t).toContain(t);
@@ -1281,7 +1281,7 @@ describe('the results', () => {
       expect(at).toBeGreaterThanOrEqual(0);
       // The row is quoting the subhead, which is what makes landing elsewhere a
       // broken promise rather than a preference.
-      expect(hits()[at]!.querySelector('span.t-dense')!.textContent).toBe('SOFT AND HARD MOVES');
+      expect(hits()[at]!.querySelector('span.t-hint')!.textContent).toBe('SOFT AND HARD MOVES');
 
       click(hits()[at]!);
       expect(asked).toHaveLength(1);
@@ -1915,7 +1915,7 @@ describe('the results', () => {
     type('restrained condition');
     const header = hits()[0]!;
     const title = header.querySelector('span.t-label > mark')!;
-    const line = header.querySelector('span.t-dense > mark')!;
+    const line = header.querySelector('span.t-hint > mark')!;
     expect(title.textContent).toBe('Condition');
     expect(line.textContent).toBe('RESTRAINED');
 

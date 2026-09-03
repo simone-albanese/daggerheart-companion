@@ -570,25 +570,31 @@ function sheetPadX(file: string): number {
 const SCENE = 'src/ui/gm/Scene.tsx';
 
 /**
- * A `.t-*` role's font size, off `tokens.css` rather than remembered.
+ * How tall one line of a `.t-*` role is on the phone, off `tokens.css` rather
+ * than remembered.
  *
  * Every one of these roles declares `line-height` as a unitless number in the
- * same `font:` shorthand, so a role at `/1` is as tall as this returns and a
- * role at `/1.5` is that multiplied - which is the whole of the arithmetic the
- * combatant card's docblock does with `.t-meta`.
+ * same `font:` shorthand, so a line is the size times that number. The size
+ * may be a px literal or a `var()` the readability ramp steps by width and
+ * pointer - `.t-meta` is `var(--meta-size)`, 12px on the phone - and it is
+ * resolved the way the touch-floor sweeps resolve a token, through
+ * `tokens.ts`, at the default 16px root. This is the whole of the arithmetic
+ * the combatant card's docblock does with `.t-meta`.
  */
-function roleSize(role: string): number {
+function roleLine(role: string): number {
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   const at = css.indexOf(`.${role} {`);
   if (at === -1) throw new Error(`\`tokens.css\` no longer declares a \`.${role}\` block`);
-  const found = /font: \d+ (\d+(?:\.\d+)?)px\//.exec(css.slice(at, at + 200));
+  const found = /font: \d+ (\d+(?:\.\d+)?(?:px|rem)|var\(--[\w-]+\))\s*\/\s*(\d+(?:\.\d+)?)/.exec(
+    css.slice(at, at + 200),
+  );
   if (found === null) {
     throw new Error(
-      `\`.${role}\` no longer declares a \`font:\` shorthand with a px size, so nothing here can ` +
-        'say how tall one of its lines is.',
+      `\`.${role}\` no longer declares a \`font:\` shorthand with a size and a unitless ` +
+        'line-height, so nothing here can say how tall one of its lines is.',
     );
   }
-  return Number.parseFloat(found[1]!);
+  return resolve(found[1]!, PHONE) * Number.parseFloat(found[2]!);
 }
 
 /** The combatant card's own `gap` and `padding`, in that order. */
@@ -1175,14 +1181,16 @@ describe('the GM screen states the geometry its own declarations make', () => {
    *
    * Everything else this file holds is a width, and a width can be checked
    * against a browser. The card's shut height cannot: it was measured at
-   * "558.00" and "534.50" in Chrome BEFORE the fold, and nothing has been in
-   * front of a browser since. So `Scene.tsx` states 471.00 as arithmetic over
-   * nine terms, says in the same sentence that it is arithmetic, and this holds
-   * every one of the nine against the declaration that makes it. The moment a
-   * padding, a gap or a token moves, the sum goes red and somebody has to open
-   * Chrome instead of editing the sentence.
+   * "558.00" and "534.50" in Chrome BEFORE the fold; the fold's 471.00 was
+   * then measured on 2026-08-25, and the readability ramp has since moved one
+   * of its terms - the `.t-meta` range line, 10 to 15 - without a browser in
+   * front of it. So `Scene.tsx` states 476.00 as arithmetic over nine terms,
+   * says in the same sentence that it is arithmetic, and this holds every one
+   * of the nine against the declaration that makes it. The moment a padding, a
+   * gap or a token moves, the sum goes red and somebody has to open Chrome
+   * instead of editing the sentence - which is exactly what the ramp did.
    *
-   * WHAT MAKES THE 471.00 WORTH ASSERTING AT ALL is the other half of the same
+   * WHAT MAKES THE SUM WORTH ASSERTING AT ALL is the other half of the same
    * docblock: run over the card as it stood, the identical nine terms return
    * both of Chrome's figures to the half pixel. That is not checkable here -
    * the pre-fold card is gone - and it is not claimed here. What is claimed is
@@ -1235,7 +1243,7 @@ describe('the GM screen states the geometry its own declarations make', () => {
       attack,
       'the attack row is no longer its border, its top padding, the bonus, its wrap gap and the ' +
         '`.t-meta` range line that `width: 100%` puts on a second line',
-    ).toBe(attackBorder + attackPadTop + attackBonus() + attackGap + roleSize('t-meta'));
+    ).toBe(attackBorder + attackPadTop + attackBonus() + attackGap + roleLine('t-meta'));
     expect(fold, "the shut fold is no longer `Fold`'s own `var(--tap)` header").toBe(
       resolve('var(--tap)', PHONE),
     );
@@ -1925,7 +1933,7 @@ const fieldBasis = (): number =>
 const hintCap = (): number =>
   only(
     PARTS,
-    /className="t-dense" style=\{\{ marginTop: \d+, maxWidth: '(\d+)ch' \}\}/g,
+    /className="t-hint" style=\{\{ marginTop: \d+, maxWidth: '(\d+)ch' \}\}/g,
     "the hint's `ch` cap",
   );
 

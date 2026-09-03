@@ -302,7 +302,7 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
                     }}
                   >
                     <span style={{ font: '800 16px/1.1 var(--sans)' }}>{option.label}</span>
-                    <span className="t-dense">{option.text}</span>
+                    <span className="t-read">{option.text}</span>
                   </button>
                 );
               })}
@@ -312,7 +312,7 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
               {chosen !== null && (
                 <div className="stack" style={{ flex: 'none', gap: 8 }}>
                   <span style={{ font: '800 18px/1.1 var(--sans)' }}>{chosen.label}</span>
-                  <p className="t-dense" style={{ margin: 0 }}>
+                  <p className="t-read" style={{ margin: 0 }}>
                     {chosen.text}
                   </p>
                 </div>
@@ -463,7 +463,7 @@ function Applied({ text }: { text: string }): React.JSX.Element {
   return (
     <p
       role="status"
-      className="t-dense"
+      className="t-hint"
       style={{
         margin: 0,
         padding: '10px 11px',
@@ -489,7 +489,7 @@ function Blaze({
 }): React.JSX.Element {
   return (
     <div className="stack" style={{ flex: 'none', gap: 12 }}>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)' }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)' }}>
         There is no arithmetic here. Take the action; it critically succeeds. The sheet is not
         changed by this screen.
       </p>
@@ -500,7 +500,7 @@ function Blaze({
       ) : (
         <Applied text={applied} />
       )}
-      <p className="t-dense" style={{ margin: 0, color: 'var(--dim)' }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--dim)' }}>
         {tail}
       </p>
     </div>
@@ -625,7 +625,7 @@ function RollOrType({
               one thing that clears it. `Rest.tsx` draws the same sentence over
               the same state, because they had the same gap. */}
           {impossible.length > 0 && (
-            <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)' }}>
+            <p className="t-hint" style={{ margin: 0, color: 'var(--text-2)' }}>
               {impossible
                 .map(
                   (f) =>
@@ -654,7 +654,7 @@ function RollOrType({
           <span className="t-label" style={{ color: 'var(--damage)' }}>
             {affordance.label}
           </span>
-          <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)' }}>
+          <p className="t-hint" style={{ margin: 0, color: 'var(--text-2)' }}>
             This device has been told not to roll dice and not to take yours, so there is
             nothing here that can make this roll. The move is still yours to take at the
             table; only the app is standing aside.
@@ -750,7 +750,7 @@ function Avoid({
           <span className="t-label" style={{ color: 'var(--damage)' }}>
             What this costs, permanently
           </span>
-          <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+          <span className="t-read" style={{ color: 'var(--text-2)' }}>
             A Hope slot is crossed out for good. Hope slots {cost.hopeSlots + 1} → {cost.hopeSlots};
             you would have {cost.hopeAvailable} Hope available.
           </span>
@@ -934,7 +934,7 @@ function Risk({
           ) : (
             <Applied text={applied} />
           )}
-          <p className="t-dense" style={{ margin: 0, color: 'var(--dim)' }}>
+          <p className="t-hint" style={{ margin: 0, color: 'var(--dim)' }}>
             {tail}
           </p>
         </>

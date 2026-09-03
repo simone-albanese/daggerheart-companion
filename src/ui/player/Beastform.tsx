@@ -321,7 +321,7 @@ function FormText({ form }: { form: Form }): React.JSX.Element {
   return (
     <>
       {form.advantageOn.length > 0 && (
-        <span className="t-dense" style={{ display: 'block', marginTop: 9 }}>
+        <span className="t-read" style={{ display: 'block', marginTop: 9 }}>
           <span className="t-meta" style={{ color: SAGE }}>
             ADVANTAGE ON{' '}
           </span>
@@ -329,7 +329,7 @@ function FormText({ form }: { form: Form }): React.JSX.Element {
         </span>
       )}
       {form.features.map((f) => (
-        <span key={f.name} className="t-dense" style={{ display: 'block', marginTop: 7 }}>
+        <span key={f.name} className="t-read" style={{ display: 'block', marginTop: 7 }}>
           <span style={{ font: '700 11.5px/1.38 var(--sans)', color: 'var(--text-2)' }}>
             {f.name}:{' '}
           </span>
@@ -460,7 +460,7 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
           {/* The Hope Feature's own words, not a paraphrase: it asks the player
               to raise a trait, and the app cannot do that for them. */}
           <p
-            className={paying === 'evolution' ? 't-dense' : 't-meta'}
+            className={paying === 'evolution' ? 't-hint' : 't-meta'}
             style={{ margin: '9px 0 0', color: 'var(--dim)', lineHeight: 1.6 }}
           >
             {paying === 'evolution' && evolution !== null
@@ -530,7 +530,7 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
             );
           })}
           {forms.length === 0 && (
-            <span className="t-dense" style={{ color: 'var(--dim)' }}>
+            <span className="t-hint" style={{ color: 'var(--dim)' }}>
               No Beastform options in this dataset.
             </span>
           )}

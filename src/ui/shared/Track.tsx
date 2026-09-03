@@ -336,7 +336,7 @@ export function Track({
            * and `--pip-min` width: nothing on this row is a target below the
            * floor, because nothing on it is a target at all.
            */
-          <p className="t-dense" style={{ flexBasis: '100%', margin: 0, color: 'var(--dim)' }}>
+          <p className="t-hint" style={{ flexBasis: '100%', margin: 0, color: 'var(--dim)' }}>
             {`This track says it has ${max} boxes, which is more than can be drawn. ` +
               `The first ${MAX_PIPS} are shown and cannot be marked here. Nothing has been changed.`}
           </p>

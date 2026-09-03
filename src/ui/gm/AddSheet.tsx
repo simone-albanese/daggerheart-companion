@@ -233,7 +233,7 @@ export function AddSheet({ onClose }: { onClose: () => void }): React.JSX.Elemen
             <span className="t-label" style={{ letterSpacing: '0.1em' }}>
               {SESSION_KIND_LABEL[id].toUpperCase()}
             </span>
-            <span className="t-dense" style={{ color: 'var(--muted)', maxWidth: '62ch' }}>
+            <span className="t-hint" style={{ color: 'var(--muted)', maxWidth: '62ch' }}>
               {ADD_FORMS[id].what}
             </span>
           </button>
@@ -280,7 +280,7 @@ export function AddSheet({ onClose }: { onClose: () => void }): React.JSX.Elemen
 
       <Chosen onDone={onClose} />
 
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
         A new row goes at the end of the night. Drag it by the handle at its right edge, or open
         it and use MOVE UP, to put it where it belongs.
       </p>
@@ -427,7 +427,7 @@ function SceneForm({ onDone }: { onDone: () => void }): React.JSX.Element {
           ? 'THERE IS NO ROSTER TO CARRY'
           : `CARRY THE ${String(planned)} INTO THIS SCENE`}
       </button>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
         The roster is the plan. A fight stays on the scene it is fought in — this build can copy
         a roster into a new scene, and cannot copy a fight, so a new row never arrives with one.
       </p>
@@ -501,12 +501,12 @@ function UrlForm({ onDone }: { onDone: () => void }): React.JSX.Element {
         />
       </Field>
       {refused && (
-        <p className="t-dense" role="status" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" role="status" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           Not stored: {read.why}.
         </p>
       )}
       {read.href !== '' && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', overflowWrap: 'anywhere' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', overflowWrap: 'anywhere' }}>
           Goes to {displayUrl(read.href, 2048)}
         </p>
       )}
@@ -559,7 +559,7 @@ function NoteForm({ onDone }: { onDone: () => void }): React.JSX.Element {
         />
       </Field>
       {over && (
-        <p className="t-dense" role="status" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" role="status" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           That is {String(text.length)} characters, and a note holds at most {String(MAX_NOTE_CHARS)}.
         </p>
       )}
@@ -661,7 +661,7 @@ function CountdownForm({ onDone }: { onDone: () => void }): React.JSX.Element {
           style={INPUT}
         />
       </Field>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
         A countdown is the one row that needs a name: it is what the top bar prints when it is
         pinned, and what its − button is called out loud.
       </p>
