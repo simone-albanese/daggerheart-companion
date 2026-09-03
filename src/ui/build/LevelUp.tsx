@@ -188,6 +188,7 @@ export function LevelUp({
   const validation = validatePlan(character, plan, {
     cards: index.cards,
     domains: after.domains,
+    cardLevelCap: after.cardLevelCap,
   });
 
   const usage = new Map(slotUsage(character).map((u) => [`${u.optionId}@${u.tier}`, u]));

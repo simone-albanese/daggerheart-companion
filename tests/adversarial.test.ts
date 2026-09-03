@@ -992,19 +992,24 @@ describe('a level-up plan that does not belong to this character', () => {
     expect(validatePlan(level4, planTo(5, [takes('multiclass', 3, full)])).ok).toBe(true);
   });
 
-  it('does not check the domain card at all - that guard lives in the picker', () => {
-    // UNGUARDED (finding). `validatePlan` never looks at `plan.newCardRef`, and
-    // never looks at a domain-card advancement's `cardRef`. A plan handing a
-    // two-domain class a card from a third domain, and a level 10 card to a
-    // level 3 character, is `ok: true` with no warnings, and `applyLevelUp` puts
-    // both in the vault.
+  it('checks the domain card only when handed the index the screen holds', () => {
+    // This used to be titled "does not check the domain card at all - that
+    // guard lives in the picker", and it was a finding: `validatePlan` never
+    // looked at `plan.newCardRef` or at a domain-card advancement's `cardRef`,
+    // so a plan handing a two-domain class a card from a third domain, and a
+    // level 10 card to a level 3 character, was `ok: true` and `applyLevelUp`
+    // put both in the vault. Only `CardPicker` in src/ui/build/LevelUp.tsx
+    // filtered, with the same rule `cardAvailability` states, and anything that
+    // built a plan by another route inherited no check at all.
     //
-    // What stops it in the app is the picker: `CardPicker` in
-    // src/ui/build/LevelUp.tsx lists only cards satisfying
-    // `stats.domains.includes(c.domain) && c.level <= stats.cardLevelCap(...)`,
-    // the same rule `cardAvailability` states. So the rule is enforced where the
-    // choice is offered and not where the plan is checked, and anything that
-    // builds a plan by another route inherits no check at all.
+    // Now the validator holds every card taken outright to step four's first
+    // sentence - "at your level or lower from one of your class's domains",
+    // folio 54 - WHEN it is handed a `PlanContext`. Without one the dataset
+    // half is not run: the simulator and the sample builder hold no index and
+    // choose their own cards out of the dataset, and refusing them every level
+    // for a fact they had already checked would leave both tools unable to
+    // level anyone. That is the one asymmetry with the exchange, which is
+    // refused outright without a context, and it is deliberate.
     const dataset = makeDataset({
       classes: [makeClass({ id: 'test-class', domains: ['blade', 'valor'] })],
       domainCards: [
@@ -1020,25 +1025,34 @@ describe('a level-up plan that does not belong to this character', () => {
       'too-high',
     );
 
-    const verdict = validatePlan(student, plan);
-    expect(verdict.errors).toEqual([]);
-    expect(verdict.warnings).toEqual([]);
-    expect(verdict.ok).toBe(true);
+    // Without the index: the dataset-free half only, and both cards are new,
+    // unowned and named once - so nothing to refuse.
+    const blind = validatePlan(student, plan);
+    expect(blind.errors).toEqual([]);
+    expect(blind.ok).toBe(true);
 
-    const after = applyLevelUp(student, plan);
-    expect(after.vault).toEqual(['off-domain', 'too-high']);
+    // With it, built the way the screen builds it - off the sheet the plan
+    // produces - both are refused, in words that name the card and the cap.
+    const after = deriveStats({ ...student, level: 3 }, dataset, index);
+    const verdict = validatePlan(student, plan, {
+      cards: index.cards,
+      domains: after.domains,
+      cardLevelCap: after.cardLevelCap,
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.errors).toEqual([
+      'Test Card is level 10, and at level 3 your cap in blade is 3.',
+      'off-domain is not in a domain you have access to.',
+    ]);
 
-    // TEETH for the finding: the layer that does know says both are illegal, in
-    // the words the card browser prints beside them. If `validatePlan` ever
-    // grows the check, `verdict.ok` above turns red and this comment is rewritten.
-    const rows = cardAvailability(after, deriveStats(after, dataset, index), dataset.domainCards);
+    // The picker's own words for the same two cards, which is the rule the
+    // validator now agrees with rather than the only place it was stated.
+    const banked = applyLevelUp(student, plan);
+    const rows = cardAvailability(banked, deriveStats(banked, dataset, index), dataset.domainCards);
     expect(rows.map((r) => [r.card.id, r.eligible, r.reason])).toEqual([
       ['off-domain', false, 'Not one of your domains'],
       ['too-high', false, 'Level 10 - your cap in blade is 3'],
     ]);
-    // Both are owned, which is the harm: they are on the sheet, and only a
-    // dimmed line in the browser says they should not be.
-    expect(rows.every((r) => r.owned)).toBe(true);
   });
 
   it('cannot push the loadout past five, because a level-up only ever writes to the vault', () => {

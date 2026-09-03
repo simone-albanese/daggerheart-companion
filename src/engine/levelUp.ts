@@ -285,24 +285,31 @@ export interface CardExchange {
 export const CARD_EXCHANGE_OPTION = 'card-exchange';
 
 /**
- * The two dataset facts the exchange rule needs, and nothing else.
+ * The three dataset facts the card rules need, and nothing else.
  *
- * Two fields rather than a `DatasetIndex` and a `DerivedStats`, because those
- * are what the caller HAS and this is what the rule NEEDS - and a validator
+ * Three fields rather than a `DatasetIndex` and a `DerivedStats`, because those
+ * are what the caller HAS and this is what the rules NEED - and a validator
  * that takes the whole index is a validator the next rule can quietly start
  * reading anything out of.
  *
- * `domains` comes from `deriveStats` and is not recomputed here. A second
- * derivation of "which domains can this character reach" would be a second
- * answer to a question `cardAvailability` and every card list already ask, and
- * the day a multiclass or a subclass feature changes that answer, one of the
- * two would keep the old one.
+ * `domains` and `cardLevelCap` come from `deriveStats` and are not recomputed
+ * here. A second derivation of "which domains can this character reach" or
+ * "how high may a card from this domain be" would be a second answer to a
+ * question `cardAvailability` and every card list already ask, and the day a
+ * multiclass or a subclass feature changes that answer, one of the two would
+ * keep the old one.
  */
 export interface PlanContext {
   /** Every card this build can name, for the level comparison. */
   cards: ReadonlyMap<Ref, DomainCard>;
   /** The domains the sheet this plan PRODUCES can reach, from `deriveStats`. */
   domains: readonly DomainId[];
+  /**
+   * The highest card level the sheet this plan PRODUCES may take from a domain,
+   * from `deriveStats`: the new level for a class domain, half of it rounded up
+   * for the multiclass domain (folio 54).
+   */
+  cardLevelCap: (domain: DomainId) => number;
 }
 
 export interface Validation {
@@ -312,7 +319,21 @@ export interface Validation {
 }
 
 /**
- * Check a plan, and - when an exchange is in it - check it against the cards.
+ * Check a plan, and - when cards are in it - check them against the cards.
+ *
+ * ## Every advancement's detail is checked, not only the trait pick's
+ *
+ * This used to check the detail of two kinds - traits (exactly two, unmarked)
+ * and multiclass (class, domain, foundation card) - and wave the other three
+ * through. So an upgraded-subclass pick with no subclass, an Experience pick
+ * with zero, one, duplicate or unknown ids, and an additional-domain-card pick
+ * with no card were all `ok`, the screen's Apply is gated on `ok` alone, and
+ * `applyLevelUp` wrote the history entry regardless: the tier slot was marked
+ * and the level advanced while nothing, or half of the +1s, was granted. Folio
+ * 54 words each of these as a choice the advancement IS - "choose two
+ * Experiences", "take the next card for your subclass" - and an advancement
+ * with the choice missing is not a taken advancement. The guard is a list, and
+ * a kind that skips it is the defect.
  *
  * ## Why there is a third parameter at all
  *
@@ -327,12 +348,22 @@ export interface Validation {
  * that carried its own answer would be a plan that could lie - and the caller
  * that built it is the same screen that would be lying. So the levels are
  * looked up here, out of the index the caller already holds, and the plan
- * carries only the two refs.
+ * carries only the refs. The same lookup now serves step four's own card, the
+ * additional-domain-card advancement and a subclass feature's granted card:
+ * "at your level or lower from one of your class's domains" (folio 54) is the
+ * same kind of sentence as the exchange's, and a level 10 card handed to a
+ * level 2 sheet by a plan built off-screen passed for as long as only the
+ * picker enforced it.
  *
  * `context` is optional so that the two callers with no dataset - the simulator
- * and the sample builder - keep compiling, and an exchange without one is
- * REFUSED rather than waved through. A missing lookup is the one case where
- * "cannot check" and "is fine" must not be the same answer.
+ * and the sample builder - keep compiling. An exchange without one is REFUSED
+ * rather than waved through, because "cannot check" and "is fine" must not be
+ * the same answer. A card taken outright without one is NOT refused, and the
+ * difference is deliberate: both of those callers choose their cards out of the
+ * dataset they do hold and would be refused every level for a fact they had
+ * already checked, where neither ever builds an exchange. What every caller
+ * gets without a context is the dataset-free half - a card named, not already
+ * owned, not taken twice in one level.
  */
 export function validatePlan(
   c: Character,
@@ -424,6 +455,33 @@ export function validatePlan(
       if (!pick.detail['domain']) errors.push('Choose which of its domains you gain access to.');
       if (!pick.detail['subclassRef']) errors.push('Choose a foundation card from one of its subclasses.');
     }
+    if (option.kind === 'experience') {
+      // "Choose two Experiences on your character sheet and gain a permanent
+      // +1 bonus to both." Two, different, and yours: `applyLevelUp` maps the
+      // ids over `c.experiences`, so an id that matches nothing is a +1 that
+      // lands nowhere.
+      const raw = pick.detail['experiences'];
+      const ids = Array.isArray(raw) ? raw : [];
+      if (ids.length !== 2) errors.push('Choose exactly two Experiences to increase.');
+      if (new Set(ids).size !== ids.length) errors.push('Choose two different Experiences.');
+      for (const id of ids) {
+        if (!c.experiences.some((e) => e.id === id)) {
+          errors.push(`${String(id)} is not one of your Experiences.`);
+        }
+      }
+    }
+    if (option.kind === 'domainCard') {
+      const ref = pick.detail['cardRef'];
+      if (typeof ref !== 'string' || ref === '') errors.push('Choose the additional domain card.');
+    }
+    if (option.kind === 'subclass') {
+      const ref = pick.detail['subclassRef'];
+      if (typeof ref !== 'string' || ref === '') {
+        errors.push('Choose which subclass takes its next card.');
+      } else if (!c.subclassRefs.includes(ref)) {
+        errors.push(`${ref} is not one of your subclasses.`);
+      }
+    }
     if (option.kind === 'hitPoint' && c.hp.max >= MAX_HP) {
       warnings.push(`Hit Points are already at the maximum of ${MAX_HP}.`);
     }
@@ -444,9 +502,74 @@ export function validatePlan(
     warnings.push('Step four: take a new domain card at your level or lower.');
   }
 
+  errors.push(...acquiredCardErrors(c, plan, context));
   errors.push(...exchangeErrors(c, plan, context));
 
   return { ok: errors.length === 0, errors, warnings };
+}
+
+/**
+ * Every card this level acquires OUTRIGHT - step four's, an additional-domain-
+ * card advancement's, a subclass feature's grant - held to step four's first
+ * sentence: *"Acquire a new domain card at your level or lower from one of
+ * your class's domains."* Folio 54, and folio 8's "You cannot acquire a domain
+ * card with a level higher than your PC's."
+ *
+ * Three clauses without a dataset and two with one:
+ *
+ *   "a new"                -> not already in the loadout or the vault, and not
+ *                             named twice in this plan. The vault is a list,
+ *                             and pushing a ref twice is how a character comes
+ *                             to own two copies of a card.
+ *   "at your level or      -> the card's level against the cap `deriveStats`
+ *    lower"                   gives its domain on the sheet this plan produces
+ *                             - the new level, or half of it rounded up for a
+ *                             multiclass domain.
+ *   "from one of your      -> its domain is one the produced sheet reaches.
+ *    class's domains"
+ *
+ * The exchange's right-hand side is not in this list: it has its own sentence
+ * and `exchangeErrors` enforces that one, including its own "not taken twice".
+ */
+function acquiredCardErrors(
+  c: Character,
+  plan: LevelUpPlan,
+  context?: PlanContext,
+): string[] {
+  const errors: string[] = [];
+  const taken: Ref[] = [];
+  if (plan.newCardRef !== null && plan.newCardRef !== '') taken.push(plan.newCardRef);
+  for (const pick of plan.picks) {
+    for (const key of ['cardRef', 'grantCardRef'] as const) {
+      const ref = pick.detail[key];
+      if (typeof ref === 'string' && ref !== '') taken.push(ref);
+    }
+  }
+
+  const owned = new Set<Ref>([...c.loadout, ...c.vault]);
+  const seen = new Set<Ref>();
+  for (const ref of taken) {
+    if (owned.has(ref)) errors.push(`${ref} is already in your loadout or vault.`);
+    if (seen.has(ref)) errors.push(`${ref} is already being taken elsewhere in this level.`);
+    seen.add(ref);
+    if (context === undefined) continue;
+    const card = context.cards.get(ref);
+    if (card === undefined) {
+      errors.push(`This build cannot name ${ref}, so it cannot check its level.`);
+      continue;
+    }
+    if (!context.domains.includes(card.domain)) {
+      errors.push(`${ref} is not in a domain you have access to.`);
+      continue;
+    }
+    const cap = context.cardLevelCap(card.domain);
+    if (card.level > cap) {
+      errors.push(
+        `${card.name} is level ${card.level}, and at level ${plan.toLevel} your cap in ${card.domain} is ${cap}.`,
+      );
+    }
+  }
+  return errors;
 }
 
 /**

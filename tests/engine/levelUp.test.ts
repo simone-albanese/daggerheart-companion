@@ -11,7 +11,7 @@
  * number can be recomputed from, but WHICH ones they were, which nothing can.
  */
 import { describe, expect, it } from 'vitest';
-import type { Character, Tier } from '@shared/types.ts';
+import type { Character, DomainCard, Tier } from '@shared/types.ts';
 import { deriveStats, tierOf } from '@engine/character.ts';
 import {
   applyLevelUp,
@@ -21,8 +21,9 @@ import {
   tierAchievementFor,
   validatePlan,
   type LevelUpPlan,
+  type PlanContext,
 } from '@engine/levelUp.ts';
-import { advancement, makeCharacter, makeDataset, traits } from '../fixtures/factories.ts';
+import { advancement, makeCard, makeCharacter, makeDataset, traits } from '../fixtures/factories.ts';
 import { newCompanion } from '@engine/companion.ts';
 
 const ds = makeDataset();
@@ -50,6 +51,18 @@ const at = (level: number, p: Partial<Character> = {}): Character =>
   makeCharacter({ level: level - 1, ...p });
 
 const errorsOf = (c: Character, pl: LevelUpPlan): string => validatePlan(c, pl).errors.join(' | ');
+
+/**
+ * Two Experiences to raise, and the detail that names them. `validatePlan`
+ * refuses an Experience pick that does not name exactly two of the sheet's own
+ * (folio 54: "Choose two Experiences on your character sheet"), so a plan that
+ * takes the advancement carries both halves.
+ */
+const TWO_EXPERIENCES: Character['experiences'] = [
+  { id: 'e1', name: 'Sailor', bonus: 2 },
+  { id: 'e2', name: 'Brawler', bonus: 2 },
+];
+const BOTH = { experiences: ['e1', 'e2'] };
 
 /** Proficiency floor at a level, without going through the character. */
 const baseAt = (level: number): number => 1 + [2, 5, 8].filter((l) => level >= l).length;
@@ -119,7 +132,7 @@ describe('validatePlan: exactly two picks', () => {
   const c = at(3);
 
   it('accepts two ordinary advancements', () => {
-    const v = validatePlan(c, plan(3, [pick('evasion', 2), pick('experience', 2)]));
+    const v = validatePlan(c, plan(3, [pick('evasion', 2), pick('stress', 2)]));
     expect(v.ok).toBe(true);
     expect(v.errors).toEqual([]);
   });
@@ -135,7 +148,7 @@ describe('validatePlan: exactly two picks', () => {
   it('rejects three', () => {
     const v = validatePlan(
       c,
-      plan(3, [pick('evasion', 2), pick('experience', 2), pick('domain-card', 2)]),
+      plan(3, [pick('evasion', 2), pick('stress', 2), pick('hit-point', 2)]),
     );
     expect(v.ok).toBe(false);
     expect(v.errors.join(' ')).toMatch(/more than two/);
@@ -187,8 +200,11 @@ describe('validatePlan: boxed options consume both picks', () => {
 describe('validatePlan: slots run out per option, per tier', () => {
   it('refuses an option whose tier slots are all marked', () => {
     // Experience has a single slot per tier.
-    const c = at(4, { levelUpHistory: [advancement('experience', 'experience', 2, 3)] });
-    expect(errorsOf(c, plan(4, [pick('experience', 2), pick('evasion', 2)]))).toMatch(
+    const c = at(4, {
+      levelUpHistory: [advancement('experience', 'experience', 2, 3)],
+      experiences: TWO_EXPERIENCES,
+    });
+    expect(errorsOf(c, plan(4, [pick('experience', 2, BOTH), pick('evasion', 2)]))).toMatch(
       /no unmarked slots left at tier 2/,
     );
   });
@@ -204,12 +220,15 @@ describe('validatePlan: slots run out per option, per tier', () => {
   });
 
   it('counts the tiers separately, so the same option opens again', () => {
-    const c = at(6, { levelUpHistory: [advancement('experience', 'experience', 2, 3)] });
-    expect(validatePlan(c, plan(6, [pick('experience', 3), pick('evasion', 3)])).ok).toBe(true);
+    const c = at(6, {
+      levelUpHistory: [advancement('experience', 'experience', 2, 3)],
+      experiences: TWO_EXPERIENCES,
+    });
+    expect(validatePlan(c, plan(6, [pick('experience', 3, BOTH), pick('evasion', 3)])).ok).toBe(true);
   });
 
   it('lets the character spend a lower tier\'s leftover slots', () => {
-    expect(validatePlan(at(6), plan(6, [pick('evasion', 2), pick('experience', 2)])).ok).toBe(true);
+    expect(validatePlan(at(6), plan(6, [pick('evasion', 2), pick('stress', 2)])).ok).toBe(true);
   });
 
   it('exhausts the three trait slots of a tier', () => {
@@ -311,14 +330,14 @@ describe('validatePlan: multiclass', () => {
 
 describe('validatePlan: the shape of the level-up itself', () => {
   it('moves exactly one level', () => {
-    expect(errorsOf(at(3), plan(3, [pick('evasion', 2), pick('experience', 2)], { fromLevel: 1 }))).toMatch(
+    expect(errorsOf(at(3), plan(3, [pick('evasion', 2), pick('stress', 2)], { fromLevel: 1 }))).toMatch(
       /exactly one level/,
     );
   });
 
   it('stops at level 10', () => {
     const c = makeCharacter({ level: 10 });
-    expect(errorsOf(c, plan(11, [pick('evasion', 4), pick('experience', 4)]))).toMatch(/maximum/);
+    expect(errorsOf(c, plan(11, [pick('evasion', 4), pick('stress', 4)]))).toMatch(/maximum/);
   });
 
   it('refuses a plan whose tier is not the tier of the new level', () => {
@@ -338,7 +357,7 @@ describe('validatePlan: the shape of the level-up itself', () => {
   });
 
   it('warns about the domain card of step four', () => {
-    const v = validatePlan(at(3), plan(3, [pick('evasion', 2), pick('experience', 2)], { newCardRef: null }));
+    const v = validatePlan(at(3), plan(3, [pick('evasion', 2), pick('stress', 2)], { newCardRef: null }));
     expect(v.ok).toBe(true);
     expect(v.warnings.join(' ')).toMatch(/Step four/);
   });
@@ -696,13 +715,13 @@ describe('validatePlan: the plan is tied to the character it levels', () => {
     // Nothing else ties the plan's levels to the sheet: without this a stale
     // plan walks a level 2 character to level 9 and applyLevelUp writes it down.
     const c = makeCharacter({ level: 2 });
-    const v = validatePlan(c, plan(9, [pick('evasion', 4), pick('experience', 4)]));
+    const v = validatePlan(c, plan(9, [pick('evasion', 4), pick('stress', 4)]));
     expect(v.ok).toBe(false);
     expect(v.errors.join(' ')).toMatch(/starts at level 8, but the character is level 2/);
   });
 
   it('accepts the same plan for the character it was built for', () => {
-    expect(validatePlan(at(9), plan(9, [pick('evasion', 4), pick('experience', 4)])).ok).toBe(true);
+    expect(validatePlan(at(9), plan(9, [pick('evasion', 4), pick('stress', 4)])).ok).toBe(true);
   });
 
   it('refuses a forged achievement that would clear the trait marks early', () => {
@@ -723,7 +742,7 @@ describe('validatePlan: the plan is tied to the character it levels', () => {
   it('refuses a plan that drops the achievement its level does grant', () => {
     const v = validatePlan(
       at(5),
-      plan(5, [pick('evasion', 3), pick('experience', 3)], { achievement: null }),
+      plan(5, [pick('evasion', 3), pick('stress', 3)], { achievement: null }),
     );
     expect(v.ok).toBe(false);
     expect(v.errors.join(' ')).toMatch(/tier achievement is missing/);
@@ -733,7 +752,7 @@ describe('validatePlan: the plan is tied to the character it levels', () => {
     // applyLevelUp must reach the same verdict validatePlan did, or an
     // unvalidated caller could clear the marks just by asking.
     const c = at(3, { traitMarks: { agility: 1 } });
-    const forged = plan(3, [pick('evasion', 2), pick('experience', 2)], {
+    const forged = plan(3, [pick('evasion', 2), pick('stress', 2)], {
       achievement: tierAchievementFor(5),
     });
     expect(applyLevelUp(c, forged).traitMarks).toEqual({ agility: 1 });
@@ -764,15 +783,23 @@ describe('validatePlan: the upgraded subclass and multiclass cross each other ou
   it('leaves each of them alone when the other was never taken', () => {
     expect(validatePlan(at(6), plan(6, [pick('multiclass', 3, details)])).ok).toBe(true);
     expect(
-      validatePlan(at(6), plan(6, [pick('subclass', 3, { subclassRef: 's2' }), pick('evasion', 3)]))
-        .ok,
+      validatePlan(
+        at(6, { subclassRefs: ['s2'] }),
+        plan(6, [pick('subclass', 3, { subclassRef: 's2', card: 'specialization' }), pick('evasion', 3)]),
+      ).ok,
     ).toBe(true);
   });
 
   it('offers both again in the next tier, which has its own slots', () => {
-    const c = at(9, { levelUpHistory: [advancement('subclass', 'subclass', 3, 5)] });
+    const c = at(9, {
+      subclassRefs: ['s3'],
+      levelUpHistory: [
+        advancement('subclass', 'subclass', 3, 5, { subclassRef: 's3', card: 'specialization' }),
+      ],
+    });
     expect(
-      validatePlan(c, plan(9, [pick('subclass', 4, { subclassRef: 's3' }), pick('evasion', 4)])).ok,
+      validatePlan(c, plan(9, [pick('subclass', 4, { subclassRef: 's3', card: 'mastery' }), pick('evasion', 4)]))
+        .ok,
     ).toBe(true);
   });
 });
@@ -913,5 +940,121 @@ describe('a tier achievement, for the companion too', () => {
     c = { ...c, level: 4 };
     c = applyLevelUp(c, plan(5, [pick('evasion', 3, { achievementExperience: 'b' }), pick('experience', 3)]));
     expect(c.companion?.experiences).toHaveLength(4);
+  });
+});
+
+describe('validatePlan: every advancement with a choice in it has to carry the choice', () => {
+  /**
+   * Folio 54 words three advancements as the choice they are - "choose two
+   * Experiences", "take the next card for your subclass", "you can choose an
+   * additional domain card" - and the validator checked only the trait pick's.
+   * A pick with the choice missing was `ok`, the screen's Apply is gated on
+   * `ok` alone, and `applyLevelUp` marked the slot and moved the level on while
+   * granting nothing.
+   */
+  const withExperiences = (level: number): Character =>
+    at(level, { experiences: TWO_EXPERIENCES });
+
+  it('refuses an Experience pick with nothing, one, a duplicate or a stranger in it', () => {
+    const c = withExperiences(3);
+    const errorsFor = (experiences: unknown): string =>
+      errorsOf(c, plan(3, [pick('experience', 2, { experiences }), pick('evasion', 2)]));
+    expect(errorsFor(undefined)).toMatch(/Choose exactly two Experiences/);
+    expect(errorsFor([])).toMatch(/Choose exactly two Experiences/);
+    expect(errorsFor(['e1'])).toMatch(/Choose exactly two Experiences/);
+    expect(errorsFor(['e1', 'e1'])).toMatch(/Choose two different Experiences/);
+    expect(errorsFor(['zz', 'yy'])).toMatch(/zz is not one of your Experiences/);
+    expect(errorsFor(['zz', 'yy'])).toMatch(/yy is not one of your Experiences/);
+    // Not an array at all - a plan built by hand - is refused, not thrown at.
+    expect(errorsFor('e1')).toMatch(/Choose exactly two Experiences/);
+  });
+
+  it('accepts two different Experiences of the sheet\'s own', () => {
+    const v = validatePlan(withExperiences(3), plan(3, [pick('experience', 2, BOTH), pick('evasion', 2)]));
+    expect(v.errors).toEqual([]);
+  });
+
+  it('refuses an additional-domain-card pick with no card', () => {
+    expect(errorsOf(at(3), plan(3, [pick('domain-card', 2), pick('evasion', 2)]))).toMatch(
+      /Choose the additional domain card/,
+    );
+    expect(errorsOf(at(3), plan(3, [pick('domain-card', 2, { cardRef: '' }), pick('evasion', 2)]))).toMatch(
+      /Choose the additional domain card/,
+    );
+  });
+
+  it('refuses an upgraded-subclass pick with no subclass, or one that is not yours', () => {
+    const c = at(6, { subclassRefs: ['mine'] });
+    expect(errorsOf(c, plan(6, [pick('subclass', 3), pick('evasion', 3)]))).toMatch(
+      /Choose which subclass takes its next card/,
+    );
+    expect(
+      errorsOf(c, plan(6, [pick('subclass', 3, { subclassRef: 'theirs', card: 'specialization' }), pick('evasion', 3)])),
+    ).toMatch(/theirs is not one of your subclasses/);
+  });
+
+  it('still lets the trait pick through, so this is an addition and not a rewrite', () => {
+    expect(
+      validatePlan(at(3), plan(3, [pick('traits', 2, { traits: ['agility', 'finesse'] }), pick('evasion', 2)])).ok,
+    ).toBe(true);
+  });
+});
+
+describe('validatePlan: a card taken outright is held to step four\'s first sentence', () => {
+  /**
+   * "Acquire a new domain card at your level or lower from one of your class's
+   * domains." Folio 54. The exchange's card had this checked and the three
+   * cards a level takes outright - step four's own, the additional-domain-card
+   * advancement's, a subclass feature's grant - did not: only the picker
+   * filtered, and a plan built anywhere else inherited no check at all.
+   */
+  const cards = new Map<string, DomainCard>([
+    ['blade-lv1', makeCard({ id: 'blade-lv1', name: 'Blade One', domain: 'blade', level: 1 })],
+    ['blade-lv10', makeCard({ id: 'blade-lv10', name: 'Blade Ten', domain: 'blade', level: 10 })],
+    ['codex-lv1', makeCard({ id: 'codex-lv1', name: 'Codex One', domain: 'codex', level: 1 })],
+    ['bone-lv3', makeCard({ id: 'bone-lv3', name: 'Bone Three', domain: 'bone', level: 3 })],
+  ]);
+  /** A level 3 sheet with blade and valor of its own and bone by multiclass: caps 3 and 2. */
+  const context: PlanContext = {
+    cards,
+    domains: ['blade', 'valor', 'bone'],
+    cardLevelCap: (d) => (d === 'bone' ? 2 : 3),
+  };
+  const taking = (detail: Record<string, unknown>, newCardRef: string | null = null): LevelUpPlan =>
+    plan(3, [pick('domain-card', 2, detail), pick('evasion', 2)], { newCardRef });
+  const errorsWith = (pl: LevelUpPlan): string => validatePlan(at(3), pl, context).errors.join(' | ');
+
+  it('refuses a card above the cap, in another domain, or over the multiclass half-cap', () => {
+    expect(errorsWith(taking({ cardRef: 'blade-lv10' }))).toMatch(
+      /Blade Ten is level 10, and at level 3 your cap in blade is 3/,
+    );
+    expect(errorsWith(taking({ cardRef: 'codex-lv1' }))).toMatch(/codex-lv1 is not in a domain you have access to/);
+    expect(errorsWith(taking({ cardRef: 'bone-lv3' }))).toMatch(/your cap in bone is 2/);
+  });
+
+  it('holds step four\'s own card to the same sentence', () => {
+    expect(errorsWith(taking({ cardRef: 'blade-lv1' }, 'blade-lv10'))).toMatch(/Blade Ten is level 10/);
+    expect(errorsWith(taking({ cardRef: 'blade-lv1' }, 'codex-lv1'))).toMatch(/not in a domain you have access to/);
+    expect(errorsWith(taking({ cardRef: 'blade-lv1' }, 'nobody-knows'))).toMatch(
+      /cannot name nobody-knows/,
+    );
+  });
+
+  it('refuses a card already owned, and one named twice in the same level', () => {
+    const owner = at(3, { vault: ['blade-lv1'] });
+    expect(validatePlan(owner, taking({ cardRef: 'blade-lv1' }), context).errors).toContain(
+      'blade-lv1 is already in your loadout or vault.',
+    );
+    expect(validatePlan(at(3), taking({ cardRef: 'blade-lv1' }, 'blade-lv1'), context).errors).toContain(
+      'blade-lv1 is already being taken elsewhere in this level.',
+    );
+  });
+
+  it('accepts a legal card on both offers, and checks nothing about levels without an index', () => {
+    expect(errorsWith(taking({ cardRef: 'blade-lv1' }, 'bone-lv3'))).toMatch(/cap in bone is 2/);
+    expect(validatePlan(at(3), taking({ cardRef: 'blade-lv1' }), context).errors).toEqual([]);
+    // The simulator and the sample builder hold no index and choose their own
+    // cards out of the dataset; without a context the dataset half is not run.
+    expect(validatePlan(at(3), taking({ cardRef: 'blade-lv10' }, 'codex-lv1')).errors).toEqual([]);
   });
 });
