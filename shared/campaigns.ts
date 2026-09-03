@@ -1419,16 +1419,26 @@ const readCountdown = (v: unknown, id: string, name: string): Countdown => {
  *
  * The `unknown` arm keeps the original `kind` string in `named` rather than
  * throwing it away, so the screen can say *what* it is that it cannot follow
- * and a later build can recognise it again.
+ * and a later build can recognise it again. Both halves of that promise are
+ * about the *second* read, not the first: what this returns is what `gmStore`
+ * writes back 400 ms later and what `serializeCampaign` puts in the file, so
+ * the next read sees `kind: 'unknown'` and a `named` beside it. Until
+ * 2026-09-04 this derived `named` from `kind` alone, and one save/load turned
+ * `{kind: 'transformation'}` into a row that told the GM it pointed at "a
+ * unknown" and that no later build could ever match. So the name under test
+ * is `named` when the record has already been read once, and `kind` otherwise
+ * - and a build that knows that name reads the row as that kind, which is the
+ * "later build" the sentence on the screen promises.
  */
 function readLinkTarget(v: unknown): LinkTarget {
   const r = isRecord(v) ? v : {};
   const kind = r['kind'];
   const ref = str(r['ref']);
-  if (typeof kind === 'string' && (LINK_KINDS as readonly string[]).includes(kind)) {
-    return { kind: kind as LinkKind, ref };
+  const named = kind === 'unknown' ? str(r['named']) : typeof kind === 'string' ? kind : '';
+  if ((LINK_KINDS as readonly string[]).includes(named)) {
+    return { kind: named as LinkKind, ref };
   }
-  return { kind: 'unknown', named: typeof kind === 'string' ? kind : '', ref };
+  return { kind: 'unknown', named, ref };
 }
 
 const PARTY_SOURCES: readonly PartySource[] = ['file', 'code'];
