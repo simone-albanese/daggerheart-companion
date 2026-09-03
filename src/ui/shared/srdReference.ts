@@ -1034,6 +1034,54 @@ const STOPWORDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Fold what a phone keyboard cannot type.
+ *
+ * SRD 2.0 sets ten card names with a NON-BREAKING hyphen, U+2011: the nine
+ * `*‑Touched` cards and `Battle‑Hardened`. SRD 1.0 had none. A player types
+ * `Arcana-Touched` with the ASCII hyphen their keyboard offers and the app
+ * answers *"Nothing in this dataset carries that"* — about a card it ships and
+ * draws. Measured on the real Search screen: 0 of 10 found by the hyphen, all
+ * 10 found by a space.
+ *
+ * THE APOSTROPHE IS THE SAME DEFECT, AND IT IS BIGGER. Measured over
+ * `data/srd-2.0.json`: every apostrophe-bearing record name but one is set with
+ * U+2019, the typographic ’ - sixty top-level records, `Soldier’s Pike`,
+ * `Nature’s Tongue`, `Patron’s Pact` - and the one exception, `Keeper's
+ * Staff`, is ASCII. 407 record bodies and 60 of the 82 rules sections carry ’
+ * too, while five rules bodies spell theirs ASCII. An Android or desktop
+ * keyboard types `'`; iOS with smart punctuation types `’`. Unfolded, each
+ * half of the readership found only the half of the book its keyboard agreed
+ * with: `soldier's pike` returned nothing and `keeper’s staff` returned
+ * nothing, about two weapons the app ships. U+2018 and U+02BC are folded with
+ * it - a keyboard that types ’ offers ‘ beside it, and ʼ is what the
+ * same glyph is in some fonts' copy-paste.
+ *
+ * Folded here rather than at extraction, because the NAME is right: the book
+ * prints U+2011 so a card would not break across a line, prints ’ because it
+ * is typeset, and rewriting either would be the app inventing a spelling. What
+ * is wrong is the comparison - and so the fold is applied on BOTH sides of it,
+ * needle and haystack, by `searchRules` below, by `searchSrd` in `srdIndex.ts`
+ * and by the Cards screen's own filter. A needle turned into an ASCII hyphen
+ * still misses a haystack that kept U+2011.
+ *
+ * The soft hyphen and zero-width space are folded too. They buy nothing on
+ * either book — measured, one U+00AD and four U+200B in 224 pages, none in a
+ * name — and they cost one character class here.
+ *
+ * Declared in this file and not in `srdIndex.ts`, where it began, because that
+ * file imports from this one and the reverse would be a cycle. `srdIndex.ts`
+ * re-exports it, so nothing that reached it there had to move.
+ */
+export const foldQuery = (s: string): string =>
+  s
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u00AD\u200B]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+/**
  * The query as the set of words a section will have to carry, lower-cased.
  *
  * Deduplicated, because `soft move hard move` asks for `move` once however many
@@ -1268,7 +1316,10 @@ export function wholeWordIn(low: string, term: string): boolean {
  * line of code.
  */
 export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
-  const needle = query.trim().replace(/\s+/g, ' ').toLowerCase();
+  // `foldQuery` on the needle and on every haystack below: the rules search
+  // folded nothing for one round and a typed ' found none of the sixty
+  // sections that spell it ’. The docblock over `foldQuery` has the count.
+  const needle = foldQuery(query);
   if (needle === '') return [];
   const terms = ruleTerms(needle);
 
@@ -1278,7 +1329,7 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
 
   for (const section of rules) {
     const page = section.sourcePage ?? null;
-    const title = section.title.toLowerCase();
+    const title = foldQuery(section.title);
     const seen = { id: section.id, title: section.title, page, partial: false };
 
     if (terms.every((t) => title.includes(t))) {
@@ -1287,7 +1338,7 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
     }
     // The cheap reject, once per term. Most sections lose here on any real
     // query and never pay for the line split below.
-    const body = section.body.toLowerCase();
+    const body = foldQuery(section.body);
     if (!terms.every((t) => body.includes(t) || title.includes(t))) continue;
 
     // Every word, in this line or in the header three lines above it on the
@@ -1299,11 +1350,11 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
     const quote = quoteFrom(
       section.body,
       (text) => {
-        const low = text.toLowerCase();
+        const low = foldQuery(text);
         return terms.every((t) => low.includes(t) || title.includes(t));
       },
       (text) => {
-        const low = text.toLowerCase();
+        const low = foldQuery(text);
         return terms.every((t) => wholeWordIn(low, t) || title.includes(t));
       },
     );
@@ -1333,14 +1384,14 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
 function someOf(rules: RulesSection[], terms: string[]): RuleHit[] {
   const out: RuleHit[] = [];
   for (const section of rules) {
-    const title = section.title.toLowerCase();
+    const title = foldQuery(section.title);
     const carries = (text: string): boolean => {
-      const low = text.toLowerCase();
+      const low = foldQuery(text);
       return terms.some((t) => low.includes(t));
     };
     if (!carries(section.title) && !carries(section.body)) continue;
     const sharply = (text: string): boolean => {
-      const low = text.toLowerCase();
+      const low = foldQuery(text);
       return terms.some((t) => wholeWordIn(low, t));
     };
     const quote = quoteFrom(section.body, carries, sharply) ?? { line: null, where: 'title' as const };
