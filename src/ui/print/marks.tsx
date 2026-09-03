@@ -15,6 +15,19 @@ import type { DomainId } from '../../../shared/types.ts';
 import type { TrackKind } from '../shared/Track.tsx';
 
 /**
+ * The kinds a printed track can be: the screen's four, plus the two a CLASS
+ * gives you.
+ *
+ * Paper-only, and not added to `TrackKind`, because the screen never draws a
+ * Focus or Favor silhouette: `ClassTracks` shows both as a number between two
+ * steppers, and `TRACK_SHAPES` is the table of shapes a thumb has to tell apart
+ * without looking. Adding two entries there would be two colours and two
+ * `markHeight`s no component reads. A page has no thumb; what it needs is an
+ * outline a pencil goes inside, and that is the only thing this union adds.
+ */
+export type PrintTrackKind = TrackKind | 'focus' | 'favor';
+
+/**
  * `polygon(50% 0,100% 50%,...)` -> `50,0 100,50 ...` in a 100x100 viewBox.
  *
  * Every coordinate in DOMAIN_MARKS is a percentage or a bare zero, so
@@ -86,32 +99,51 @@ function rounded(domain: DomainId): React.JSX.Element {
 }
 
 /**
- * The four track silhouettes, as outlines.
+ * The six track silhouettes, as outlines.
  *
- * Same shape language as the screen - HP a bar, Stress a slash, Hope a
- * diamond, Armor a shield - so a player who knows the sheet knows the
- * printout. Outlined, because these are the boxes a pencil goes inside.
+ * Same shape language as the screen for the four the screen draws - HP a bar,
+ * Stress a slash, Hope a diamond, Armor a shield - so a player who knows the
+ * sheet knows the printout. Outlined, because these are the boxes a pencil
+ * goes inside.
+ *
+ * Focus and Favor have no screen shape to echo (see `PrintTrackKind`), so the
+ * two are chosen here to be separable from the four above and from each other
+ * at 3.4mm: Focus a hexagon, Favor a pentagon. Neither is a circle, because a
+ * circle is what the purse's `CoinRow` draws and a track must not read as
+ * gold.
  */
-const TRACK_PATH: Record<TrackKind, React.JSX.Element> = {
+const TRACK_PATH: Record<PrintTrackKind, React.JSX.Element> = {
   hp: <rect x="0.9" y="0.9" width="8.2" height="8.2" rx="1.8" />,
   stress: <polygon points="2.2,0.9 9.1,0.9 7.8,9.1 0.9,9.1" />,
   hope: <polygon points="5,0.7 9.3,5 5,9.3 0.7,5" />,
   armor: <polygon points="0.9,0.9 9.1,0.9 9.1,6.1 5,9.2 0.9,6.1" />,
+  focus: <polygon points="5,0.7 8.9,2.9 8.9,7.1 5,9.3 1.1,7.1 1.1,2.9" />,
+  favor: <polygon points="5,0.7 9.2,3.8 7.6,8.9 2.4,8.9 0.8,3.8" />,
 };
 
 /**
  * How far in from the cell edge a strike has to start to stay inside the shape.
  *
- * One number per silhouette rather than one for all four, because the shapes do
+ * One number per silhouette rather than one for all six, because the shapes do
  * not fill their cells equally. A cross drawn at 2 sits inside the HP square
  * and outside the Hope diamond, whose top-left edge is the line x+y=5.7 - it
  * came out looking like a second diamond laid over the first rather than a slot
  * crossed out, which is the one thing this mark has to say.
  */
-const CROSS_INSET: Record<TrackKind, number> = { hp: 2, stress: 2.2, hope: 3.2, armor: 2.6 };
+const CROSS_INSET: Record<PrintTrackKind, number> = {
+  hp: 2,
+  stress: 2.2,
+  hope: 3.2,
+  armor: 2.6,
+  // Nothing scars a Focus or Favor slot, so neither is ever struck; the two
+  // are here because the record is total, and they are inset to the shape's
+  // narrowest edge so a strike would stay inside it if one ever were.
+  focus: 2.8,
+  favor: 2.9,
+};
 
 /** The two lines that strike a slot out, inscribed in this kind's silhouette. */
-function cross(kind: TrackKind): React.JSX.Element {
+function cross(kind: PrintTrackKind): React.JSX.Element {
   const a = CROSS_INSET[kind];
   const b = 10 - a;
   return <path d={`M${a} ${a} L${b} ${b} M${b} ${a} L${a} ${b}`} />;
@@ -143,7 +175,7 @@ export function TickRow({
   size = 3.4,
   gap = 1.1,
 }: {
-  kind: TrackKind;
+  kind: PrintTrackKind;
   count: number;
   /** Boxes past the maximum, drawn dashed. */
   growth?: number;

@@ -416,6 +416,152 @@ describe('a held transformation', () => {
   });
 });
 
+/**
+ * The two tracks a CLASS gives you, and the die a Favor buys, on paper.
+ *
+ * `PrintSheet.tracks` was a fixed hp/stress/hope/armor literal and `TrackKind`
+ * admitted no other kind, so a Warlock (`drawsFavor`) and a Martial Artist
+ * (`drawsFocus`) printed a page with no boxes for the resource they spend every
+ * scene - while Play drew both tracks under Vitals. And the sheet had no pool
+ * field, so the Patron Die the engine sizes (a d6, a d8 from level 5 - folio
+ * 26) appeared nowhere: the word "Patron" on the page came only from the
+ * Patron's Pact feature text, leaving the one number the sheet exists to take
+ * off the player for them to re-derive from prose.
+ *
+ * Six boxes each, and the number is the sheet's own `max` rather than a six
+ * typed here: folio 13 says "You can hold a maximum of 6 Focus", folio 26
+ * "The maximum Favor you can hold at one time is 6", and `COUNTER_CEILINGS`
+ * refuses a seventh - so the max on the sheet is the ceiling, for every sheet
+ * this build can hold.
+ *
+ * Against the SHIPPED dataset, because the point is a class the book prints.
+ */
+describe('the class tracks and the dice pools', () => {
+  const shipped = indexDataset(baseDataset);
+  const print = (c: ReturnType<typeof makeCharacter>) => buildSheet(c, baseDataset, shipped);
+  const page = (c: ReturnType<typeof makeCharacter>) =>
+    renderToStaticMarkup(createElement(CharacterSheet, { sheet: print(c) }));
+
+  it('gives a Warlock a Favor track of six and nobody a Focus one they do not draw', () => {
+    const warlock = makeCharacter({ classRef: 'warlock', level: 5 });
+    const kinds = print(warlock).tracks.map((t) => [t.kind, t.boxes, t.growth, t.crossed]);
+    expect(kinds).toContainEqual(['favor', 6, 0, 0]);
+    expect(kinds.some(([k]) => k === 'focus')).toBe(false);
+  });
+
+  it('gives a Martial Artist a Focus track of six', () => {
+    const brawler = makeCharacter({ classRef: 'brawler', subclassRefs: ['martial-artist'] });
+    const kinds = print(brawler).tracks.map((t) => [t.kind, t.boxes]);
+    expect(kinds).toContainEqual(['focus', 6]);
+    expect(kinds.some(([k]) => k === 'favor')).toBe(false);
+  });
+
+  it('prints neither for a class that has neither', () => {
+    const { character, dataset, index } = scene();
+    expect(buildSheet(character, dataset, index).tracks.map((t) => t.kind)).toEqual([
+      'hp',
+      'stress',
+      'hope',
+      'armor',
+    ]);
+    expect(buildSheet(character, dataset, index).pools).toEqual([]);
+  });
+
+  it('prints the Patron Die at the size the engine gives it, beside Proficiency', () => {
+    // "Your Patron Die starts at a d6 and increases to a d8 at level 5."
+    expect(print(makeCharacter({ classRef: 'warlock', level: 1 })).pools).toEqual([
+      { name: 'Patron Die', die: 'd6', source: 'Warlock' },
+    ]);
+    expect(print(makeCharacter({ classRef: 'warlock', level: 5 })).pools).toEqual([
+      { name: 'Patron Die', die: 'd8', source: 'Warlock' },
+    ]);
+    const html = page(makeCharacter({ classRef: 'warlock', level: 5 }));
+    const prof = html.slice(html.indexOf('Proficiency'), html.indexOf('</section>', html.indexOf('Proficiency')));
+    expect(prof).toContain('Patron Die');
+    expect(prof).toContain('>d8<');
+  });
+
+  it('prints every pool the engine gives, not only the priced one', () => {
+    // A Bard's Rally Die is a d6, and a d8 from level 5, by the same register.
+    expect(print(makeCharacter({ classRef: 'bard', level: 5 })).pools).toEqual([
+      { name: 'Rally Die', die: 'd8', source: 'Bard' },
+    ]);
+  });
+
+  it('draws the Favor boxes on the page as outlines like every other track', () => {
+    const html = page(makeCharacter({ classRef: 'warlock', level: 5 }));
+    expect(html).toContain('Favor 6');
+    // 12 HP + 12 Stress + 6 Hope + 6 Favor, and no armor worn.
+    expect(html.match(/<g transform=/g)).toHaveLength(36);
+  });
+});
+
+/**
+ * A Martial Artist's known stances, on paper.
+ *
+ * `buildSheet` never read `Character.stanceRefs`, so the stances a Martial
+ * Artist chose - two at level 1 and one more per level, each carrying its own
+ * rule - were absent from the printout; the only "Stance" on the page was the
+ * Stance Fighter foundation feature telling the player to carry the Martial
+ * Stances sheet (folio 12). Folio 13 prints that sheet with a circle beside
+ * each stance and says the player can "also track which stance you have
+ * active", so every printed stance gets the page's own checkbox: the list is
+ * the stances known, and the box is for the one you are in - the state the
+ * app deliberately does not model.
+ */
+describe('the martial stances', () => {
+  const shipped = indexDataset(baseDataset);
+  const artist = (stanceRefs: string[]) =>
+    makeCharacter({ classRef: 'brawler', subclassRefs: ['martial-artist'], stanceRefs });
+
+  it('prints each known stance with its tier and its own sentence', () => {
+    const sheet = buildSheet(artist(['favored', 'quick']), baseDataset, shipped);
+    expect(sheet.stances.map((s) => [s.name, s.tier])).toEqual([
+      ['Favored', 1],
+      ['Quick', 1],
+    ]);
+    expect(sheet.stances[0]?.text).toBe(shipped.collections.stances.get('favored')?.text);
+    expect(sheet.missing).toEqual([]);
+  });
+
+  it('prints none for a sheet that knows none', () => {
+    expect(buildSheet(artist([]), baseDataset, shipped).stances).toEqual([]);
+    const { character, dataset, index } = scene();
+    expect(buildSheet(character, dataset, index).stances).toEqual([]);
+  });
+
+  it('names a stance this dataset cannot resolve instead of dropping it', () => {
+    const sheet = buildSheet(artist(['favored', 'stance-gone']), baseDataset, shipped);
+    expect(sheet.stances.map((s) => s.name)).toEqual(['Favored']);
+    expect(sheet.missing).toContain('stance-gone');
+  });
+
+  it('reaches the page, under the features, with a box beside each', () => {
+    const html = renderToStaticMarkup(
+      createElement(CharacterSheet, {
+        sheet: buildSheet(artist(['favored', 'quick']), baseDataset, shipped),
+      }),
+    );
+    const features = html.indexOf('>Features<');
+    const opensAt = html.indexOf('Martial stances');
+    expect(features).toBeGreaterThan(-1);
+    expect(opensAt).toBeGreaterThan(features);
+    const section = html.slice(opensAt, html.indexOf('</section>', opensAt));
+    expect(section).toContain('Favored');
+    expect(section).toContain('Quick');
+    expect(section).toContain('Tier 1');
+    expect(section.split('dhc-tick').length - 1).toBe(2);
+  });
+
+  it('draws no stance section for a sheet with none, so the heading means something', () => {
+    const { character, dataset, index } = scene();
+    const html = renderToStaticMarkup(
+      createElement(CharacterSheet, { sheet: buildSheet(character, dataset, index) }),
+    );
+    expect(html).not.toContain('Martial stances');
+  });
+});
+
 describe('the printed page', () => {
   const { character, dataset, index } = scene();
   const html = renderToStaticMarkup(
