@@ -70,8 +70,11 @@ interface Props {
   /** The section's one number, shown open and closed alike. */
   summary?: React.ReactNode;
   /**
-   * Draw the summary at `.t-meta`'s 10px instead of the 11 every other fold
-   * gets, because this one's is the longest on the sheet.
+   * Draw the summary at 11px instead of the `.t-meta` role every other fold
+   * gets - 12px on a phone since the readability ramp, 11 on a fine-pointer
+   * desk - because this one's is the longest on the sheet. (It was the other
+   * way round before the ramp: the role was 10 and the others were raised to
+   * 11 inline.)
    *
    * The reflow raised these lines by a pixel, and it is free vertically -
    * a 10px line inside a 44px touch floor has 34px of headroom, which is what
@@ -208,13 +211,13 @@ export function Disclosure({
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         color: 'var(--muted)',
-        // 11 rather than `.t-meta`'s 10, and inline rather than a new class:
-        // `.t-meta` is the app's smallest type and is right at 10 in the twenty
-        // other places it is used. This is one line in one component, raised
-        // because the reflow's brief was legibility and this line had 34px of
-        // unused headroom under it. `tightSummary` is the single measured
-        // exception - see the prop.
-        fontSize: tightSummary ? undefined : 11,
+        // The role's own size, which is 12px on a phone and 11 on a desk since
+        // the readability ramp. Before it `.t-meta` was 10 and this line set 11
+        // inline, raised because the reflow's brief was legibility and it had
+        // 34px of unused headroom under it; the ramp took the role past that,
+        // so the override went. `tightSummary` is the single measured
+        // exception - see the prop - and stays at 11, in rem.
+        fontSize: tightSummary ? '0.6875rem' : undefined,
       }}
     >
       {summary}

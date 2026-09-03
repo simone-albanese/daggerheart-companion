@@ -684,9 +684,10 @@ export function Header({
          * when someone is worried about losing a character. Findable means
          * legible, which is what the word buys. `--control` resolves to --tap,
          * 44px, at every width below 1180 and on any coarse pointer, so the
-         * box is 44x44 against a 10px label; SETTINGS only widens it, to about
-         * 55px (eight characters of 10px IBM Plex Mono at 0.6em advance, plus
-         * 0.08em of tracking).
+         * box is 44x44 against a `.t-meta` label - 12px on a phone since the
+         * readability ramp, 10 when this was written; SETTINGS only widens
+         * it, to about 65px (eight characters of 12px IBM Plex Mono at 0.6em
+         * advance, plus 0.08em of tracking; 55 at the 10).
          *
          * The theme control stays in Settings > Display, and that is not a
          * regression because it was never here. It is a three-way choice -

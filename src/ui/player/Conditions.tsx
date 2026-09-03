@@ -647,7 +647,9 @@ export function ConditionsControl(): React.JSX.Element | null {
  * So the two controls trade places instead. While it is armed, the chip in the
  * bottom-right - the one the GM centre lands on - is **KEEP THEM**, and the
  * commit is a new full-width button *above* the row, clear of the tab band
- * entirely. Both labels are nine characters of `.chip`'s 9.5px mono and not one
+ * entirely. Both labels are nine characters of `.chip`'s mono (9.5px when this
+ * was measured, 11 on a phone since the readability ramp; the 80.4 below is the
+ * 9.5px width, and the same nine characters either way) and not one
  * declaration on that button changes between the two faces, so the cancel
  * occupies the destroyer's footprint to the pixel: 80.4x44 at x283.6-364 at
  * 393x852 and 80.4x44 at x265.6-346 at 375x667, both unmoved from the CLEAR ALL
@@ -843,8 +845,9 @@ function ConditionsDialog({
                    * `minHeight: var(--control)` was here and `min-width` was
                    * not, so the width was the label plus this button's
                    * `padding: '0 12px'` and nothing else (`base.css:42-50`
-                   * zeroes a button's border). `.chip` sets IBM Plex Mono at
-                   * 9.5px with `letter-spacing: 0.06em`, and the shipped
+                   * zeroes a button's border). `.chip` set IBM Plex Mono at
+                   * 9.5px with `letter-spacing: 0.06em` when this was measured
+                   * (11px on a phone since the readability ramp), and the shipped
                    * `plexmono-600-latin.woff2` is a 600/1000 advance on every
                    * glyph, so a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px.
                    * `SET` is three of them: 3 x 6.27 + 24 = **42.81px**, on a
@@ -1084,7 +1087,8 @@ function ConditionsDialog({
             {/*
               Nothing here while there is nothing to clear, and the cancel -
               never the commit - while there is and it is armed. Both faces are
-              nine characters of `.chip`'s 9.5px mono, so the box does not move
+              nine characters of `.chip`'s mono (9.5px when this was measured, 11 on a
+              phone since the readability ramp), so the box does not move
               or resize between them: 80.4x44 at both phone widths, which is
               what makes the repeat of the mis-reach land on KEEP THEM. Not one
               declaration below changed when this was armed, for the same

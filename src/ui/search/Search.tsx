@@ -135,7 +135,11 @@
  *
  * ### Sizing, and what is arithmetic rather than measurement
  *
- * `.t-label` is `600 10px/1 var(--mono)` at `0.16em`. `ShowSheet` measured that
+ * `.t-label` was `600 10px/1 var(--mono)` at `0.16em` when this was derived; it
+ * is 11px/1.2 at 0.12em since the readability ramp, which by the arithmetic
+ * below is 6.6 of glyph and 7.92 with tracking a character, so `DOMAIN CARDS`
+ * is 95.04 of text and 105.04 in its box - still inside the 111.67 cell, by
+ * 6.63. The figures that follow are the 10px ones. `ShowSheet` measured that
  * face: `BEFORE THE ROLL`, fifteen characters, is 114.00 of which 24.00 is
  * tracking, so **6.0px of glyph per character** and 7.6px with the tracking.
  * On the columns above - 369.00 and 351.00 - three cells at an 8px gap are
@@ -147,7 +151,7 @@
  * one respect in which it is easier to read than the surface it copies. Those
  * chips had to drop to 0.08em - half the role's tracking - because fifteen
  * characters do not fit a 115.67 cell. Twelve do, so the index is drawn at the
- * role's own 0.16em and `ShowSheet`'s open question about half-tracked mono at
+ * role's own tracking (0.16em then, 0.12em since the ramp) and `ShowSheet`'s open question about half-tracked mono at
  * arm's length in a dim room is not reopened.
  *
  * Two 10px lines at `line-height: 1` with a 4px gap and 8px of padding is 32,
@@ -304,7 +308,8 @@ function KindGrid({
             }}
           >
             {/*
-              At the role's own 0.16em, and not `ShowSheet`'s halved tracking:
+              At the role's own tracking (0.12em since the readability ramp,
+              0.16em when this was derived), and not `ShowSheet`'s halved one:
               the longest label here is twelve characters where its chips carry
               fifteen. See the header for the arithmetic.
             */}

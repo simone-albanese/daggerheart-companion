@@ -108,17 +108,19 @@
  *
  * THE TYPED PANEL'S ARITHMETIC, over its own declarations and this docblock's
  * own column figure. It is a `.panel` - 1px border, base.css:233-237 - with
- * `padding: '10px 11px'` and `gap: 6`, one `t-label` at 10px/1
- * (tokens.css:559-564), one row per die at `var(--tap)` = 44 (tokens.css:106),
- * and its own press at the declared 56. So it is 2 + 20 + 10 + n * (6 + 44) +
- * 6 + 56 = 144px for one die, 194 for two and 244 for three, plus the 8px the
- * column gaps it by: 152, 202, 252. Every long rest that types pays the first
+ * `padding: '10px 11px'` and `gap: 6`, one `t-label` at 11px/1.2 since the
+ * readability ramp - a 13.2px line box, from 10 - one row per die at
+ * `var(--tap)` = 44, and its own press at the declared 56. So it is 2 + 20 +
+ * 13.2 + n * (6 + 44) + 6 + 56 = 147.2px for one die, 197.2 for two and 247.2
+ * for three, plus the 8px the column gaps it by: 155.2, 205.2, 255.2 (144, 194,
+ * 244 and 152, 202, 252 at the 10px/1 label before the ramp). Every long rest that types pays the first
  * of those and only a short rest with two rolling moves pays the last. With
  * typed dice off it costs nothing, because it is not drawn - and with the
  * roller on as well it is drawn above the rolling press rather than instead of
  * it, so the fourth combination pays 68 more than the third (12 of pad and
  * rule, 56 of button). A face nothing can show adds 6 and a `t-read` paragraph
- * at 13px/1.45 = 18.85 a line, whose line count is not stated here because the
+ * at 16px/1.5 on a phone = 24 a line (13px/1.45 = 18.85 before the readability
+ * ramp), whose line count is not stated here because the
  * width it wraps at is `Disclosure`'s inner width and this file does not
  * declare it. Across the row, the name takes 369 - 2 of border - 22 of
  * padding - 8 of gap - the field's declared 72 = 265px, and it is one line
@@ -185,7 +187,8 @@
  * eighteen after, plus one to three fields and the press they fill in when the
  * table types its own dice - and with both switches on, one more press than
  * with either alone, which is what a surface that offers two roads costs. Read and never touched: the SRD's own move text, at
- * `t-read` - 13px/1.45, the size that exists in this stylesheet for prose
+ * `t-read` - 16px/1.5 on a phone and 15px/1.5 from 720 since the readability
+ * ramp, the size that exists in this stylesheet for prose
  * somebody is reading in order to decide something, which is exactly the job
  * here - the two quoted rules, and the brackets, which are `t-num` with
  * tabular figures so "3-5" does not reflow as the picks change. The preview is

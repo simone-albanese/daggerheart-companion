@@ -462,8 +462,10 @@ function SearchBox({
  * so the width came from `.chip`'s label alone. IBM Plex Mono is a 600/1000
  * advance at every weight this app ships (checked in the shipped
  * `plexmono-600-latin.woff2`: `unitsPerEm` 1000, every glyph 600), so at
- * `.chip`'s 9.5px with `letter-spacing: 0.06em` a character is
- * 9.5 x 0.6 + 9.5 x 0.06 = **6.27px**. With the `padding: '0 10px'` this button
+ * the 9.5px `.chip` had when this was measured, with `letter-spacing: 0.06em`, a
+ * character is 9.5 x 0.6 + 9.5 x 0.06 = **6.27px** (11px on a phone since the
+ * readability ramp, 7.26 by the same arithmetic; the widths below are the 9.5px
+ * ones). With the `padding: '0 10px'` this button
  * used to carry and no border (`base.css:42-50` zeroes it), `All` and `Any` are
  * three characters: 3 x 6.27 + 20 = **38.81px**, against a floor of 44.
  *
@@ -873,8 +875,9 @@ function ModuleFilter({
  *
  * Band 3's height is `minHeight: var(--control)` on the spread inside it, plus
  * 8 + 10 of padding and 1 of border: 63px, the number `PickerDialog`'s table
- * states. The count text is `.t-meta`, `font: 500 10px/1 var(--mono)` with
- * `letter-spacing: 0.06em`, and IBM Plex Mono is a 600/1000 advance at every
+ * states. The count text is `.t-meta`, which was `font: 500 10px/1 var(--mono)`
+ * with `letter-spacing: 0.06em` when this was measured (12px/1.25 at 0.04em on
+ * a phone since the readability ramp; the wrap below is not re-measured), and IBM Plex Mono is a 600/1000 advance at every
  * weight this app ships - the claim `Seg` above makes and checks against the
  * shipped `plexmono-600-latin.woff2`; `.t-meta` draws from the 500 file beside
  * it, and the family is monospaced across weights by construction. So a
@@ -886,8 +889,9 @@ function ModuleFilter({
  * own `--s3` gap of 8; and the longest count this dialog draws -
  * `204 OF 204 · DAMAGE AT PROFICIENCY 3`, 36 characters, 237.6px - wraps into
  * the remaining 116.87px in three lines of 10px. 30px against a 44px floor.
- * (`RANDOM` is 6 characters of `.chip`'s 9.5px/0.06em, which this file derives
- * at 6.27px each, plus its own 6px of padding either side: **49.62px**, so the
+ * (`RANDOM` is 6 characters of the 9.5px/0.06em `.chip` had then, which this
+ * file derives at 6.27px each (7.26 at the 11px it is on a phone since the
+ * readability ramp, and the min-width still does not bind), plus its own 6px of padding either side: **49.62px**, so the
  * 44px `min-width` does not bind and the 44px `min-height` does. `.chip` also
  * carries `white-space: nowrap`, so neither button wraps into a second line
  * and takes the band with it.)
@@ -1062,7 +1066,9 @@ function CountRow({
  * property of the design and becomes a property of the dataset. `LIST_FLOOR`
  * and every whole-row count in this file are built on knowing what a row is.
  *
- * `.t-meta` is `500 10px/1` against `.t-num`'s `600 13px/1`, so the widest
+ * `.t-meta` was `500 10px/1` when this was measured - 12px/1.25 on a phone
+ * since the readability ramp, so the stamp is about a fifth wider and the row
+ * counts below are not re-measured - against `.t-num`'s `600 13px/1`, so the widest
  * stamp in the book, `EVERYDAY HERO STARTING EQUIPMENT`, is 211.2px on its own
  * line against a row text box of 252px at 320 - the narrowest viewport this app
  * is held to, 320 less the overlay's 2x10, the panel's 2 of border, the list's

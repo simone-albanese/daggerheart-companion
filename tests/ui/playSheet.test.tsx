@@ -607,12 +607,16 @@ describe('the whole sheet, at 393x852', () => {
    * button padding twice. At 11 the line is 283.14, wants 376.34, and
    * ellipsises - the gold being the half that goes. That is the failure
    * `Disclosure` exists to prevent, so `Carried` passes `tightSummary` and
-   * keeps its 10.
+   * kept its 10.
    *
-   * This asserts the split rather than the raise, because a raise applied to all
-   * six would pass any assertion that only counted 11s.
+   * SINCE THE READABILITY RAMP THE SPLIT IS THE OTHER WAY UP. `.t-meta` is 12px
+   * on a phone now, past the 11 the raise reached, so the inline 11 went and
+   * every ordinary fold takes the role; `Carried` is the one held down, at 11
+   * in rem, because at 12 the line it was measured against would be wider
+   * still. What is asserted is still the split and not the size, because a
+   * size applied to all six would pass any assertion that only counted one.
    */
-  it('raises every fold summary to 11px, and keeps Carried at 10', () => {
+  it('lets every fold summary take the 12px role, and holds Carried at 11', () => {
     play(seed());
     const sized = buttons()
       // A fold header, and not merely something that expands. `Disclosure`
@@ -627,20 +631,20 @@ describe('the whole sheet, at 393x852', () => {
         })),
       );
 
-    const kept = sized.filter((s) => s.size === '').map((s) => s.fold.slice(0, 24));
+    const held = sized.filter((s) => s.size !== '').map((s) => `${s.fold.slice(0, 24)} ${s.size}`);
     expect(
-      kept,
-      'these folds are drawing their summary at `.t-meta`\'s 10px. The raise is a pixel of ' +
-        'legibility on the smallest type on the sheet and it is free vertically; exactly one ' +
-        'fold is allowed to decline it, and only because its line was measured against the ' +
-        'column and does not fit.',
-    ).toEqual([expect.stringMatching(/^Carried/)]);
+      held,
+      'a fold other than Carried is overriding the `.t-meta` role, or Carried is not held at ' +
+        '11px in rem. The role is 12 on a phone since the readability ramp; exactly one fold ' +
+        'declines it, and only because its line was measured against the column and does ' +
+        'not fit at 11, let alone 12.',
+    ).toEqual([expect.stringMatching(/^Carried.* 0\.6875rem$/)]);
 
-    const raised = sized.filter((s) => s.size === '11px').map((s) => s.fold);
+    const role = sized.filter((s) => s.size === '').map((s) => s.fold);
     expect(
-      raised.length,
-      'the summaries went back to 10px, so the smallest type on the sheet is small again ' +
-        'for no reason - the room it needs is headroom nothing else was using',
+      role.length,
+      'the summaries are setting a size of their own again, so the OS text size no longer ' +
+        'reaches them and the role that was raised for them is not the one they draw',
     ).toBeGreaterThanOrEqual(3);
   });
 

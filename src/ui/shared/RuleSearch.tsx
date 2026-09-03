@@ -141,7 +141,9 @@
  * rather than being folded into the text: the SRD keeps 156 `## ` subheads
  * across 36 of its 69 sections, so `fear` now draws three bands where it drew
  * two, and a subhead names a rule in the same way a title does. `searchRules`
- * argues that at greater length; this file pays for it in a 10px header.
+ * argues that at greater length; this file pays for it in a 10px header - the
+ * `.t-label` line box when every column below was measured; it is 13.2 since
+ * the readability ramp (11px/1.2), and none of those heights are re-measured.
  *
  * It is bands rather than a relevance score for the reason `searchRules` gives:
  * weighting the SRD's sections would be the app deciding which rule the GM
@@ -205,7 +207,8 @@
  * title's and not the preview's: `.t-read` is `--text-2`, so the mark is the
  * 1.38:1 this file already costs for `--text-2` -> `--text`, against the 1.83:1
  * the `--muted` preview line gets. What it has and the title has not is the
- * **weight** channel - `.t-read` is `400 13px var(--sans)`, and `--sans` is
+ * **weight** channel - `.t-read` is `400 16px var(--sans)` on a phone since the
+ * readability ramp (13 when this was measured), and `--sans` is
  * Archivo declared `400 900`, so 400 -> 700 is three real steps of a face that
  * has them, where the title's IBM Plex Mono ships no 700 at all. One live
  * channel is why the title needed a plate and this does not.
@@ -768,13 +771,15 @@ const stamp = (page: number | null): string => srdStamp(page);
  * step - `.t-read` is `--text-2` - but it is `--sans`, so it still has the
  * three real steps of weight the title cannot buy.
  *
- * The line is `.t-dense`, `400 11.5px var(--sans)`, overridden here to
- * `--muted`. `--sans` is Archivo, declared `font-weight: 400 900` as a single
+ * The line was `.t-dense`, `400 11.5px var(--sans)`, when this was measured
+ * and is `.t-hint`, `400 13px/1.4`, since the readability ramp, overridden
+ * here to `--muted` either way. `--sans` is Archivo, declared `font-weight: 400 900` as a single
  * variable font (`tokens.css`), so 400 -> 700 is three real steps of a face
  * that has them, and `--muted` -> `--text` is a **1.83:1** step of ink.
  *
- * The title is `.t-label`, `600 10px/1 var(--mono)` at `letter-spacing:
- * 0.16em`, overridden here to `--text-2`. Both of those channels are already
+ * The title is `.t-label`, `600 11px/1.2 var(--mono)` at `letter-spacing:
+ * 0.12em` since the readability ramp (`600 10px/1` at 0.16em when this was
+ * measured), overridden here to `--text-2`. Both of those channels are already
  * spent:
  *
  * - **Ink.** `--text-2` -> `--text` is **1.38:1**, against the 1.83:1 the line
@@ -797,7 +802,7 @@ const stamp = (page: number | null): string => srdStamp(page);
  * and the marked ink still reads at **9.97:1** on top of it, above AAA. That
  * is deliberately the dimmest plate in the palette that is still a plate. The
  * cue it adds is not luminance, it is **area**: 1.34:1 spread over a whole
- * glyph box is pre-attentive where 1.38:1 along a 10px stroke is not.
+ * glyph box is pre-attentive where 1.38:1 along a label-sized stroke is not.
  *
  * This does not reopen the yellow block the marked preview refuses. That
  * objection is to the UA default - a saturated near-white fill, a lamp in a dim
@@ -817,7 +822,8 @@ const stamp = (page: number | null): string => srdStamp(page);
  * cannot be pushed into a wrap it was not in before; no height, so the 44px
  * floor and the three-line header this file measures are untouched. There is
  * no padding on it for the same reason - padding would break the character
- * grid. An underline would have to paint below a `10px/1` line box, into the
+ * grid. An underline would have to paint below the label's line box (`10px/1`
+ * when this was written, `11px/1.2` since the readability ramp), into the
  * 3px gap this button puts between the title and the preview under it.
  *
  * And it is the right line to spend the cue on. The hits read upward from the
@@ -1028,8 +1034,9 @@ const spoken = (
 /**
  * The name of a hit, one step up from the label scale it is drawn in.
  *
- * `t-label` ships `600 10px/1 var(--mono)` with `0.16em` of tracking, which is
- * right for a *label* - a word standing over something else, read once. The
+ * `t-label` shipped `600 10px/1 var(--mono)` with `0.16em` of tracking when
+ * this was measured - it is 11px/1.2 at 0.12em since the readability ramp, and
+ * the table below stands against the 10 - which is right for a *label* - a word standing over something else, read once. The
  * name of a hit is not that: it is the thing being read, and this list is the
  * one surface in the app where a person is scanning thirty of them for the one
  * they meant. The owner's constraint of 2026-08-26 - readability and
@@ -1081,7 +1088,8 @@ const ROW_NAME = { fontSize: '0.75rem', lineHeight: 1.3, letterSpacing: '0.1em',
  * four lines of book on a row that has to stay one.
  *
  * **A character cut was tried first and measured wrong.** Cutting at 110 gave a
- * row of **78.56** at 393x852: 110 characters of `.t-dense` do not fit a 363px
+ * row of **78.56** at 393x852: 110 characters of `.t-dense` (the line's role
+ * then) do not fit a 363px
  * column, so the "one line" was two. Any number picked here is a guess about a
  * width this component does not know - the same line sits in a 363px sheet
  * column, a 369px screen column and a 290px column at 320.

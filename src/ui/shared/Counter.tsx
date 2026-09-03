@@ -492,8 +492,9 @@ export function Counter({
             {value}
           </span>
           {/*
-           * The maximum, at `--counter-max`, which is `.t-meta`'s 10 at every
-           * width and is the one token here that does NOT step.
+           * The maximum, at `--counter-max`, 10px at every width - its own value,
+           * not `.t-meta`'s, which is 12 since the readability ramp - and the
+           * one token here that does NOT step.
            *
            * Nobody reads a marked count on its own: `3` means nothing and
            * `3 / 6` means everything, so this half of the value is read exactly

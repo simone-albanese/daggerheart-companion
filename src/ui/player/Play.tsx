@@ -1073,7 +1073,7 @@ function TraitRow({
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                // Overrides `.chip`'s `font: 600 9.5px/1 var(--mono)` size and
+                // Overrides `.chip`'s `font: 600 var(--chip-size)/1 var(--mono)` size and
                 // leading and keeps its family, its weight and its tracking.
                 // 17 is the MODIFIER's size - the number you add to 2d12 - and
                 // it is the chip's own, because the number is what the chip is
@@ -2444,8 +2444,9 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
                      * Its width came entirely from `.chip`'s own
                      * `padding: 4px 6px` around the label - there is no
                      * horizontal padding declared here, and `base.css:42-50`
-                     * zeroes a button's border. `.chip` is IBM Plex Mono at
-                     * 9.5px with `letter-spacing: 0.06em`, and the shipped
+                     * zeroes a button's border. `.chip` was IBM Plex Mono at
+                     * 9.5px with `letter-spacing: 0.06em` when this was measured
+                     * (11px on a phone since the readability ramp), and the shipped
                      * `plexmono-600-latin.woff2` is a flat 600/1000 advance, so
                      * a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px and `USE`
                      * is 3 x 6.27 + 12 = **30.81px**. Measured 30.8x44, and it
@@ -4019,9 +4020,10 @@ function PlayPhone({
         label="Carried"
         summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
         /*
-         * The one fold that keeps `.t-meta`'s 10px while the others go to 11:
-         * at 11 this summary measures ~283 against 257.41 at 10, and it
-         * ellipsises at full width.
+         * The one fold held at 11px while the others take the `.t-meta` role,
+         * 12 on a phone since the readability ramp: at 11 this summary
+         * measures ~283 against 257.41 at the 10 it was, and it ellipsises at
+         * full width.
          *
          * The reason is one subtraction and it is done in exactly one place.
          * This comment used to do it here as well, and did it wrong - it set

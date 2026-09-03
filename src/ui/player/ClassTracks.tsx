@@ -264,13 +264,15 @@ function TrackStrip({
            * 2px top and bottom is the room the CLIP needs, and it is the mono
            * face's own descent rather than a nudge.
            *
-           * Both children set their line box to their font size - `.t-label` is
-           * `10px/1` and `.t-num` is `13px/1`, and a unitless 1 re-resolves
-           * against the size declared here. IBM Plex Mono's content area is not
+           * `.t-num` sets its line box to its font size - `13px/1`, and a
+           * unitless 1 re-resolves against the size declared here. `.t-label`
+           * did too when this was measured, at `10px/1`; it is `11px/1.2` since
+           * the readability ramp, a 13.2px box at the 11 set here. IBM Plex Mono's content area is not
            * 1em: measured off the loaded face, at 16px its ascent is 16 and its
            * descent 4, so the text occupies 20px inside a 16px box. Half-leading
            * is `(16 - 20) / 2`, so the value hangs 2px past its box at each end,
-           * and the label - 11 + 3 at 11px - hangs 1.5.
+           * and the label - 11 + 3 at 11px - hung 1.5 in an 11px box and hangs 0.4
+           * in the 13.2 it has now.
            *
            * With `0 6px` those 2px landed outside a box that clips, which the
            * rig read as `clientH 30` against `scrollH 32` on all three viewports

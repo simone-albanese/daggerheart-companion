@@ -293,8 +293,8 @@ export class ScreenBoundary extends Component<Props, State> {
           `outcome.notice` naming three campaigns and a quarantined record
           measures 483 characters, and on a 393px phone that is ten line boxes
           of 13px glyphs stepping 10px - three pixels of overlap on every line -
-          and 1232px of unbroken width on a desktop. `.t-hint` is 11.5px/1.38
-          sans, the role the `retried` paragraph thirty lines above already uses
+          and 1232px of unbroken width on a desktop. `.t-hint` is 13px/1.4 sans since the
+          readability ramp (11.5px/1.38 when this was measured), the role the `retried` paragraph thirty lines above already uses
           for exactly this kind of sentence.
         */}
         {saved !== null && (

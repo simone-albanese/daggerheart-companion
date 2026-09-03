@@ -761,7 +761,8 @@ function TransformationSection({
  * is beside it going sideways.
  *
  * How tall that line is has NOT been measured and is not claimed here - it is
- * a `.t-meta` at `500 10px/1` mono against a 369px column at 393x852, so on a
+ * a `.t-meta` at `500 12px/1.25` mono on a phone since the readability ramp
+ * (`500 10px/1` when this was written) against a 369px column at 393x852, so on a
  * phone it is one line or two depending on the stance's name, and every figure
  * in this docblock predates it. What IS structural, and is asserted in
  * `tests/stances.test.tsx` rather than reasoned about: the row draws two

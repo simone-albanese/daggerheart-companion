@@ -15,7 +15,7 @@
  * that argument in full under PROVENANCE and COLLISION; what belongs *here* is
  * the one sentence a GM should be able to read without opening a source file,
  * because a tool that hands out names is exactly the tool somebody will ask
- * where the names came from. It is under the draw, in `t-dense`, permanently -
+ * where the names came from. It is under the draw, in `t-hint`, permanently -
  * not behind a fold, because an answer behind a fold is an answer nobody finds
  * on the day they need it.
  *
@@ -81,8 +81,10 @@
  * place once and then draws six times; a control chosen once per burst does not
  * belong under the thumb, and putting it there would mean the repeated tap and
  * the rare tap share an arc. Three across the 369px column at (369 - 12) / 3 =
- * 119px each, which holds PERSON, PLACE and REGION in `.t-label` - 10px mono at
- * 0.16em, about 7.6px a character, so 53px of word inside 119px of target.
+ * 119px each, which holds PERSON, PLACE and REGION in `.t-label` - 11px mono at
+ * 0.12em since the readability ramp, about 7.9px a character by the same
+ * arithmetic (7.6 at the 10px/0.16em it was), so about 55px of word inside
+ * 119px of target.
  *
  * **The result is read, not touched.** 30px type, its own line, with nothing
  * pressable inside it: a name is copied by eye onto a GM's own paper far more

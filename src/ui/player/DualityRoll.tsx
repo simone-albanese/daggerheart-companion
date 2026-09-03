@@ -1777,10 +1777,12 @@ export function DualityRoll({
    *
    * THIS LINE IS 12px NOW, AND THE ARITHMETIC MOVED WITH IT. It is the entire
    * statement of what the next roll will be and it was the smallest type on the
-   * sheet, so the reflow raises it - `12px/15px` at the declaration below, the
-   * size and the leading together, because `.t-meta` is `500 10px/1` and a size
-   * raised without its leading clips its own ink. At 0.06em that is about 7.9px
-   * a character, so **30 characters to a line** at 393px and 28 at 375px, where
+   * sheet, so the reflow raised it - `0.75rem/1.25` at the declaration below,
+   * 12px/15px at the root, the size and the leading together, because `.t-meta`
+   * was `500 10px/1` and a size raised without its leading clipped its own ink.
+   * At the 0.06em it had then that is about 7.9px a character (0.04em since the
+   * readability ramp, 7.68 by the same arithmetic; the counts here are not
+   * re-derived), so **30 characters to a line** at 393px and 28 at 375px, where
    * 10px gave 36 and 34.
    *
    * The ordinary armed-and-resolved state, typed dice off, is what this

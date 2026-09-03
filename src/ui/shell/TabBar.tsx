@@ -41,7 +41,9 @@
  * Here it is a guarantee and not a repair, and the numbers say which. It was
  * measured at four columns - 80px at 320, 93.8 at 375, 98.3 at 393 - against
  * per-tab min-contents of 28 (PLAY), 35 (CARDS), 35 (BUILD) and 17 (GM), a
- * 17px glyph over 10px IBM Plex Mono. **The fifth destination that sentence
+ * 17px glyph over the 10px IBM Plex Mono the tab word was then (0.75rem, 12px,
+ * since the readability ramp; the min-contents are not re-measured). **The
+ * fifth destination that sentence
  * called hypothetical is SEARCH, and it arrived**: re-measured through the
  * audit rig at five columns, they resolve to **64.00 at 320, 75.00 at 375 and
  * 78.59 at 393**, every one above the widest 35px minimum and every one above
@@ -272,7 +274,7 @@ export function TabBar(): React.JSX.Element {
                  *
                  * The inactive colour is --edge: a glyph is a shape rather
                  * than a label, so it needs the 3:1 a meaningful graphic
-                 * needs, where --dim is tuned for 10px text.
+                 * needs, where --dim is tuned for small label text.
                  *
                  * The two tests below read `tab.hollow` and used to read
                  * `tab.id === 'cards'`. Same pixels for CARDS, and the reason

@@ -996,8 +996,9 @@ function Segmented<T extends string>({
              * five lines of hit-point cell arithmetic; and "any coarse pointer"
              * was the wrong query - `any-pointer` is what `--pip-h` answers,
              * and that distinction is the whole of its docblock.) The width
-             * came from `.chip`'s `padding: 4px 6px` around the label, and IBM Plex Mono at 9.5px
-             * with 0.06em tracking is 6.27px a character - so `All` and `Any`
+             * came from `.chip`'s `padding: 4px 6px` around the label, and IBM Plex Mono at
+             * the 9.5px `.chip` had when this was measured (11 on a phone since
+             * the readability ramp) with 0.06em tracking is 6.27px a character - so `All` and `Any`
              * were 3 x 6.27 + 20 = **38.81px**, measured 38.8x44 at 320x568,
              * 375x667, 393x852 and 744x1133 with a computed `min-width: auto`.
              * They clear WCAG 2.5.8's 24px and not this project's 44.

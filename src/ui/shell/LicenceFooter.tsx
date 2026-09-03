@@ -75,7 +75,8 @@
  * On a 1024px tablet the same text is two lines, ~48px - that one is still an
  * estimate and nobody has measured it. There is no typographic
  * trick that beats this; 9px would fit it in 70px and this project's own type
- * ramp says Archivo never runs at 400 below 11.5px. Every pixel of it is now
+ * ramp says Archivo never runs at 400 below 13px (11.5 before the readability
+ * ramp). Every pixel of it is now
  * below the last thing anybody scrolls for.
  *
  * ## It looks like content now, because it is content

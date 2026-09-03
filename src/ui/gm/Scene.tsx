@@ -311,9 +311,10 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         SPOTLIGHT chip, every remove ✕.
 
         The size of that jump is the sentence's own height plus this stack's
-        10px gap. `.t-hint` is `400 11.5px/1.38 var(--sans)`
-        (`tokens.css:540`), so one line box is 15.87px: with the gap, the jump
-        is 25.87px at one line, 41.74 at two and 57.61 at three.
+        10px gap. `.t-hint` is `400 13px/1.4 var(--sans)` since the readability
+        ramp, so one line box is 18.2px by declaration: with the gap, the jump
+        is 28.2px at one line, 46.4 at two and 64.6 at three (25.87, 41.74 and
+        57.61 at the 11.5px/1.38 the role was when this was measured).
 
         "Both are at or over the 44px coarse floor the END SCENE button
         declares in the row immediately above" stood here, and 41.74 is not at
@@ -367,9 +368,13 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         spend zero horizontally, which is the only axis this paragraph is
         about; the vertical price is in `GmSheet.tsx`.)
 
-        11.5px Archivo at 400 averages about 5.6px a character -
-        `RuleTableView.tsx:72` puts `.t-read`, 13px of the same face at 400, at
-        about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
+        (The budget below is at the 11.5px the line was when it was measured;
+        it is 13px since the readability ramp, about 6.3px a character, so a
+        line holds about 58 and the 118-character string is still inside two
+        lines - and the permanent cost is 36.4 and 46.4 with the gap, by the
+        declaration above.) 11.5px Archivo at 400 averages about 5.6px a
+        character - `RuleTableView.tsx` puts `.t-read`, 13px of the same face
+        at 400, at about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
         characters, and 63 even at a pessimistic 5.75 (367/5.75 = 63.8; it read
         64 while the column read 369). The longest string this can build over
         the shipped book is 118: a three-digit count and `Burning Heart of the
@@ -1354,8 +1359,9 @@ function CombatantCard({
             direction that matters: 261 is over three quarters of 341 before the
             label, and for the stack to fall under half the label would have to
             measure 90.5px - ten pixels a character across nine characters of a
-            9.5px font. What SPOTLIGHT's `600 9.5px/1 var(--mono)` at 0.06em
-            (`base.css`, `.chip`) actually measures is the one term here that is
+            9.5px font (11 on a phone since the readability ramp). What
+            SPOTLIGHT's `.chip` - `600 11px/1 var(--mono)` at 0.06em there,
+            9.5 when this was written - actually measures is the one term here that is
             not a declaration, and it has not been in a browser; do not read a
             figure for the stack itself out of this paragraph, because there
             isn't one.
@@ -1395,9 +1401,11 @@ function CombatantCard({
 
             The label plus the motives measures 37 characters at its shortest,
             58 at the median and 92 at its longest over all 129 adversaries in
-            the book, every one of which carries motives. `.t-meta` is 10px IBM
-            Plex Mono at 0.06em, which is a 0.6 advance plus the tracking -
-            ~6.6px a character, the figure `GearPicker.tsx` derives and
+            the book, every one of which carries motives. `.t-meta` was 10px IBM
+            Plex Mono at 0.06em when this was measured (12px at 0.04em on a
+            phone since the readability ramp, 7.68 a character by the same
+            arithmetic; the counts below are the 10px ones), which is a 0.6
+            advance plus the tracking - ~6.6px a character, the figure `GearPicker.tsx` derives and
             `ReferenceTables.tsx` uses for this class - so 341 holds 51
             characters a line, which is exactly what 343 held: 51 characters
             want 336.6px and 52 want 343.2, and both columns fall in that gap.

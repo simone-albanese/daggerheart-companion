@@ -755,8 +755,9 @@ function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element 
         {/*
           The twin of `ScreenBoundary`'s status line, and the same reason:
           `savedFiles` plus `outcome.notice` is prose, not the 53 characters of
-          metadata `.t-meta` was set for - 10px mono at line-height 1, which
-          overlaps its own glyphs the moment it wraps. Here it also sits in a
+          metadata `.t-meta` was set for - 10px mono at line-height 1 before the
+          readability ramp, which overlapped its own glyphs the moment it
+          wrapped; 12px/1.25 since, and still a metadata role, not a prose one. Here it also sits in a
           `.row` beside the chip, inside a strip that is `flex: none` at the top
           of an `overflow: hidden` main, so an uncapped note pushes the screen
           under it out of view.

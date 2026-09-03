@@ -547,11 +547,12 @@ function Die({ value, label, color }: { value: number; label: string; color: str
  * clears the 44px floor in both directions - the failure `DieKeypad`'s
  * docblock records for its own cockpit keys was width, at 24px, and nothing
  * here is narrow for the same reason: one field, not a twelve-key grid. Height is 2 of border, 24 of padding, a
- * 10px `t-label` (tokens.css:559-564), then 8 + 44 per die and 8 + 44 for the
- * button at `.btn`'s `min-height: var(--tap)` (base.css:318-319): 140px for
- * Avoid Death's one die and 192 for Risk It All's two, inside a body that
- * already scrolls. A face no d12 can show adds 8 and a `t-dense` paragraph at
- * 11.5px/1.38 (tokens.css:540-543) = 15.87 a line, wrapping at the 305 across
+ * 13.2px `t-label` line box (11px/1.2 since the readability ramp; 10px/1 before
+ * it), then 8 + 44 per die and 8 + 44 for the button at `.btn`'s `min-height:
+ * var(--tap)`: 143.2px for Avoid Death's one die and 195.2 for Risk It All's
+ * two (140 and 192 at the 10px label), inside a body that already scrolls. A
+ * face no d12 can show adds 8 and a `t-hint` paragraph at 13px/1.4 = 18.2 a
+ * line (`t-dense` at 11.5px/1.38 = 15.87 before the ramp), wrapping at the 305 across
  * computed above; its line count is not stated here, because what it prints
  * depends on how long the number in the field is. TARGET SIZE is 84x44 for a field and full-width x44 for
  * both buttons. THUMB ARC: the fields sit above the button that consumes them

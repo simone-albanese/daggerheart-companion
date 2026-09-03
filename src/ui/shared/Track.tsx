@@ -330,9 +330,9 @@ export function Track({
            * It sits inside the pip row, so it lands where the pips would have
            * been - the eye and the thumb are already there, and nothing below
            * it moves by more than this line. It is read rather than touched,
-           * so the 44px floor does not apply to it and it takes `.t-dense`,
-           * 11.5px on 1.38, which is the size every other explanatory line in
-           * the app is. The forty pips above keep their full `--pip-h` height
+           * so the 44px floor does not apply to it and it takes `.t-hint`,
+           * 13px on 1.4 since the readability ramp, which is the size every
+           * other explanatory line in the app is. The forty pips above keep their full `--pip-h` height
            * and `--pip-min` width: nothing on this row is a target below the
            * floor, because nothing on it is a target at all.
            */
