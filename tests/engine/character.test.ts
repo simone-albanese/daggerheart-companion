@@ -159,7 +159,7 @@ describe('armor this build cannot resolve', () => {
 
   it('does not let syncCounters empty the Armor track of armor it cannot name', () => {
     // This is where zero used to do its damage: `normalizeActive` runs on every
-    // level-up and armor change, and it would have written max 0 over a track
+    // level-up and gear change, and it would have written max 0 over a track
     // the player is marking, taking their marked slots with it.
     const c = makeCharacter({ ...parked, armorSlots: { marked: 3, max: 6 } });
     expect(syncCounters(c, deriveStats(c, ds)).armorSlots).toEqual({ marked: 3, max: 6 });

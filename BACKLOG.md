@@ -348,7 +348,7 @@ Concrete: a sheet arrives from a newer device with its class ref parked as
 `?60007`. `deriveStats` cannot resolve the class and falls back to
 `startingHitPoints ?? 6` (`character.ts:187`), so the build derives `maxHp` 6
 while the stored `hp.max` stays at the wire's 12. The two disagree until the
-player next levels up or changes armor, and `validatePlan`'s at-maximum warnings
+player next levels up or changes armor or a weapon, and `validatePlan`'s at-maximum warnings
 (`levelUp.ts:306`) read the stored one.
 
 Three UI paths call `importCharacter` directly: `Settings.tsx:468` and `:675`,

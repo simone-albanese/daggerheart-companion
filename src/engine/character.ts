@@ -670,7 +670,7 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * `syncCounters` writes this number straight into `armorSlots.max` and pulls
    * `marked` down with it, so answering "no slots" for an unresolvable ref
    * empties the Armor track of a character who is wearing armor - permanently,
-   * at the next level-up or armor change, on a sheet that was only ever passing
+   * at the next level-up or gear change, on a sheet that was only ever passing
    * through this build. The slot maximum the sheet already carries was written
    * by a build that *could* name the armor, so it is kept rather than replaced.
    */
@@ -680,8 +680,9 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * FEEDBACK LOOP THAT INFLATES A SHEET EVERY TIME IT IS SAVED.
    *
    * `syncCounters` below writes `armorSlots.max = stats.armorScore`, and
-   * `store/state.ts` calls it on every level-up, armour change and death move -
-   * so this number leaves the engine, lands in persisted state, and goes out in
+   * `store/state.ts` calls it on every level-up, armour or weapon change and
+   * death move - so this number leaves the engine, lands in persisted state,
+   * and goes out in
    * `.dhchar`, `.dhbackup` and the QR payload. The second branch then reads it
    * BACK as its base. So a sheet wearing armour this build cannot name, with a
    * Tower Shield in the off-hand, would go 5 -> 7 -> 9 -> 11 -> 12, two points
