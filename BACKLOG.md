@@ -602,7 +602,10 @@ to mark Stress if all of their Stress is marked."*
       or more Stress but can't, they mark 1 HP instead."* One Hit Point for the whole
       shortfall, so `n` is always 1. The count above was SRD 1's; SRD 2 has 177 of 210
       cards at a recall cost of 1 or more, 83 at 2 or more. The recall itself stays
-      allowed at a full track, as this item decided.
+      allowed at a full track, as this item decided. The refusal sentence IS applied
+      where the book's own feature says "mark a Stress to": Beastform's picker refuses
+      the Stress path at a full track (`beastformCost`, finding B1-2) instead of
+      taking a Hit Point and, at 5/6 HP, dropping the form in the same tap.
 
 ### P1-3 · Proficiency can be taken twice in the same tier
 `src/engine/levelUp.ts:102-110, 271-277` · **trivial, 30 min**
