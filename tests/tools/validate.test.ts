@@ -209,6 +209,31 @@ describe('the gate did not get looser', () => {
     ds.adversaries.splice(20);
     expect(at(validate(ds), 'adversaries').map((i) => i.message).join('\n')).toContain('120-140');
   });
+
+  /*
+   * `Stress: None` is one line in SRD 2.0 (Spellbound Armor, folio 110) and
+   * none in SRD 1.0, and for one bump the parser wrote it as `0` while the
+   * type said `number | null` - so the shipped dataset had no null Stress
+   * track and nothing red. A census is the only gate that can see a parser
+   * quietly going back to the number, in either direction.
+   */
+  it('counts the Stress: None lines, so a null track that came back as 0 fails the build', () => {
+    const two = JSON.parse(
+      readFileSync(fileURLToPath(new URL('../../data/srd-2.0.json', import.meta.url)), 'utf8'),
+    ) as Dataset;
+    expect(said(validate(two))).toBe('');
+
+    const armor = two.adversaries.find((a) => a.id === 'spellbound-armor')!;
+    expect(armor.stress).toBeNull();
+    armor.stress = 0;
+    expect(said(validate(two))).toContain('adversaries/stress-none: expected 1');
+
+    // And the other way: SRD 1.0 prints the word nowhere, so a null there is
+    // a parser reading None off a line that does not say it.
+    const one = srd1();
+    one.adversaries[0]!.stress = null;
+    expect(said(validate(one))).toContain('adversaries/stress-none: expected 0');
+  });
 });
 
 describe('a revision nobody has measured fails loudly', () => {
@@ -247,10 +272,12 @@ describe('a revision nobody has measured fails loudly', () => {
       stances: null,
       adversariesMin: null,
       adversariesMax: null,
-      // Not nullable, and 0 is this dataset's true module haul, so they take no
-      // part in the property under test. See `RevisionCounts.moduleWeapons`.
+      // Not nullable, and 0 is this dataset's true module haul and its true
+      // count of `Stress: None` lines, so they take no part in the property
+      // under test. See `RevisionCounts.moduleWeapons`.
       moduleWeapons: 0,
       moduleArmors: 0,
+      noStressTrack: 0,
     };
     ds.revision = 'srd-test-null-row';
     const issues = errors(validate(ds));

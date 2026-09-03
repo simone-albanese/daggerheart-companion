@@ -195,9 +195,12 @@ describe('a chapter the contents page does not divide', () => {
     );
   });
 
-  it('reads Stress: None as a creature with no Stress track', () => {
+  it('reads Stress: None as a creature with no Stress track, which is null and not 0', () => {
+    // `Adversary.stress` is `number | null` since schema 6; 0 is a track with
+    // no box marked yet, and the bestiary draws it as one. `null` is the same
+    // spelling `thresholds` gives the same word on the same printed line.
     const wisps = parseAdversaries(book()).find((a) => a.id === 'will-o-the-wisps')!;
-    expect(wisps.stress).toBe(0);
+    expect(wisps.stress).toBeNull();
     expect(wisps.hordeThreshold).toBe(8);
   });
 });
@@ -267,7 +270,7 @@ describe.skipIf(!have(1))('SRD 2.0', () => {
 
   it('reads the one block printed with no Stress track', async () => {
     const armor = (await read(1)).find((x) => x.id === 'spellbound-armor')!;
-    expect(armor.stress).toBe(0);
+    expect(armor.stress).toBeNull();
     expect(armor.features[0]!.name).toBe('Tireless');
   }, 120_000);
 });

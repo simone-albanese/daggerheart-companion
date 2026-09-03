@@ -9,7 +9,7 @@
  *
  * That last clause is the reason most of this exists. Every one of the four
  * widenings reached `data/srd-1.0.json` through a cast (`m[2] as DamageKind`,
- * `start[2] as Feature['kind']`, a `NO_STRESS_TRACK` constant), and the shipped
+ * `start[2] as Feature['kind']`, a `Stress: None` written as 0), and the shipped
  * dataset reaches the app through `srd as unknown as Dataset`. A cast at both
  * ends means `tsc` is looking at a contract while the JSON does whatever the
  * parser did, so the contract has to be checked against the artifact by reading
@@ -218,21 +218,29 @@ describe('what SRD 1.0 does with the new room: nothing', () => {
     expect([...one.weapons, ...one.armors].filter((g) => g.module !== undefined)).toEqual([]);
   });
 
-  it('and SRD 2.0 uses two of the four, which is a census and not a prediction', () => {
+  it('and SRD 2.0 uses three of the four, which is a census and not a prediction', () => {
     /*
      * MEASURED, and it refutes the obvious guess. The bump opened four doors
-     * and the shipped book walks through exactly two: six `Evolution` features
-     * and 92 pieces of module gear. Nothing nests - `features.features` is
-     * undefined on all 1205 of them - and no adversary has a null Stress
-     * track. The room was still worth making (the type had to admit what the
-     * parsers now emit), but "SRD 2.0 uses all four" would have been a
-     * sentence written from the shape of the change rather than from the file.
+     * and the shipped book walks through exactly three: six `Evolution`
+     * features, 92 pieces of module gear, and ONE adversary with no Stress
+     * track - Spellbound Armor, folio 110, the only stat line in the book that
+     * prints `Stress: None`. Nothing nests - `features.features` is undefined
+     * on all of them. The null track was the door that stayed shut for a bump
+     * longer than the type allowed, because `shared/parsers/adversaries.ts`
+     * kept writing `0` for the word; the census below is what said so. "SRD
+     * 2.0 uses all four" would still be a sentence written from the shape of
+     * the change rather than from the file.
      */
     const features = everyFeature(baseDataset);
     expect(features).toHaveLength(1374);
     expect(features.filter((f) => f.kind === 'Evolution')).toHaveLength(6);
     expect(features.filter((f) => f.features !== undefined)).toEqual([]);
-    expect(baseDataset.adversaries.filter((a) => a.stress === null)).toEqual([]);
+    expect(baseDataset.adversaries.filter((a) => a.stress === null).map((a) => a.id)).toEqual([
+      'spellbound-armor',
+    ]);
+    // And no 0 left standing for the same word: a zero-box track is a creature
+    // whose Stress you have not marked yet, not one that has none.
+    expect(baseDataset.adversaries.filter((a) => a.stress === 0)).toEqual([]);
     expect(
       [...baseDataset.weapons, ...baseDataset.armors].filter((g) => g.module !== undefined),
     ).toHaveLength(92);
@@ -323,9 +331,11 @@ describe('the v6 fixtures', () => {
  * Neither was covered. An independent verifier changed `a.stress ?? 0` in
  * `src/engine/encounter.ts` to `?? 99` and the whole composed suite passed at
  * 4370: a combatant with ninety-nine Stress boxes, and nothing red. The value
- * is unreachable today only because `shared/parsers/adversaries.ts` still
- * writes `0` for `Stress: None` - which the schema lane's own openQuestion asks
- * it to stop doing.
+ * was unreachable then only because `shared/parsers/adversaries.ts` still
+ * wrote `0` for `Stress: None`; it writes `null` now, `data/srd-2.0.json`
+ * carries one (Spellbound Armor, folio 110), and the census above reads it
+ * off the shipped file. The fixture here is kept rather than the record so
+ * the two properties below are about the engine and the block, not the book.
  */
 describe('an adversary with no Stress track', () => {
   const noTrack = makeAdversary({ id: 'spellbound-armor', name: 'Spellbound Armor', stress: null });
