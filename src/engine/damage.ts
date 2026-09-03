@@ -260,26 +260,36 @@ export function markDamage(c: Character, outcome: DamageOutcome): Character {
 }
 
 /**
- * Marking Stress when every Stress slot is full costs 1 HP instead. Returns
- * the character and what actually happened, so the UI can say so.
+ * Mark Stress, and one Hit Point for whatever part of it cannot be marked.
+ *
+ * SRD 2 p50, Stress: *"When a character must mark 1 or more Stress but can't,
+ * they mark 1 HP instead."* The sentence replaces the whole obligation with
+ * one Hit Point: a cost of 3 at a full track is 1 HP, and a cost of 3 at 5/6
+ * is 1 Stress and 1 HP. This used to loop once per point and mark a Hit Point
+ * for each Stress it could not mark, which is a harsher rule than the book
+ * states and one nothing had chosen on purpose - `tests/engine/damage.test.ts`
+ * pinned it, `loadout.ts` costed recalls by it, and the buttons said
+ * "MARK 3 HP?" where the book's price is one.
+ *
+ * The SAME paragraph's next sentence - *"A character can't use a move that
+ * requires them to mark Stress if all of their Stress is marked"* - is not
+ * decided here. This function is the involuntary path too (damage, a GM move),
+ * where the character has no choice and marks the Hit Point; whether a given
+ * caller is a "move" the book refuses is that caller's to say, and
+ * `canAddToLoadout` and `beastformCost` each answer it for themselves.
+ *
+ * Returns the character and what actually happened, so the UI can say so.
  */
 export function markStress(
   c: Character,
   amount = 1,
 ): { character: Character; stressMarked: number; hpMarked: number } {
-  let stress = c.stress.marked;
-  let hp = c.hp.marked;
-  let stressMarked = 0;
-  let hpMarked = 0;
-  for (let i = 0; i < amount; i++) {
-    if (stress < c.stress.max) {
-      stress++;
-      stressMarked++;
-    } else if (hp < c.hp.max) {
-      hp++;
-      hpMarked++;
-    }
-  }
+  const free = Math.max(0, c.stress.max - c.stress.marked);
+  const stressMarked = Math.max(0, Math.min(amount, free));
+  const unpaid = Math.max(0, amount - stressMarked);
+  const hpMarked = unpaid > 0 && c.hp.marked < c.hp.max ? 1 : 0;
+  const stress = c.stress.marked + stressMarked;
+  const hp = c.hp.marked + hpMarked;
   return {
     character: {
       ...c,

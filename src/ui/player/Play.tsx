@@ -2808,7 +2808,7 @@ function RecallButton({
       className="stack"
       style={{
         flex: 'none',
-        // Wider once it is armed: "MARK 2 HP" and "TAP AGAIN" both have to be
+        // Wider once it is armed: "MARK 1 HP" and "TAP AGAIN" both have to be
         // readable in one line each, and a target that grows under the thumb
         // grows away from its neighbour rather than over it.
         minWidth: armed ? 104 : 72,

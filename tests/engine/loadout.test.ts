@@ -88,7 +88,10 @@ describe('canAddToLoadout', () => {
    * many* Hit Points is what lets a surface put the number in front of the
    * player before the tap rather than in the log afterwards.
    */
-  it('says how many Hit Points the shortfall would cost', () => {
+  it('costs one Hit Point for the shortfall, whatever its size (p50)', () => {
+    // SRD 2 p50: "When a character must mark 1 or more Stress but can't, they
+    // mark 1 HP instead." A recall costing 3 at 5/6 Stress marks the one free
+    // Stress and then ONE Hit Point for the two it cannot mark - not two.
     const c = makeCharacter({
       vault: ['x'],
       stress: { marked: 5, max: 6 },
@@ -97,7 +100,17 @@ describe('canAddToLoadout', () => {
     const check = canAddToLoadout(c, card('x', 3));
     expect(check.stressCost).toBe(3);
     expect(check.affordable).toBe(false);
-    expect(check.hpCost).toBe(2);
+    expect(check.hpCost).toBe(1);
+  });
+
+  it('costs one Hit Point at a full track too, for a cost of any size (p50)', () => {
+    const c = makeCharacter({
+      vault: ['x'],
+      stress: { marked: 6, max: 6 },
+      hp: { marked: 0, max: 6 },
+    });
+    expect(canAddToLoadout(c, card('x', 4)).hpCost).toBe(1);
+    expect(canAddToLoadout(c, card('x', 1)).hpCost).toBe(1);
   });
 
   it('costs no Hit Points when the Stress is there', () => {
@@ -175,7 +188,9 @@ describe('recallCard', () => {
     expect(r.character.loadout).toEqual(['x']);
   });
 
-  it('spills into HP when the Stress track cannot cover the cost', () => {
+  it('spills into ONE Hit Point when the Stress track cannot cover the cost (p50)', () => {
+    // "When a character must mark 1 or more Stress but can't, they mark 1 HP
+    // instead": the two Stress this recall cannot mark are one Hit Point.
     const c = makeCharacter({
       vault: ['x'],
       stress: { marked: 5, max: 6 },
@@ -183,9 +198,9 @@ describe('recallCard', () => {
     });
     const r = recallCard(c, card('x', 3));
     expect(r.stressMarked).toBe(1);
-    expect(r.hpMarked).toBe(2);
+    expect(r.hpMarked).toBe(1);
     expect(r.character.stress.marked).toBe(6);
-    expect(r.character.hp.marked).toBe(2);
+    expect(r.character.hp.marked).toBe(1);
     expect(r.character.loadout).toEqual(['x']);
   });
 

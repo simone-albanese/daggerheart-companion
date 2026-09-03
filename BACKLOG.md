@@ -596,6 +596,13 @@ to mark Stress if all of their Stress is marked."*
       be enforcing.~~
       — **done, `8a87433`**. `Cards.tsx:165` reads it and the button says `MARK n HP?` before the
       first tap, so the second one is the informed one. Not hard-blocked, as this asked.
+- [x] ~~The price was wrong: `markStress` marked one HP per Stress it could not
+      mark, so `n` above went up to 4.~~ — **done, fix-E1 (findings S8a-2, B1-3)**. SRD 2
+      p50, the sentence before the one quoted above: *"When a character must mark 1
+      or more Stress but can't, they mark 1 HP instead."* One Hit Point for the whole
+      shortfall, so `n` is always 1. The count above was SRD 1's; SRD 2 has 177 of 210
+      cards at a recall cost of 1 or more, 83 at 2 or more. The recall itself stays
+      allowed at a full track, as this item decided.
 
 ### P1-3 · Proficiency can be taken twice in the same tier
 `src/engine/levelUp.ts:102-110, 271-277` · **trivial, 30 min**
