@@ -288,6 +288,34 @@ function schedule(c: Character): void {
   }, 400);
 }
 
+/**
+ * Throw the unwritten work away, for the one caller allowed to: the reset.
+ *
+ * Twice, on purpose. The first `drop` empties `pending` and `failing` now, so a
+ * flush that starts after this has nothing to write. The second runs behind
+ * the batch that may already be in flight, because `writeBatch` re-queues its
+ * failures *after* its awaits - a copy dropped only once would be put back by
+ * the batch that was mid-air when the reset began. The returned promise is the
+ * second drop, so `clearAll` empties the stores strictly after that batch has
+ * either landed or been thrown away.
+ */
+function abandon(): Promise<void> {
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  const drop = (): void => {
+    pending.clear();
+    failing.clear();
+    publishWriteError();
+  };
+  drop();
+  queue = queue.then(drop, drop);
+  return queue;
+}
+
+db.beforeClearAll(abandon);
+
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
     void flush();

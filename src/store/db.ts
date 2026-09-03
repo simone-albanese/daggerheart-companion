@@ -449,14 +449,42 @@ export async function requestPersistence(): Promise<StorageHealth> {
 }
 
 /**
+ * What the writers above this module are still holding, so the wipe can drop it.
+ *
+ * `state.ts` keeps the retry copy of a character whose write failed, and
+ * `gmStore.ts` keeps the board `dirty` and the other campaigns in `aside`, so
+ * that the next change or the next `pagehide` tries again. That is the right
+ * memory on every path but one: the reset. About's "Erase everything" ran
+ * `clearAll()` and then `location.reload()`, the reload fired `pagehide`, the
+ * flush found the stores empty and wrote the retry copy straight back - a
+ * character, or a campaign holding other players' sheets, on a device the user
+ * had just been told was clean. Each writer registers here what it has to
+ * throw away, and `clearAll` runs every one of them before it touches a store.
+ *
+ * A registry rather than two imports in About, because the GM chunk is loaded
+ * lazily and importing `gmStore.ts` *is* the campaign read starting. A writer
+ * that was never loaded has nothing pending, and is not on this list.
+ */
+const abandoners = new Set<() => Promise<void>>();
+
+export function beforeClearAll(abandon: () => Promise<void>): void {
+  abandoners.add(abandon);
+}
+
+/**
  * Wipe everything. Used by "reset app" in settings, never automatically.
  *
  * Over `STORES` rather than a list written out again here: the list written
  * out again is how a new store gets added and quietly survives the button that
  * promises to remove everything, which for `campaigns` would mean the reset
  * leaving other people's character sheets on the device.
+ *
+ * Every registered writer abandons its unwritten work first, and each of those
+ * waits for the batch it may have in flight: a write that lands after the
+ * stores are emptied is the same resurrection through a narrower window.
  */
 export async function clearAll(): Promise<void> {
+  await Promise.all([...abandoners].map((abandon) => abandon()));
   const database = await db();
   const tx = hold(database.transaction(STORES, 'readwrite'));
   await Promise.all(STORES.map((name) => tx.objectStore(name).clear()));
