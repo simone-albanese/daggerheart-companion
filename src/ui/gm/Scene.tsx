@@ -95,6 +95,10 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   const spotlit = combatants.filter((c) => c.spotlighted).length;
   /*
    * What Ambushed and Ambushers mean by `Difficulty: Special`, for the band.
+   * Duel prints the same word with a different rule - the challenger's, whom
+   * this board cannot know - and the band declines to draw this for it; that
+   * choice is the band's (`derivesFromStrongest` in `StatBlock.tsx`), so the
+   * runner computes the maximum for every open scene and lets the band decide.
    *
    * It reads the combatants' own `difficulty` rather than the adversaries' -
    * `makeCombatant` copies it at spawn and the card prints that copy, so this

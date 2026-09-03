@@ -417,15 +417,17 @@ function EnvironmentRow({
           {/*
             NOT A PROPERTY OF THE TYPE, AND THE OLD COMMENT HERE SAID IT WAS.
 
-            Two environments in the shipped dataset print `Difficulty: Special`
-            instead of a number, Ambushed and Ambushers, and
-            `shared/parsers/environments.ts:37-43` records that the book prints the
-            word and that this app stores it as 0 because
-            `Environment.difficulty` is a `number`. Both happen to be Events,
-            which is what the sentence that stood here generalised from - but
-            the other four Events all carry a Difficulty (Cult Ritual 14, Castle
-            Siege 17, Pitched Battle 17, Divine Usurpation 20), so the type
-            never had anything to do with it and no other type is exempt either.
+            Three environments in the shipped SRD 2.0 dataset print
+            `Difficulty: Special` instead of a number - Ambushed and Ambushers
+            (p161) and Duel (p168) - and `shared/parsers/environments.ts`
+            records that the book prints the word and that this app stores it
+            as 0 because `Environment.difficulty` is a `number`. All three
+            happen to be Events, which is what the sentence that stood here
+            generalised from - but the other ten Events all carry a Difficulty
+            (Hold the Line and Raiding Party 11, Cult Ritual and Heist 14,
+            Megastorm and Volcanic Eruption 16, Castle Siege and Pitched Battle
+            17, Divine Usurpation and Time Court 20), so the type never had
+            anything to do with it and no other type is exempt either.
 
             Dropping the field on 0 was right about the 0 - printing `DIF 0`
             would be a number the book does not give - and wrong about the

@@ -6,7 +6,7 @@
  * taken. `AdversaryBlock` printed MOTIVES & TACTICS on the bestiary card while
  * `CombatantCard` - the one on screen during the fight - printed none;
  * `EnvironmentBlock` drew impulses and potential adversaries while
- * `EnvironmentBand`, the other half of the same file, drew neither; and the two
+ * `EnvironmentBand`, the other half of the same file, drew neither; and the
  * environments that print `Difficulty: Special` had their readout suppressed
  * with nothing put in its place, so the field read as absent rather than as
  * special.
@@ -17,10 +17,11 @@
  * could be given motives, impulses and a zero Difficulty to order, and would go
  * on passing after a dataset rebuild moved any of them.
  *
- * The Difficulty tests carry their own premise. `it('is Ambushed and Ambushers
- * ...')` asserts which environments print Special before anything asserts what
- * the band does about it, because every other test in that block is only
- * interesting while that is still true of the shipped file.
+ * The Difficulty tests carry their own premise. `it('is Ambushed, Ambushers and
+ * Duel ...')` asserts which environments print Special, and which of the two
+ * Relative Strength rules each carries, before anything asserts what the band
+ * does about it, because every other test in that block is only interesting
+ * while that is still true of the shipped file.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
@@ -46,8 +47,20 @@ declare global {
 const dataset = srd as unknown as Dataset;
 const index = indexDataset(dataset);
 
-/** The two the parser stores as 0, found by the property rather than by id. */
+/** The three the parser stores as 0, found by the property rather than by id. */
 const special = (): Environment[] => dataset.environments.filter((e) => e.difficulty <= 0);
+
+/** The Relative Strength sentence a Special block carries, or '' when it has none. */
+const relativeStrength = (e: Environment): string =>
+  e.features.find((f) => f.name === 'Relative Strength')?.text ?? '';
+
+/** The Specials whose rule is the strongest adversary present (p161): the two ambushes. */
+const strongestRule = (): Environment[] =>
+  special().filter((e) => /highest Difficulty/.test(relativeStrength(e)));
+
+/** The Specials whose rule is somebody the app cannot know (p168): the challenger. */
+const challengerRule = (): Environment[] =>
+  special().filter((e) => /issued the challenge/.test(relativeStrength(e)));
 
 /** A place with all three fields filled, for the fields that are not Special. */
 const marketplace = (): Environment =>
@@ -411,15 +424,19 @@ describe('what the band says about the place', () => {
 });
 
 describe('the Difficulty of a place that prints none', () => {
-  it('is Ambushed and Ambushers, and only those two', () => {
+  it('is Ambushed, Ambushers and Duel, and only those three', () => {
     // The premise every other test in this block stands on. If a rebuild adds
-    // a third or renames one of these, the substitute is being drawn for
-    // something nobody reasoned about.
-    // Three on the shipped book: SRD 2.0 adds Duel to the two SRD 1.0 wrote
-    // as Special. The premise is the same - every one of them prints no
-    // number - and the substitute below is drawn for all three.
+    // a fourth or renames one of these, a substitute is being drawn - or
+    // withheld - for something nobody reasoned about.
+    // Three on the shipped book: SRD 2.0 adds Duel (p168) to the two SRD 1.0
+    // wrote as Special (both p161 in SRD 2.0). All three print no number, but
+    // they do NOT share a rule: the two ambushes read "the adversary with the
+    // highest Difficulty", Duel reads "the adversary who issued the
+    // challenge", and the substitute below is drawn for the first rule only.
     expect(special().map((e) => e.name).sort()).toEqual(['Ambushed', 'Ambushers', 'Duel']);
     for (const e of special()) expect(e.difficulty).toBe(0);
+    expect(strongestRule().map((e) => e.name).sort()).toEqual(['Ambushed', 'Ambushers']);
+    expect(challengerRule().map((e) => e.name)).toEqual(['Duel']);
   });
 
   it('prints the book’s own word instead of leaving the field absent', () => {
@@ -445,6 +462,33 @@ describe('the Difficulty of a place that prints none', () => {
       // And the header still says what the book says, beside the substitute.
       expect(text()).toContain('DIF SPECIAL');
     }
+  });
+
+  /*
+   * Duel's rule is not the ambushes' rule, and the app cannot apply it.
+   *
+   * p168, Relative Strength: "The Difficulty of this environment equals that
+   * of the adversary who issued the challenge." Who issued it is a fact about
+   * the fiction the GM is holding, not about the cards on the board, and the
+   * strongest card is only sometimes the same person. So the band draws no
+   * substitute for Duel - the header still says SPECIAL, the feature is still
+   * verbatim behind the fold - where it used to print the ambush arithmetic
+   * with the ambush attribution, "≈ DIF 15 · FROM THE STRONGEST ADVERSARY
+   * HERE", for a challenger who might be the 12.
+   */
+  it('claims no number for Duel, whose rule names the challenger and not the strongest', () => {
+    const strong = dataset.adversaries.find((a) => a.difficulty === 15)!;
+    const weak = dataset.adversaries.find((a) => a.difficulty === 12)!;
+    const duel = challengerRule()[0]!;
+
+    scene([makeCombatant(weak, 0, 4), makeCombatant(strong, 1, 4)], duel.id);
+    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).not.toContain('≈ DIF');
+    expect(text()).not.toContain('FROM THE STRONGEST ADVERSARY HERE');
+    expect(text()).not.toContain('COMPUTED BY THIS APP');
+    // The rule itself is still on the screen, one fold down.
+    openTheBand();
+    expect(text()).toContain('the adversary who issued the challenge');
   });
 
   /*

@@ -463,9 +463,9 @@ describe('the bestiary’s own way onto the table', () => {
  * tests, which mount the same screen for an unrelated reason.
  *
  * What is pinned is that the row states a Difficulty it cannot give as a
- * number instead of dropping the field. Two environments print
- * `Difficulty: Special` in the book, Ambushed and Ambushers, and
- * `shared/parsers/environments.ts:37-43` stores that as 0 because
+ * number instead of dropping the field. Three environments print
+ * `Difficulty: Special` in SRD 2.0 - Ambushed and Ambushers (p161) and Duel
+ * (p168) - and `shared/parsers/environments.ts` stores that as 0 because
  * `Environment.difficulty` is a `number`. A row that answered by going quiet
  * read as a row whose data had gone missing.
  */
@@ -492,7 +492,7 @@ describe('what the environment list says about a Difficulty it has no number for
     return found;
   };
 
-  it('is the two the book writes as Special, and only those two', () => {
+  it('is the three the book writes as Special, and only those three', () => {
     // The fixture is the shipped SRD, so this is the dataset's own answer and
     // not a hand-kept list. If a layer ever adds a third, the row below covers
     // it too - what would break here is only this test's own arithmetic.

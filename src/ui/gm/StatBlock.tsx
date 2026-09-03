@@ -396,15 +396,16 @@ export function AdversaryBlock({
  *
  * ## The Difficulty this app is allowed to state
  *
- * Two environments print `Difficulty: Special` instead of a number - Ambushed
- * and Ambushers, both p.103 - and `shared/parsers/environments.ts` stores that
+ * Three environments in SRD 2.0 print `Difficulty: Special` instead of a
+ * number - Ambushed and Ambushers (p161, the two SRD 1.0 also wrote as
+ * Special) and Duel (p168) - and `shared/parsers/environments.ts` stores that
  * as 0, because `Environment.difficulty` is a number. Suppressing the readout
  * on 0 was right, since 0 is a lie, but it left the field reading as *absent*,
  * which is worse: a GM could not tell whether the place had no Difficulty or
  * the app had lost it. The header now prints the book's own word, SPECIAL.
  *
  * The substitute splits cleanly into a quote and an app's arithmetic, and the
- * seam is the whole design. Both blocks carry a Passive named Relative
+ * seam is the whole design. The two ambushes carry a Passive named Relative
  * Strength reading "The Difficulty of this environment equals that of the
  * adversary with the highest Difficulty" - so *that* a substitute exists is the
  * book's, not this app's, and the feature itself is already printed verbatim
@@ -414,6 +415,21 @@ export function AdversaryBlock({
  * is too low. A chosen set is arithmetic, so the line takes this project's
  * rule for anything computed rather than quoted - `--dim`, prefixed `≈`, with
  * COMPUTED BY THIS APP in the same element as the number.
+ *
+ * DUEL GETS NO SUBSTITUTE, and the seam is why. Its Relative Strength reads
+ * "equals that of the adversary who issued the challenge" - a fact about the
+ * fiction, which the GM holds and the board does not. The strongest card is
+ * only sometimes the challenger, so a maximum here is not a scoped version of
+ * the book's rule, it is a different rule wearing the book's attribution: with
+ * a Difficulty 12 challenger and a 15 beside them the band said "≈ DIF 15 ·
+ * FROM THE STRONGEST ADVERSARY HERE" for every Duel. `derivesFromStrongest`
+ * reads the block's own sentence for "highest Difficulty" rather than keying
+ * on two ids, so a custom dataset that prints the ambush rule under another
+ * name gets the substitute and one that prints Duel's rule does not. For Duel
+ * the header says SPECIAL and the feature is one fold down; no line was added
+ * in its place, because a line the band does not draw costs nothing against
+ * the 46px floor above, and "ask the GM who issued the challenge" is a control
+ * this band has not got.
  *
  * `strongestHere` is optional because two callers draw this band and only one
  * of them has a fight under it. `Scene.tsx` passes it, off the OPEN row's own
@@ -426,6 +442,16 @@ export function AdversaryBlock({
  * header still says SPECIAL and no number is claimed. Reading `useGm` in here
  * would have got the arithmetic for free and got exactly that defect with it.
  */
+/**
+ * Whether a Special environment's own Relative Strength says "the adversary
+ * with the highest Difficulty" - the one rule a maximum over the board can
+ * stand in for. True of Ambushed and Ambushers (p161); false of Duel (p168),
+ * whose rule names the challenger; false of any block with a number.
+ */
+export const derivesFromStrongest = (e: Environment): boolean =>
+  e.difficulty <= 0 &&
+  e.features.some((f) => f.name === 'Relative Strength' && /highest Difficulty/i.test(f.text));
+
 export function EnvironmentBand({
   environment,
   strongestHere,
@@ -437,7 +463,7 @@ export function EnvironmentBand({
   const [open, setOpen] = useState(false);
   const e = environment;
   const special = e.difficulty <= 0;
-  const derived = special && strongestHere !== undefined ? strongestHere : null;
+  const derived = derivesFromStrongest(e) && strongestHere !== undefined ? strongestHere : null;
   return (
     <section
       className="panel stack"
