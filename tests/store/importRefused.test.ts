@@ -1,8 +1,9 @@
 /**
  * An import against a disk that refuses, or that is about to be written twice.
  *
- * Two doors in `state.ts` write straight to `db.putCharacter`: `importCharacters`
- * and `resolveImport`. Both are exercised here against the one refusal that
+ * Two doors in `state.ts` used to write straight to `db.putCharacter`:
+ * `importCharacters` and `resolveImport`, which now share `writeOver`. Both are
+ * exercised here against the one refusal that
  * ships on purpose - a record stamped with a newer schema than this build
  * knows, which `putCharacter` will not write over - because a `.dhbackup`
  * restore onto a device that has taken an update in another tab reaches it.
