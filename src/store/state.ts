@@ -38,7 +38,14 @@ export interface ImportReport {
   replaced: Character[];
   /** Nothing was written for these. Each one is a question for the user. */
   conflicts: ImportConflict[];
-  /** Whatever the file or codec layer wanted to say, carried through. */
+  /**
+   * Whatever the file or codec layer wanted to say, carried through - and one
+   * sentence per character this build refused to write, in the refusal's own
+   * words. A record on the device last saved by a newer build is left alone
+   * (`db.putCharacter`), the character in the file is left out, and the rest
+   * of the file still lands: a `.dhbackup` restore that stopped at the first
+   * such record and reported nothing was the failure this list closes.
+   */
   warnings: string[];
 }
 
@@ -623,6 +630,8 @@ export const useApp = create<AppState>((set, get) => ({
     );
     const here = get().characters.filter((c) => !written.has(c.id));
 
+    /** The first failure that was not this build's own refusal, rethrown after the loop. */
+    let failed: unknown;
     for (const { normalized, local, decision } of prepared) {
 
       if (decision === 'keep-local') {
@@ -657,7 +666,27 @@ export const useApp = create<AppState>((set, get) => ({
       }
 
       const wasEmpty = get().characters.length === 0;
-      await db.putCharacter(character);
+      /*
+       * Caught per character, so one refusal cannot take the rest of the file
+       * with it. This loop used to await the write bare: a `.dhbackup` holding
+       * A, B and C, with B on the device last saved by a newer build, wrote A,
+       * rejected on B, never reached C, and threw the report away - the caller
+       * learned nothing about the two that did or did not land. A schema
+       * refusal is deliberate and already says why in its own words, so it
+       * becomes a warning and the loop goes on. Anything else - a full disk, a
+       * closed connection - is not a decision this build took, so it is
+       * carried past the loop and thrown once everything writable has landed.
+       */
+      try {
+        await db.putCharacter(character);
+      } catch (error) {
+        if (named(error, 'StaleBuildError') && error instanceof Error) {
+          report.warnings.push(error.message);
+          continue;
+        }
+        failed ??= error;
+        continue;
+      }
       set((s) => ({
         characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
         activeId: character.id,
@@ -668,6 +697,7 @@ export const useApp = create<AppState>((set, get) => ({
       (decision === 'import' ? report.imported : report.replaced).push(character);
     }
 
+    if (failed !== undefined) throw failed;
     return report;
   },
 
