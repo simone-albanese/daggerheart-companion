@@ -355,7 +355,10 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    *
    * What that is worth, as the card area visible without scrolling - the
    * scrollport less the block and the grid's 12px gap, against a tile 268px
-   * tall on a phone and 310 on a tablet:
+   * tall on a phone and 310 on a tablet, which is what the tile was when this
+   * was measured (it is 286 and 320 since the readability ramp - see the note
+   * by `height` on the card below - so the right-hand column overstates by
+   * about 5% and is not re-derived here):
    *
    *   window     port   was ->  now    of a card
    *   320x568     438   148 ->  364    55% -> 136%
@@ -652,7 +655,23 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
               card={row.card}
               shapes={shapes}
               onOpen={() => setOpenCard(row.card)}
-              height={phone ? 268 : 310}
+              /*
+               * 286 and 320, from 268 and 310, because the reading line grew
+               * with the readability ramp: `.t-read` is 16px/1.5 on a phone -
+               * a 24px line, from 18.85 at the old 13px/1.45 - and 15px/1.5
+               * from 720, a 22.5px line. The text box is what the tile has
+               * left after its borders, the head, the chip row, the name and
+               * the footer, and by declaration that was 81.25 of the phone's
+               * 268 and 109.95 of the desktop's 310 (the 110 the `--control`
+               * note in `tokens.css` measured), which held four and five whole
+               * lines at the old size and three and four at the new. Eighteen
+               * and ten more pixels give the box 99.25 and 119.95 - 115.25 on
+               * a tablet, whose footer is 44 and not 34 - and the same four
+               * and five lines back, with at least 2.75px spare in each.
+               * Derived from the declarations, not yet measured on the rig;
+               * the table in the docblock above is still against 268 and 310.
+               */
+              height={phone ? 286 : 320}
               headHeight={phone ? 78 : 96}
               dimmed={!row.eligible && !row.owned}
               footer={

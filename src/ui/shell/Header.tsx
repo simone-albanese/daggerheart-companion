@@ -369,7 +369,13 @@ export function Header({
     <header
       className="spread"
       style={{
-        height: 52,
+        /*
+         * A floor and not a height since the readability ramp: the nav words
+         * and the character picker inside it are rem, so a root the OS has
+         * turned up grows the bar by a few pixels instead of clipping them. At
+         * the 16px root it is the same 52 it always was.
+         */
+        minHeight: 52,
         flex: 'none',
         alignItems: 'center',
         /*
@@ -412,7 +418,7 @@ export function Header({
                   minHeight: 'var(--control)',
                   borderRadius: 'var(--r2)',
                   background: screen === s.id ? 'var(--raised)' : 'transparent',
-                  font: `${screen === s.id ? 700 : 600} 12px/1 var(--sans)`,
+                  font: `${screen === s.id ? 700 : 600} 0.75rem/1 var(--sans)`,
                   letterSpacing: '0.09em',
                   color: screen === s.id ? 'var(--text)' : 'var(--dim)',
                   textTransform: 'uppercase',

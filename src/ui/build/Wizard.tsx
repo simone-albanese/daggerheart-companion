@@ -703,7 +703,9 @@ function WizardHeader({
                 style={{
                   gap: 7,
                   justifyContent: 'center',
-                  height: 'var(--control)',
+                  // A floor since the readability ramp: the digit is rem now,
+                  // and a control's box must grow with its word, not clip it.
+                  minHeight: 'var(--control)',
                   minWidth: 'var(--control)',
                   padding: '0 11px',
                   borderRadius: 'var(--r2)',
@@ -714,7 +716,7 @@ function WizardHeader({
               >
                 <span
                   className="t-num"
-                  style={{ fontSize: 11, color: here ? 'var(--text)' : 'var(--dim)' }}
+                  style={{ fontSize: '0.6875rem', color: here ? 'var(--text)' : 'var(--dim)' }}
                 >
                   {i + 1}
                 </span>

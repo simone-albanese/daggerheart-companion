@@ -382,8 +382,8 @@ describe('the screens that share this card', () => {
   const card = makeCard({ text: 'Spend a Hope to do the thing described here.' });
 
   it('still gives the cards browser a full-height card with no clamp', () => {
-    const html = render({ card, height: 268, headHeight: 78, dimmed: true });
-    expect(html).toContain('height:268px');
+    const html = render({ card, height: 286, headHeight: 78, dimmed: true });
+    expect(html).toContain('height:286px');
     expect(html).toContain('class="t-read"');
     expect(html).not.toContain('-webkit-line-clamp');
     expect(html).toContain('opacity:0.42');
