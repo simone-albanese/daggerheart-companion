@@ -159,7 +159,9 @@ const pending = new Map<string, Character>();
 /** Ids whose last write attempt failed and which are still not on the disk. */
 const failing = new Set<string>();
 /**
- * Ids being deleted right now. Nothing may write them back.
+ * Ids whose disk copy is being replaced from outside the queue right now - a
+ * delete, or an import the user chose. Nothing the queue holds may write them
+ * back.
  *
  * `pending.delete(id)` on its own was not enough: a batch already in flight has
  * taken its copy out of `pending` before `remove` runs, so its `put` could
@@ -293,6 +295,36 @@ function schedule(c: Character): void {
   flushTimer = setTimeout(() => {
     void flush();
   }, 400);
+}
+
+/**
+ * Write a character the user chose over whatever the queue still holds for it.
+ *
+ * `resolveImport`'s TAKE THEIRS and `importCharacters` in replace mode used to
+ * call `db.putCharacter` bare. After a refused write of the local copy, that
+ * copy is still in `pending` as a retry, so the next flush - an edit to
+ * another character, `pagehide` - put it straight back over the record the
+ * user had just chosen: memory showed the file's copy, the disk held the one
+ * they rejected, and the next launch showed that one. `remove` closed the
+ * same window for a delete; this is the same two steps for a put. The retry
+ * copy is dropped now, `removed` keeps a batch already in flight from
+ * re-queueing it, and the write waits behind that batch so it lands strictly
+ * after whatever was mid-air.
+ */
+async function writeOver(character: Character): Promise<void> {
+  const { id } = character;
+  pending.delete(id);
+  failing.delete(id);
+  removed.add(id);
+  publishWriteError();
+  try {
+    await flush();
+    await db.putCharacter(character);
+  } finally {
+    // Cleared either way, as in `remove`: a put that failed must not block
+    // every later write of that id for the life of the tab.
+    removed.delete(id);
+  }
 }
 
 /**
@@ -678,7 +710,7 @@ export const useApp = create<AppState>((set, get) => ({
        * carried past the loop and thrown once everything writable has landed.
        */
       try {
-        await db.putCharacter(character);
+        await writeOver(character);
       } catch (error) {
         if (named(error, 'StaleBuildError') && error instanceof Error) {
           report.warnings.push(error.message);
@@ -710,7 +742,7 @@ export const useApp = create<AppState>((set, get) => ({
         ? normalizeIncoming(duplicateFor(conflict.incoming, characters), dataset, index)
         : conflict.incoming;
 
-    await db.putCharacter(character);
+    await writeOver(character);
     set((s) => ({
       characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
       activeId: character.id,

@@ -136,3 +136,50 @@ describe('a backup with one record the device refuses to take', () => {
     vi.doUnmock('../../src/store/db.ts');
   });
 });
+
+describe('an import the user chose, against the retry copy of a failed write', () => {
+  const a = makeCharacter({ name: 'Rook' });
+  const fromBackup = (): Character => ({ ...a, name: 'Rook, from the backup', updatedAt: '2026-07-01T12:00:00.000Z' });
+
+  /** A refused write of the local copy, which leaves its retry copy in `pending`. */
+  async function leaveARetryCopy(): Promise<void> {
+    await blockWritesTo(a);
+    store.useApp.setState({ characters: [a], activeId: a.id });
+    store.useApp.getState().update((x) => ({ ...x, name: 'Rook, edited in the tab' }));
+    await store.flushPending();
+    expect(store.useApp.getState().writeError?.kind, 'the precondition is a refused write').toBe(
+      'stale',
+    );
+    // The other tab closed; the record can be written again.
+    await unblock(a);
+  }
+
+  it('TAKE THEIRS is not written over by the next flush', async () => {
+    await leaveARetryCopy();
+    const local = store.useApp.getState().characters[0]!;
+
+    await store.useApp.getState().resolveImport({ incoming: fromBackup(), local }, 'take-theirs');
+    // What an edit to another character, or `pagehide`, does next.
+    await store.flushPending();
+
+    expect(
+      (await db.getCharacter(a.id))?.name,
+      'the retry copy of the rejected local edit was written over the copy the user chose',
+    ).toBe('Rook, from the backup');
+    expect(store.useApp.getState().characters[0]?.name).toBe('Rook, from the backup');
+    expect(store.useApp.getState().writeError, 'nothing is unwritten any more').toBeNull();
+  });
+
+  it('a replace-mode import is not written over by the next flush', async () => {
+    await leaveARetryCopy();
+
+    await store.useApp.getState().importCharacters([fromBackup()], { mode: 'replace' });
+    await store.flushPending();
+
+    expect(
+      (await db.getCharacter(a.id))?.name,
+      'the retry copy of the rejected local edit was written over the copy the user chose',
+    ).toBe('Rook, from the backup');
+    expect(store.useApp.getState().writeError).toBeNull();
+  });
+});
