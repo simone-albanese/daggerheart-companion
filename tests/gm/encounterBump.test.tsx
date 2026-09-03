@@ -115,7 +115,9 @@ describe('what the builder says the bump does', () => {
     expect(BUMP, 'the shipped dataset no longer carries the line').not.toBeNull();
     useGm.setState({ adjustments: { easier: false, harder: false, damageBump: true } });
     render(createElement(Encounter, { phone: false }));
-    expect(text()).toContain(BUMP!.toUpperCase());
+    // As the book writes it: the line is a `.t-hint` sentence since the
+    // readability ramp, not a caps meta line, so the case is the dataset's.
+    expect(text()).toContain(`This fight: ${BUMP!}`);
     // The line this replaced. It said "(OR +2)" where the book says "(or a
     // static +2)", which is the drift a hand-typed rule always ends in.
     expect(text()).not.toContain('ALL ADVERSARIES DEAL +1d4 (OR +2) DAMAGE THIS FIGHT');
@@ -133,8 +135,8 @@ describe('what the builder says the bump does', () => {
 
   it('says the derived line instead when the bump is off', () => {
     render(createElement(Encounter, { phone: false }));
-    expect(text()).toContain('DERIVED FROM THE ROSTER');
-    expect(text()).not.toContain(BUMP!.toUpperCase());
+    expect(text()).toContain('derived from the roster and cannot be toggled');
+    expect(text()).not.toContain(`This fight: ${BUMP!}`);
   });
 });
 

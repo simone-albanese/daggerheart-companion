@@ -330,7 +330,7 @@ function FormText({ form }: { form: Form }): React.JSX.Element {
       )}
       {form.features.map((f) => (
         <span key={f.name} className="t-read" style={{ display: 'block', marginTop: 7 }}>
-          <span style={{ font: '700 11.5px/1.38 var(--sans)', color: 'var(--text-2)' }}>
+          <span style={{ fontWeight: 700 }}>
             {f.name}:{' '}
           </span>
           {f.text}

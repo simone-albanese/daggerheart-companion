@@ -633,7 +633,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                   style={{
                     minWidth: 52,
                     minHeight: 44,
-                    fontSize: 13,
+                    fontSize: '0.8125rem',
                     background: companion.damageType === id ? 'var(--hope)' : 'var(--raised)',
                     color: companion.damageType === id ? 'var(--app)' : 'var(--muted)',
                   }}
@@ -653,7 +653,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
               >
                 −
               </button>
-              <span style={{ font: '700 13px/1 var(--sans)', minWidth: 74, textAlign: 'center' }}>
+              <span style={{ font: '700 0.8125rem/1 var(--sans)', minWidth: 74, textAlign: 'center' }}>
                 {companion.range}
               </span>
               <button
@@ -717,7 +717,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                       ),
                     })
                   }
-                  style={{ minWidth: 52, minHeight: 44, fontSize: 13 }}
+                  style={{ minWidth: 52, minHeight: 44, fontSize: '0.8125rem' }}
                 >
                   +{exp.bonus}
                 </button>
@@ -788,7 +788,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                     }}
                   />
                   <span className="stack" style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ font: '700 13px/1.15 var(--sans)' }}>{up.name}</span>
+                    <span style={{ font: '700 0.8125rem/1.15 var(--sans)' }}>{up.name}</span>
                     <span className="t-read" style={{ marginTop: 4 }}>
                       {up.text}
                     </span>

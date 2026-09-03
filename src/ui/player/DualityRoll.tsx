@@ -339,7 +339,7 @@ function DieKeypad({
               borderRadius: 'var(--r1)',
               background: n === value ? color : 'var(--raised)',
               color: n === value ? 'var(--app)' : 'var(--text)',
-              font: '600 12px/1 var(--mono)',
+              font: '600 0.75rem/1 var(--mono)',
             }}
           >
             {n}
@@ -766,7 +766,7 @@ function ExtraKeypad({
             borderRadius: 'var(--r1)',
             background: n === die.value ? die.color : 'var(--raised)',
             color: n === die.value ? 'var(--app)' : 'var(--text)',
-            font: '600 12px/1 var(--mono)',
+            font: '600 0.75rem/1 var(--mono)',
           }}
         >
           {n}
@@ -2182,16 +2182,20 @@ export function DualityRoll({
                 className="t-meta"
                 style={{
                   marginTop: 4,
-                  // 12 and not `.t-meta`'s 10, with the leading declared beside
-                  // it: this is the whole statement of what the next roll will
-                  // be and it was the smallest type on the sheet. `.t-meta` is
-                  // `500 10px/1`, so raising the size alone leaves a 12px glyph
-                  // in a 10px line box and clips its own ink; `15px` is the
-                  // leading that holds it, and it is what makes two lines 30
-                  // rather than 20. Size and leading only - the family, the
-                  // weight and the 0.06em tracking stay the class's.
-                  fontSize: 12,
-                  lineHeight: '15px',
+                  // 0.75rem and 1.25, declared beside each other: this is the
+                  // whole statement of what the next roll will be, and it was
+                  // the smallest type on the sheet when `.t-meta` was `500
+                  // 10px/1` - a 12px glyph in a 10px line box clips its own
+                  // ink, so the leading was declared with the size, `15px`,
+                  // and two lines were 30 rather than 20, which is where
+                  // ROLL's 56 floor comes from. Since the readability ramp
+                  // `.t-meta` is 12px/1.25 itself wherever a finger is in play
+                  // and 11px on a fine-pointer desk; this line keeps the 12 on
+                  // the desk too, and 1.25 of 12 is the same 15. Size and
+                  // leading only - the family, the weight and the tracking
+                  // stay the class's.
+                  fontSize: '0.75rem',
+                  lineHeight: 1.25,
                   // A real ink and no opacity fade: at 0.75 this line was one
                   // of the roll readout's AA failures on the audit rig. The
                   // verdict colour clears 4.5:1 on the panel in every state -
@@ -3331,7 +3335,7 @@ function ControlRow({
             minHeight: 'var(--control)',
             padding: '4px 6px',
             textAlign: 'center',
-            font: '600 13px/1 var(--mono)',
+            font: '600 0.8125rem/1 var(--mono)',
           }}
         />
       </label>

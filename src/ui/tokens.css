@@ -290,10 +290,11 @@
    * stepper stretches to inside it, its width staying at the 44px floor - and
    * `--counter-max` is the size of the `/ 11`, which is now on a line of its
    * own UNDER the value rather than beside it. So the maximum is subordinate to
-   * the number instead of sharing its line, `.t-meta`'s 10 is the right size
-   * for it at every width, and it is declared once here and never stepped. (It
-   * was 11 from 390 up for one commit, and this paragraph said "all three step
-   * together" for one more.)
+   * the number instead of sharing its line, 10 is the right size for it at
+   * every width - its own px value, and no longer `.t-meta`'s, which the
+   * readability ramp took to 12 - and it is declared once here and never
+   * stepped. (It was 11 from 390 up for one commit, and this paragraph said
+   * "all three step together" for one more.)
    *
    * Measured in Chrome, `wizard10` at full Hit Points: the two lines are `11`
    * at **47.64px** and `/ 11` at 26.41, against 73.5 of room at 393 and 72 at
@@ -425,7 +426,9 @@
  *
  * `--counter-max` does NOT step here and that is the change that let the number
  * grow. It was 11 and rode beside the value; on its own line it is subordinate
- * to a 38px number and `.t-meta`'s 10 is the right size for it.
+ * to a 38px number and 10 is the right size for it - a px size of its own,
+ * since `.t-meta` is 12 after the readability ramp and this line is a term of
+ * a cell measured in px.
  */
 @media (min-width: 390px) {
   :root {

@@ -782,7 +782,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
         borderRadius: 'var(--r3)',
         background: kind === which ? 'var(--hope-wash)' : 'var(--raised)',
         border: `1px solid ${kind === which ? 'var(--hope)' : 'var(--line)'}`,
-        font: '700 13px/1 var(--sans)',
+        font: '700 0.8125rem/1 var(--sans)',
         letterSpacing: '0.06em',
         color: 'var(--text)',
       }}
@@ -976,7 +976,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
                       style={{
                         flex: 1,
                         minWidth: 0,
-                        font: '600 12px/1.15 var(--sans)',
+                        font: '600 0.75rem/1.15 var(--sans)',
                         color: 'var(--text-2)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -1409,7 +1409,7 @@ function SwapRow({
           style={{
             flex: 1,
             minWidth: 0,
-            font: '600 13px/1.15 var(--sans)',
+            font: '600 0.8125rem/1.15 var(--sans)',
             color: ghost ? 'var(--dim)' : 'var(--text-2)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

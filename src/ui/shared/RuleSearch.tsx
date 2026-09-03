@@ -1065,8 +1065,12 @@ const spoken = (
  * `1.3` rather than `1` because a wrapped name at `line-height: 1` in an
  * all-caps mono face sets its two lines touching, and the wrapped names are
  * exactly the long titles that most need reading.
+ *
+ * The 12 is `0.75rem` since the readability ramp - the same 12px at the 16px
+ * root every number above was measured at, and more where the OS text size
+ * says so. Nothing in the table was re-measured for the change of unit.
  */
-const ROW_NAME = { fontSize: 12, lineHeight: 1.3, letterSpacing: '0.1em', color: 'var(--text-2)' } as const;
+const ROW_NAME = { fontSize: '0.75rem', lineHeight: 1.3, letterSpacing: '0.1em', color: 'var(--text-2)' } as const;
 
 /**
  * How the answer line is held to one line, and why it is not a character count.

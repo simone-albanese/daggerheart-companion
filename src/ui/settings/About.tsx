@@ -593,7 +593,7 @@ function LicenceTexts(): React.JSX.Element {
             background: 'var(--panel)',
             border: '1px solid var(--line-soft)',
             color: 'var(--text-2)',
-            font: '400 11px/1.5 var(--mono)',
+            font: '400 0.8125rem/1.5 var(--mono)',
             whiteSpace: 'pre',
             tabSize: 4,
           }}

@@ -301,7 +301,7 @@ function TrackStrip({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             letterSpacing: '0.08em',
-            fontSize: 11,
+            fontSize: '0.6875rem',
             color: 'var(--text)',
           }}
         >

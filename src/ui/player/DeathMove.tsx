@@ -755,7 +755,7 @@ function Avoid({
             you would have {cost.hopeAvailable} Hope available.
           </span>
           {cost.journeyEnds && (
-            <span style={{ font: '700 13px/1.4 var(--sans)', color: 'var(--damage)' }}>
+            <span style={{ font: '700 0.8125rem/1.4 var(--sans)', color: 'var(--damage)' }}>
               This is the last slot. Your character’s journey ends.
             </span>
           )}

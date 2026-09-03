@@ -1243,7 +1243,7 @@ function CombatantCard({
           <span style={{ font: '800 17px/1 var(--sans)', fontVariantNumeric: 'tabular-nums' }}>
             {signed(adversary.attackBonus)}
           </span>
-          <span style={{ font: '600 13px/1.15 var(--sans)', color: 'var(--text-2)' }}>
+          <span style={{ font: '600 0.8125rem/1.15 var(--sans)', color: 'var(--text-2)' }}>
             {adversary.attack.name}
           </span>
           <span className="t-num" style={{ marginLeft: 'auto', color: 'var(--damage)' }}>

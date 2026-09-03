@@ -423,7 +423,7 @@ function SceneArm({
           // The visible label is one word for every scene row on the screen,
           // and a `<select>` has no text of its own to tell them apart either.
           aria-label={`ENVIRONMENT — ${row}`}
-          style={{ minHeight: 'var(--tap)', font: '600 13px/1 var(--sans)' }}
+          style={{ minHeight: 'var(--tap)', font: '600 0.8125rem/1 var(--sans)' }}
         >
           <option value="">No environment</option>
           {environments.map((e) => (
@@ -1574,7 +1574,7 @@ function CountdownArm({
             value={item.sceneId ?? ''}
             onChange={(e) => setScene(item.id, e.target.value || null)}
             aria-label={`BELONGS TO — ${row}`}
-            style={{ minHeight: 'var(--tap)', font: '600 13px/1 var(--sans)' }}
+            style={{ minHeight: 'var(--tap)', font: '600 0.8125rem/1 var(--sans)' }}
           >
             <option value="">The campaign</option>
             {scenes.map((scene) => (

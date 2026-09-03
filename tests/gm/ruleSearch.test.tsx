@@ -2570,7 +2570,9 @@ describe('the rest of the book, under the sections', () => {
     const section = nameOf(hits()[0]!);
     const record = nameOf(recordRows()[0]!);
 
-    expect(section.style.fontSize).toBe('12px');
+    // 12px at the 16px root, in rem since the readability ramp so the OS text
+    // size reaches a name that is read to pick a row.
+    expect(section.style.fontSize).toBe('0.75rem');
     expect(record.style.fontSize).toBe(section.style.fontSize);
     expect(record.style.letterSpacing).toBe(section.style.letterSpacing);
     expect(record.style.lineHeight).toBe(section.style.lineHeight);

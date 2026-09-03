@@ -613,7 +613,7 @@ export function Header({
                   maxWidth: phone ? 'min(150px, 38vw)' : 'min(200px, 17vw)',
                   minHeight: 0,
                   padding: '2px 6px',
-                  font: '700 13px/1 var(--sans)',
+                  font: '700 0.8125rem/1 var(--sans)',
                 }}
               >
                 {characters.map((c) => (
@@ -629,7 +629,7 @@ export function Header({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  font: '700 13px/1 var(--sans)',
+                  font: '700 0.8125rem/1 var(--sans)',
                   color: 'var(--text)',
                 }}
                 title={active.name || 'Unnamed'}

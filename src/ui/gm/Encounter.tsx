@@ -201,7 +201,7 @@ function AddButton({
       <span
         className="t-meta"
         style={{
-          fontSize: 9.5,
+          fontSize: '0.625rem',
           color: inRoster > 0 ? 'var(--hope)' : 'var(--dim)',
           // One line or nothing. Wrapped, it would push the picker row taller
           // than the 46px cell for one adversary out of 129.

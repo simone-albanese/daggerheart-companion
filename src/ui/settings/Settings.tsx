@@ -152,7 +152,7 @@ export function Settings(): React.JSX.Element {
                   gap: 9,
                   borderRadius: 'var(--r2)',
                   background: active ? 'var(--raised)' : 'transparent',
-                  font: `${active ? 700 : 600} 12px/1 var(--sans)`,
+                  font: `${active ? 700 : 600} 0.75rem/1 var(--sans)`,
                   letterSpacing: '0.09em',
                   textTransform: 'uppercase',
                   color: active ? 'var(--text)' : 'var(--dim)',

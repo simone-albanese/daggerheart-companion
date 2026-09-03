@@ -434,7 +434,7 @@ export function FeatureBlock({
       style={{ gap: 5, padding: '10px 12px', borderRadius: 'var(--r3)', background: 'var(--app)' }}
     >
       <span className="row" style={{ gap: 8 }}>
-        <span style={{ font: '700 12.5px/1.2 var(--sans)', color: 'var(--text-2)' }}>{name}</span>
+        <span style={{ font: '700 0.8125rem/1.2 var(--sans)', color: 'var(--text-2)' }}>{name}</span>
         {tag !== undefined && <span className="chip chip-name">{tag}</span>}
       </span>
       <span className="t-read" style={{ whiteSpace: 'pre-line' }}>
@@ -456,8 +456,8 @@ export function DatasetEmpty({ what }: { what: string }): React.JSX.Element {
       </span>
       <p className="t-body" style={{ margin: 0 }}>
         The SRD dataset has not been generated on this device, so there is nothing to choose from.
-        Run <code style={{ font: '500 13px/1 var(--mono)', color: 'var(--text)' }}>npm run
-        build:srd</code> to produce <code style={{ font: '500 13px/1 var(--mono)' }}>data/srd-2.0.json</code>,
+        Run <code style={{ font: '500 0.8125rem/1 var(--mono)', color: 'var(--text)' }}>npm run
+        build:srd</code> to produce <code style={{ font: '500 0.8125rem/1 var(--mono)' }}>data/srd-2.0.json</code>,
         then reload. Everything you have already typed is kept.
       </p>
     </div>

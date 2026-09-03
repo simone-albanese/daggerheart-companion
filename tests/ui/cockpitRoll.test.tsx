@@ -2094,11 +2094,12 @@ describe('the roll after the roll', () => {
      * cockpit's was pinned - every case above reads `.spread`, which the phone
      * does not draw. Deleting `stillToType ??` from `rollLine` left 135 files
      * and 3324 tests green. This case renders the phone and reads the line
-     * `rollLine` feeds: the 12px/15px span inside ROLL.
+     * `rollLine` feeds: the 0.75rem/1.25 span inside ROLL (12px/15px at the
+     * 16px root).
      */
     mount(TYPED, [], 'phone');
     const line = (): string =>
-      container.querySelector('span[style*="line-height: 15px"]')?.textContent ?? '';
+      container.querySelector('span[style*="line-height: 1.25"]')?.textContent ?? '';
     expect(line(), 'the idle bar is already saying it').not.toContain('STILL TO TYPE');
 
     typeFace('HOPE', 5);

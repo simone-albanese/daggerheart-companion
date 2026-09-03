@@ -627,7 +627,7 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
       </div>
       <SpellcastLine stats={stats} />
       {lineage !== '' && (
-        <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
+        <div className="t-hint" style={{ color: 'var(--muted)' }}>{lineage}</div>
       )}
     </div>
   );
@@ -730,7 +730,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
           </span>
         )}
       </div>
-      <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
+      <div className="t-hint" style={{ color: 'var(--text-2)' }}>
         {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
       </div>
 
@@ -829,7 +829,7 @@ function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] 
       }}
     >
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ font: '700 13px/1.2 var(--sans)', color: 'var(--text)' }}>
+        <span style={{ font: '700 0.8125rem/1.2 var(--sans)', color: 'var(--text)' }}>
           {feature.name}
         </span>
         {chips.map((c) => (
@@ -1109,9 +1109,10 @@ function TraitRow({
                * chip that got 14px shorter. Deliberately 13 and not the 10 a
                * flatter ramp would give: six labels carrying the identity of
                * the number beneath them, cut by a third, is a shrink nobody
-               * asked for.
+               * asked for. (13 as 0.8125rem since the readability ramp, so the
+               * OS text size reaches it; the number under it stays px.)
                */}
-              <span style={{ display: 'block', fontSize: 13 }}>
+              <span style={{ display: 'block', fontSize: '0.8125rem' }}>
                 {TRAIT_LABELS[t].slice(0, 3).toUpperCase()}{' '}
               </span>
               <span style={{ display: 'block' }}>
@@ -1303,7 +1304,7 @@ function TraitGrid({
                   style={{
                     display: 'block',
                     marginTop: 6,
-                    font: '500 9px/1.35 var(--mono)',
+                    font: '500 0.625rem/1.35 var(--mono)',
                     letterSpacing: '0.04em',
                     color: active ? 'var(--text-2)' : 'var(--dim)',
                   }}
@@ -2304,7 +2305,7 @@ function SpellcastPanel({
                 minHeight: 'var(--control)',
                 padding: '4px 6px',
                 textAlign: 'center',
-                font: '600 13px/1 var(--mono)',
+                font: '600 0.8125rem/1 var(--mono)',
               }}
             />
           </label>
@@ -2717,7 +2718,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  font: '600 12px/1 var(--sans)',
+                  font: '600 0.75rem/1 var(--sans)',
                   color: 'var(--text-2)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',

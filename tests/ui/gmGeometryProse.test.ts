@@ -740,7 +740,9 @@ describe('the GM screen states the geometry its own declarations make', () => {
     expect(
       stated('src/ui/gm/SessionList.tsx', /over a (\d+)px row/g),
       'the shell row `SessionList.tsx` names is not the height `Header.tsx` declares',
-    ).toEqual([declared('src/ui/shell/Header.tsx', 'className="spread"', 'height')]);
+      // A `minHeight` since the readability ramp: the bar holds rem text and
+      // grows with the root instead of clipping it, and 52 is its floor.
+    ).toEqual([declared('src/ui/shell/Header.tsx', 'className="spread"', 'minHeight')]);
     expect(
       stated('src/ui/gm/SessionList.tsx', /\((\d+)px of buttons over/g),
       'the bar height `SessionList.tsx` names is not the floor `GmBar.tsx` declares',

@@ -989,9 +989,11 @@ describe('the trait row and the roll surface', () => {
       expect(lines, `${chip.textContent ?? '?'} is not two block lines`).toHaveLength(2);
       expect(
         (lines[0] as HTMLElement).style.fontSize,
-        'the three-letter abbreviation is not 13. It names the number under it and is read ' +
-          'once; the modifier is read on every roll, and the 13 is what pays for the 17.',
-      ).toBe('13px');
+        'the three-letter abbreviation is not 13 at the root, in rem. It names the number ' +
+          'under it and is read once; the modifier is read on every roll, and the 13 is what ' +
+          'pays for the 17. The unit is rem so the OS text size reaches the label; the number ' +
+          'under it stays px.',
+      ).toBe('0.8125rem');
       expect(
         (lines[1] as HTMLElement).style.fontSize,
         'the modifier declares a size of its own, so it has stopped following the chip',
@@ -1130,23 +1132,31 @@ describe('the trait row and the roll surface', () => {
    * `rollLine` is the whole statement of what the next roll will be - `2d12 +1
    * · AGILITY` idle, the raw dice and what is armed after a roll - and it was
    * `.t-meta`, the smallest type on the sheet, on the largest control on it.
-   * Term 2 of this pass raises it, and the raise has two halves: `.t-meta` is
-   * `500 10px/1`, so a size raised on its own leaves a 12px glyph in a 10px
-   * line box and clips its own ink. The leading is declared beside the size.
+   * Term 2 of this pass raised it, and the raise had two halves: `.t-meta` was
+   * `500 10px/1`, so a size raised on its own left a 12px glyph in a 10px
+   * line box and clipped its own ink. The leading is declared beside the size.
+   * Since the readability ramp both are rem - 0.75rem is 12px at the 16px root
+   * and 1.25 of it the same 15 - so the OS text size reaches this line, and
+   * ROLL's floor is a `minHeight` that grows with it.
    */
-  it('states the next roll at 12px, with the leading that holds it', () => {
+  it('states the next roll at 12px in rem, with the leading that holds it', () => {
     play(seed());
     const line = roll().querySelector<HTMLElement>('span.t-meta')!;
     expect(line.textContent, 'this is not the line that says what the next roll is').toContain(
       '2d12',
     );
-    expect(line.style.fontSize, "ROLL's second line is back at `.t-meta`'s 10px").toBe('12px');
+    expect(
+      line.style.fontSize,
+      "ROLL's second line is not 12px at the root in rem: on a fine-pointer desk `.t-meta` " +
+        'is 11, and a px here would take the OS text size away from the one line that says ' +
+        'what the next roll is',
+    ).toBe('0.75rem');
     expect(
       line.style.lineHeight,
-      '`.t-meta` is `500 10px/1`, so a 12px size with no leading beside it is a 12px glyph in ' +
-        'a 10px line box: the ink clips and the two-line state measures 24 instead of 30, ' +
-        "which is where ROLL's 56px floor comes from",
-    ).toBe('15px');
+      'the leading is not declared with the size: 1.25 of 12 is the 15 that two lines make ' +
+        "30 of, which is where ROLL's 56px floor comes from, and a px leading would stop " +
+        'scaling with the glyph it holds',
+    ).toBe('1.25');
   });
 });
 

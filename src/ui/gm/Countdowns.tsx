@@ -454,7 +454,7 @@ function NewCountdown(): React.JSX.Element {
           id="cd-kind"
           value={kind}
           onChange={(e) => setKind(e.target.value as CountdownKind)}
-          style={{ minHeight: 44, padding: '4px 10px', font: '600 13px/1 var(--sans)' }}
+          style={{ minHeight: 44, padding: '4px 10px', font: '600 0.8125rem/1 var(--sans)' }}
         >
           {KINDS.map((k) => (
             <option key={k.id} value={k.id}>

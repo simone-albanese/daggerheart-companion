@@ -315,7 +315,7 @@ const INPUT: React.CSSProperties = {
 const SELECT: React.CSSProperties = {
   minHeight: 44,
   padding: '4px 10px',
-  font: '600 13px/1 var(--sans)',
+  font: '600 0.8125rem/1 var(--sans)',
 };
 
 /** The one verb every form ends with, saying where the row lands. */

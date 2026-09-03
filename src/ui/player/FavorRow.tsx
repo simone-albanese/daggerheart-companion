@@ -418,7 +418,7 @@ export function FavorRow({ result, hopeGained, layout }: FavorRowProps): React.J
       }}
     >
       <span className="stack" style={{ flex: 1, minWidth: 0, gap: 4 }}>
-        <span style={{ font: `900 ${phone ? 15 : 13}px/1 var(--sans)`, color: 'var(--text)' }}>
+        <span style={{ font: `900 ${phone ? '0.9375rem' : '0.8125rem'}/1 var(--sans)`, color: 'var(--text)' }}>
           {offer.label}
         </span>
         <span className="t-meta" style={{ color: 'var(--muted)' }}>

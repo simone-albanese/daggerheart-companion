@@ -786,7 +786,7 @@ function PickDetail({
                 }}
               >
                 <Mark on={on} size={14} />
-                <span style={{ flex: 1, font: '600 13px/1 var(--sans)', textAlign: 'left' }}>
+                <span style={{ flex: 1, font: '600 0.8125rem/1 var(--sans)', textAlign: 'left' }}>
                   {TRAIT_LABELS[t]}
                 </span>
                 <span className="t-num" style={{ color: 'var(--muted)' }}>
@@ -837,7 +837,7 @@ function PickDetail({
                   }}
                 >
                   <Mark on={on} size={14} />
-                  <span style={{ flex: 1, font: '600 13px/1 var(--sans)', textAlign: 'left' }}>
+                  <span style={{ flex: 1, font: '600 0.8125rem/1 var(--sans)', textAlign: 'left' }}>
                     {e.name || 'Unnamed Experience'}
                   </span>
                   <span className="t-num" style={{ color: 'var(--hope)' }}>
@@ -1309,7 +1309,7 @@ function CardPicker({
                     flex: 1,
                     minWidth: 0,
                     textAlign: 'left',
-                    font: '600 13.5px/1.15 var(--sans)',
+                    font: '600 0.84375rem/1.15 var(--sans)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
