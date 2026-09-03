@@ -461,6 +461,11 @@ export function buildSheet(
      * transformation was never read at all. The printed page then showed one
      * weapon where the player has two, with nothing saying so.
      *
+     * A transformation that RESOLVES is not this list's business and was, for
+     * one round after this list learned to name a lost one, nobody's: its two
+     * features reach the page through `characterFeatures`, whose
+     * `transformation` site says what that silence cost.
+     *
      * That is the same silence the screens were fixed for this wave, on the
      * one surface a player takes to the table and cannot tap to investigate.
      * It stopped being hypothetical when SRD 2.0 dropped nine weapons: 186 of

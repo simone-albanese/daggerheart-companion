@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { Ancestry, Beastform, CompanionState, Community } from '@shared/types.ts';
+import type { Ancestry, Beastform, CompanionState, Community, Transformation } from '@shared/types.ts';
 import { indexDataset } from '@engine/character.ts';
 import { newCompanion } from '@engine/companion.ts';
 import { baseDataset } from '../../src/store/dataset.ts';
@@ -336,6 +336,83 @@ describe('the print model', () => {
     expect(gold.perStep).toBe(10);
     expect(gold.maxChests).toBe(1);
     expect(gold.summary).toBe('3 bags · 7 handfuls');
+  });
+});
+
+/**
+ * A held transformation, on paper.
+ *
+ * `buildSheet` read `transformationRef` only to list an unresolvable one under
+ * `missing`. A ref that RESOLVED contributed nothing: `characterFeatures` had
+ * no transformation site, so a Warlock who took the Vampire card at the table
+ * printed a sheet with no "Vampire", no Fangs and no Feed on it - and the Play
+ * screen, reading the same engine list, showed neither. Folio 42 asks players
+ * to "remind GMs of their transformations' negative effects whenever they're
+ * relevant"; the drawback is exactly what a page has to carry, because a page
+ * is the one artefact that cannot be tapped to check.
+ *
+ * The features are the engine's, not the sheet's: `characterFeatures` grows a
+ * `transformation` site, so this file and `playFeatures.test.tsx` are pinning
+ * one list from two surfaces.
+ */
+describe('a held transformation', () => {
+  const card: Transformation = {
+    id: 'vampire',
+    name: 'Vampire',
+    description: 'Something took your blood and gave you back a hunger.',
+    features: [
+      { name: 'Fangs', text: 'Make an attack using a trait of your choice to bite a target within Melee range.' },
+      { name: 'Feed', text: 'On a successful Fangs attack against a creature that can bleed, mark a Stress to feed.' },
+    ],
+    questions: ['Who did you have to leave behind?'],
+    sourcePage: 45,
+  };
+
+  function held() {
+    const dataset = makeDataset({
+      ancestries: [ancestry('alpha')],
+      communities: [community],
+      transformations: [card],
+    });
+    const index = indexDataset(dataset);
+    const character = makeCharacter({
+      level: 5,
+      ancestryRefs: ['alpha'],
+      communityRef: 'test-community',
+      transformationRef: 'vampire',
+    });
+    return { dataset, index, character };
+  }
+
+  it('prints both of the card\'s features, sourced to the card by name', () => {
+    const { character, dataset, index } = held();
+    const sheet = buildSheet(character, dataset, index);
+    expect(sheet.missing).toEqual([]);
+    expect(sheet.features.filter((f) => f.source === 'Vampire')).toEqual([
+      { source: 'Vampire', name: 'Fangs', text: card.features[0]!.text },
+      { source: 'Vampire', name: 'Feed', text: card.features[1]!.text },
+    ]);
+  });
+
+  it('files them after the heritage, which folio 42 says the card is added "as if" part of', () => {
+    const { character, dataset, index } = held();
+    const names = buildSheet(character, dataset, index).features.map((f) => f.name);
+    expect(names.indexOf('Fangs')).toBeGreaterThan(names.indexOf('Privilege'));
+    expect(names.indexOf('Feed')).toBe(names.length - 1);
+  });
+
+  it('reaches the page', () => {
+    const { character, dataset, index } = held();
+    const html = renderToStaticMarkup(
+      createElement(CharacterSheet, { sheet: buildSheet(character, dataset, index) }),
+    );
+    for (const word of ['Vampire', 'Fangs', 'Feed', 'mark a Stress to feed']) expect(html).toContain(word);
+  });
+
+  it('prints nothing of a card that is not held', () => {
+    const { character, dataset, index } = held();
+    const bare = buildSheet({ ...character, transformationRef: null }, dataset, index);
+    expect(bare.features.some((f) => f.source === 'Vampire')).toBe(false);
   });
 });
 

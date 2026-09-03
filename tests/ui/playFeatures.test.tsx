@@ -148,6 +148,31 @@ describe('the features a character actually holds', () => {
     ).toEqual([]);
   });
 
+  it('lists a held transformation\'s features, drawback included, sourced to the card', () => {
+    /*
+     * The engine list had no transformation site, so a Warlock holding the
+     * Vampire card saw Fangs and Feed on the Build screen only - not here,
+     * where the fight is, and not on paper. Folio 42: "players remind GMs of
+     * their transformations' negative effects whenever they're relevant", and
+     * Feed is the negative effect.
+     */
+    const card = index.collections.transformations.get('vampire');
+    expect(card, 'the shipped dataset stopped carrying the Vampire card').toBeDefined();
+    const c = seed({ transformationRef: 'vampire' });
+    play(c);
+    const held = characterFeatures(c, index);
+    expect(held.features.filter((f) => f.site === 'transformation').map((f) => f.name)).toEqual(
+      card!.features.map((f) => f.name),
+    );
+    click(fold('Lineage, domains & features'));
+    const screen = text();
+    for (const f of card!.features) {
+      expect(screen, `${f.name} is on the sheet and not on the screen`).toContain(f.name);
+      expect(screen).toContain(f.text);
+    }
+    expect(screen).toContain(card!.name.toUpperCase());
+  });
+
   it('leads with the class Hope feature, which the printed sheet files elsewhere', () => {
     const c = seed();
     play(c);
