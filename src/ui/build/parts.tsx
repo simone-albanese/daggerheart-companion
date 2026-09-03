@@ -435,7 +435,7 @@ export function FeatureBlock({
     >
       <span className="row" style={{ gap: 8 }}>
         <span style={{ font: '700 12.5px/1.2 var(--sans)', color: 'var(--text-2)' }}>{name}</span>
-        {tag !== undefined && <span className="chip">{tag}</span>}
+        {tag !== undefined && <span className="chip chip-name">{tag}</span>}
       </span>
       <span className="t-read" style={{ whiteSpace: 'pre-line' }}>
         {text}

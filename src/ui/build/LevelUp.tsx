@@ -1166,7 +1166,8 @@ function CardExchangeRow({
             borderRadius: '0 var(--r3) var(--r3) 0',
           }}
         >
-          <span className="t-label">
+          {/* A sentence with a name in it, so `.t-hint` rather than a caps label. */}
+          <span className="t-hint" style={{ fontWeight: 600 }}>
             Take instead of {given.name} — level {given.level} or lower
           </span>
           <CardPicker

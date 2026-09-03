@@ -535,12 +535,12 @@ describe('the refusal, at three short rests in a row', () => {
 
     // And nothing left on the screen sends the reader to it. This is the same
     // render the interrupted-rest panel is drawn into, and that panel used to
-    // finish "THE SHORT REST ABOVE APPLIES EXACTLY THAT" over a switch holding
+    // finish "the short rest above applies exactly that" over a switch holding
     // one button.
     expect(
       text(),
       'a sentence pointing at the control this state has just removed',
-    ).not.toContain('THE SHORT REST ABOVE');
+    ).not.toContain('the short rest above');
   });
 });
 
@@ -552,8 +552,8 @@ describe('the interrupted long rest', () => {
     // Nothing here claims to know: the app cannot see the table, and the route
     // out is the short rest already on the screen - which has to *be* on the
     // screen for the sentence beside it to be true.
-    expect(text()).toContain('THE APP CANNOT TELL');
-    expect(text()).toContain('THE SHORT REST ABOVE APPLIES EXACTLY THAT');
+    expect(text()).toContain('The app cannot tell');
+    expect(text()).toContain('the short rest above applies exactly that');
     expect(maybe('Take a short rest'), 'the sentence names a control that is not drawn').toBeDefined();
     expect(
       buttons().filter((b) => /interrupt/i.test(b.getAttribute('aria-label') ?? '')),
@@ -571,8 +571,8 @@ describe('the interrupted long rest', () => {
       srdSentence('long rest is interrupted'),
     );
     expect(maybe('Take a short rest')).toBeUndefined();
-    expect(text()).not.toContain('THE SHORT REST ABOVE');
-    expect(text()).toContain('WITH A LONG REST DUE THE SHORT ONE IS NOT ON THIS SCREEN');
+    expect(text()).not.toContain('the short rest above');
+    expect(text()).toContain('with a long rest due the short one is not on this screen');
   });
 });
 

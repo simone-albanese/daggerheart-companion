@@ -2192,8 +2192,12 @@ export function DualityRoll({
                   // weight and the 0.06em tracking stay the class's.
                   fontSize: 12,
                   lineHeight: '15px',
+                  // A real ink and no opacity fade: at 0.75 this line was one
+                  // of the roll readout's AA failures on the audit rig. The
+                  // verdict colour clears 4.5:1 on the panel in every state -
+                  // `--dim` idle, `--hope`, `--fear`, `--text` - and the
+                  // subordination comes from size and weight, not from fading.
                   color: verdictColor(result),
-                  opacity: 0.75,
                 }}
               >
                 {rollLine}
@@ -2557,7 +2561,7 @@ export function DualityRoll({
               : 'READY'
             : OUTCOME_LABEL[result.outcome].toUpperCase()}
         </span>
-        <span className="t-meta" style={{ color: verdictColor(result), opacity: 0.8 }}>
+        <span className="t-meta" style={{ color: verdictColor(result) }}>
           {/* `stillToType` first here for the reason it is first on the phone
               bar: one instruction line on this screen, and whichever readout a
               layout has, it shows that one. The desktop strip keeping its own
@@ -2591,7 +2595,7 @@ export function DualityRoll({
         <span style={{ font: '900 19px/1 var(--sans)', letterSpacing: '0.06em' }}>
           {idleLabel}
         </span>
-        <span className="t-num" style={{ color: 'var(--app)', opacity: 0.55 }}>
+        <span className="t-num" style={{ color: 'var(--app)' }}>
           2d12 {modSign}
           {armSummary === '' ? '' : ` · ${armSummary}`}
         </span>
@@ -2698,16 +2702,20 @@ function ExperienceChip({
         paddingTop: 4,
         paddingBottom: 4,
         /*
-         * Larger than `.chip`'s 9.5px, because this is not a shelf label being
-         * scanned past: it is a phrase the player wrote, read across a table
-         * in a dim room at the moment they decide to spend a Hope on it. The
-         * row is 44px for the touch floor rather than for the text, so at one
-         * or two lines the bigger type costs no height at all - 13.225px of
-         * line-height twice over, plus 4 + 4 of padding, is 34.45 inside a 44.
-         * At three it costs 3.7, and the clamp below argues why that is the
-         * right trade.
+         * Larger than `.chip`'s own size, because this is not a shelf label
+         * being scanned past: it is a phrase the player wrote, read across a
+         * table in a dim room at the moment they decide to spend a Hope on it.
+         * 0.75rem is `.chip-name`'s size - 12px at the default root, and it
+         * scales with the OS text setting - declared here in the shorthand
+         * because the leading has to come with it. The row is 44px for the
+         * touch floor rather than for the text, so at one or two lines the
+         * bigger type costs no height at all - 13.8px of line-height twice
+         * over, plus 4 + 4 of padding and the 1 + 1 of border, is 37.6 inside
+         * a 44. At three it costs 7.4, and the clamp below argues why that is
+         * the right trade. (At the 11.5px this chip was before the readability
+         * ramp the same sum was 36.45 and 49.675, measured 49.7 in Chrome.)
          */
-        font: '600 11.5px/1.15 var(--mono)',
+        font: '600 0.75rem/1.15 var(--mono)',
         background: armed ? 'var(--hope-wash)' : 'var(--raised)',
         border: `1px solid ${armed ? 'var(--hope)' : 'transparent'}`,
         // The border and the filled pip carry the Hope; the name stays at full

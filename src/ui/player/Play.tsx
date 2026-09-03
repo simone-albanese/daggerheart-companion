@@ -594,7 +594,7 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
          * written.
          */}
         {character.pronouns !== '' && (
-          <span className="t-meta" style={{ color: 'var(--line)' }}>
+          <span aria-hidden="true" className="t-meta" style={{ color: 'var(--line)' }}>
             ·
           </span>
         )}
@@ -688,7 +688,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
           <span className="t-meta">{character.pronouns.toUpperCase()}</span>
         )}
         {character.pronouns !== '' && (
-          <span className="t-meta" style={{ color: 'var(--line)' }}>
+          <span aria-hidden="true" className="t-meta" style={{ color: 'var(--line)' }}>
             ·
           </span>
         )}

@@ -280,12 +280,13 @@ export class ScreenBoundary extends Component<Props, State> {
           </button>
         </div>
         {copied !== null && (
-          <span className="t-meta" role="status" style={{ color: 'var(--muted)', maxWidth: 420, textAlign: 'center' }}>
+          <span className="t-hint" role="status" style={{ color: 'var(--muted)', maxWidth: 420, textAlign: 'center' }}>
             {copied}
           </span>
         )}
         {/*
-          `.t-hint`, not `.t-meta`, and capped like the `copied` sibling above.
+          `.t-hint`, not `.t-meta`, and capped like the `copied` sibling above
+          (which is `.t-hint` too since the readability ramp: it carries a sentence).
           This line used to be a file name and a character count - 53 characters
           of metadata, which is what `.t-meta` is: 10px mono at line-height 1,
           no wrap allowance, no width. It carries prose now. `savedFiles` plus

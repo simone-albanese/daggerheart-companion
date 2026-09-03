@@ -701,7 +701,7 @@ function Experiences({ sheet }: { sheet: Character }): React.JSX.Element {
   return (
     <span className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
       {sheet.experiences.map((e) => (
-        <span key={e.id} className="chip" style={{ color: 'var(--text-3)', fontSize: 10.5 }}>
+        <span key={e.id} className="chip chip-name" style={{ color: 'var(--text-3)' }}>
           {e.name || 'Unnamed'} <span style={{ color: 'var(--hope)' }}>{signed(e.bonus)}</span>
         </span>
       ))}
@@ -803,7 +803,9 @@ function FallenPrompt({ member }: { member: PartyMember }): React.JSX.Element {
         background: 'var(--app)',
       }}
     >
-      <span className="t-label" style={{ color: 'var(--damage)' }}>
+      {/* A sentence, so `.t-hint` and not `.t-label`: a label is a word in
+          caps, and this is the one line on the board that has to be read. */}
+      <span className="t-hint" style={{ color: 'var(--damage)', fontWeight: 600 }}>
         Their last Hit Point is marked
       </span>
       {lead !== null && (
@@ -814,7 +816,7 @@ function FallenPrompt({ member }: { member: PartyMember }): React.JSX.Element {
       {moves.length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {moves.map((name) => (
-            <span key={name} className="chip" style={{ color: 'var(--text-2)' }}>
+            <span key={name} className="chip chip-name" style={{ color: 'var(--text-2)' }}>
               {name}
             </span>
           ))}

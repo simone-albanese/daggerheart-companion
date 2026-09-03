@@ -517,11 +517,11 @@ export function Header({
              * thing to edit than a predicate over an empty array.
              */}
             <span className="t-meta">SRD ONLY</span>
-            <span style={{ color: 'var(--line)' }}>|</span>
+            <span aria-hidden="true" style={{ color: 'var(--line)' }}>|</span>
             <span className="t-meta">
               LOCAL · {characters.length} CHARACTER{characters.length === 1 ? '' : 'S'}
             </span>
-            <span style={{ color: 'var(--line)' }}>|</span>
+            <span aria-hidden="true" style={{ color: 'var(--line)' }}>|</span>
           </>
         )}
         {/*

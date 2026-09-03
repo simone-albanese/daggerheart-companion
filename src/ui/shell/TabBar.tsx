@@ -295,7 +295,13 @@ export function TabBar(): React.JSX.Element {
               className="t-meta"
               style={{
                 letterSpacing: '0.1em',
-                fontWeight: active ? 700 : 600,
+                // 12px at 700 on every device: a tab's word is glanced in the
+                // thumb arc, and weight rather than size is what makes a
+                // 12px caps word legible at arm's length. Active and inactive
+                // differ by colour and by the mark, not by weight, so the
+                // word cannot shift width when a tab is chosen.
+                fontSize: '0.75rem',
+                fontWeight: 700,
                 color: active ? 'var(--text)' : 'var(--dim)',
               }}
             >

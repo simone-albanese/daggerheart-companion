@@ -2269,7 +2269,7 @@ function AskRow({
           </span>
         )}
         {answer === null && named !== null && (
-          <span className="t-meta" style={{ width: '100%', color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ width: '100%', color: 'var(--dim)' }}>
             Inside this section, and not in one sentence.
           </span>
         )}

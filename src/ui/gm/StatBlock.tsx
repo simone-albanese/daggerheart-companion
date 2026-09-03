@@ -230,7 +230,7 @@ export function AdversaryBlock({
           </div>
           <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
             {a.experiences.map((x) => (
-              <span key={x.name} className="chip" style={{ color: 'var(--text-2)', fontSize: 11 }}>
+              <span key={x.name} className="chip chip-name" style={{ color: 'var(--text-2)' }}>
                 {x.name} {signed(x.bonus)}
               </span>
             ))}

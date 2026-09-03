@@ -848,7 +848,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
 
         {kind === 'long' && interruptedRestRule(rules) !== null && (
           <div className="panel stack" style={{ flex: 'none', gap: 6, padding: '10px 11px' }}>
-            <span className="t-label">If it was interrupted</span>
+            <span className="t-hint" style={{ fontWeight: 600 }}>If it was interrupted</span>
             {quoted(interruptedRestRule(rules)!)}
             {/* Pointing at the short rest is only honest while the short rest
                 is drawn, and at three in a row the `!longDue &&` on the SHORT
@@ -856,10 +856,10 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
                 taken it away. The two conditions are independent, so the
                 sentence reads the same flag the control does rather than
                 assuming it. */}
-            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+            <span className="t-hint" style={{ color: 'var(--dim)' }}>
               {longDue
-                ? 'THE APP CANNOT TELL · WITH A LONG REST DUE THE SHORT ONE IS NOT ON THIS SCREEN'
-                : 'THE APP CANNOT TELL · THE SHORT REST ABOVE APPLIES EXACTLY THAT'}
+                ? 'The app cannot tell · with a long rest due the short one is not on this screen'
+                : 'The app cannot tell · the short rest above applies exactly that'}
             </span>
           </div>
         )}
@@ -1128,7 +1128,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
 
             <div className="stack" style={{ flex: 'none', gap: 6 }}>
               <div className="spread" style={{ flex: 'none' }}>
-                <span className="t-label">Cards move free during this rest</span>
+                <span className="t-hint" style={{ fontWeight: 600 }}>Cards move free during this rest</span>
                 <span className="t-meta" style={{ color: 'var(--muted)' }}>
                   {staged.loadout.length} / 5 HELD
                 </span>
@@ -1214,7 +1214,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
                 typing, and only for dice the engine said it will roll. */}
             {affordance.canType && dice.length > 0 && (
               <div className="panel stack" style={{ flex: 'none', gap: 6, padding: '10px 11px' }}>
-                <span className="t-label">Type what the table rolled</span>
+                <span className="t-hint" style={{ fontWeight: 600 }}>Type what the table rolled</span>
                 {dice.map((d) => (
                   <div key={d.key} className="row" style={{ flex: 'none', gap: 8 }}>
                     <span

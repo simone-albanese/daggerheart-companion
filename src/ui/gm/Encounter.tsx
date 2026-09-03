@@ -534,15 +534,15 @@ function Adjustments({
         plans the same fight had a third transcription of it. `damageBumpRule`
         is the one read all of them share now, so a rules layer that changes the
         bump changes every screen that says it, and none of them can drift from
-        another. Uppercased for the register this line is set in; the words are
-        the book's.
+        another. A sentence, so `.t-hint` in sentence case rather than a caps
+        meta line; the words are the book's.
       */}
-      <span className="t-meta" style={{ color: 'var(--dim)', lineHeight: 1.5 }}>
+      <span className="t-hint" style={{ color: 'var(--dim)' }}>
         {adjustments.damageBump
           ? bump === null
-            ? 'THE DAMAGE BUMP IS ON; NO RULES LAYER HERE SAYS WHAT IT ADDS'
-            : `THIS FIGHT: ${bump.toUpperCase()}`
-          : 'ROUND CIRCLES ARE DERIVED FROM THE ROSTER AND CANNOT BE TOGGLED'}
+            ? 'The damage bump is on; no rules layer here says what it adds'
+            : `This fight: ${bump}`
+          : 'Round circles are derived from the roster and cannot be toggled'}
       </span>
     </section>
   );

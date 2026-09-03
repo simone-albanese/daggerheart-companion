@@ -165,7 +165,7 @@ export function DeathMoveOffer(): React.JSX.Element | null {
             textAlign: 'left',
           }}
         >
-          <span className="t-label" style={{ color: 'var(--damage)' }}>
+          <span className="t-hint" style={{ color: 'var(--damage)', fontWeight: 600 }}>
             Last Hit Point marked
           </span>
           <span className="t-meta" style={{ color: 'var(--damage)', flex: 'none' }}>
@@ -598,7 +598,7 @@ function RollOrType({
             border: '1px solid var(--line-soft)',
           }}
         >
-          <span className="t-label">Type what you rolled</span>
+          <span className="t-hint" style={{ fontWeight: 600 }}>Type what you rolled</span>
           {faces.map((f) => (
             <div key={f.key} className="spread" style={{ flex: 'none', alignItems: 'center', gap: 8 }}>
               <span className="t-meta" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>

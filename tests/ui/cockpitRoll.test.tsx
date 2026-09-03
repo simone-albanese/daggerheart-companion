@@ -484,7 +484,7 @@ describe('the cockpit modifier shelf', () => {
  * border-box`.
  */
 describe('an Experience is legible on the chip that spends it', () => {
-  const LINE = 11.5 * 1.15; // the declared `600 11.5px/1.15 var(--mono)`
+  const LINE = 12 * 1.15; // the declared `600 0.75rem/1.15 var(--mono)`, at the 16px root
   // The chip's own box around the text: paddingTop 4 + paddingBottom 4, plus
   // the 1px + 1px of the border it declares unconditionally (`transparent`
   // when unarmed, and a transparent border is still laid out). `box-sizing:
@@ -530,22 +530,25 @@ describe('an Experience is legible on the chip that spends it', () => {
     expect(source.match(/WebkitLineClamp/g) ?? []).toHaveLength(1);
   });
 
-  it('costs the chip 5.7px, and only when the third line is used', () => {
-    // Two lines sit inside the touch floor; three step past it by 5.7. That is
+  it('costs the chip 7.4px, and only when the third line is used', () => {
+    // Two lines sit inside the touch floor; three step past it by 7.4. That is
     // the whole price. `box-sizing: border-box` is what makes the padding part
     // of the 44 rather than on top of it - and the border with it, which is why
-    // `BOX` is 10 and not 8. Measured 49.7 in Chrome on the cockpit chip at its
-    // 124px `maxWidth`, and 44 on the chips whose names fit two lines.
-    expect(2 * LINE + BOX).toBeCloseTo(36.45, 2);
+    // `BOX` is 10 and not 8. At the 11.5px the chip was before the readability
+    // ramp the sums were 36.45 and 49.675, and Chrome measured 49.7 on the
+    // cockpit chip at its 124px `maxWidth` and 44 on the chips whose names fit
+    // two lines; at `.chip-name`'s 12px they are 37.6 and 51.4 by the same
+    // declarations.
+    expect(2 * LINE + BOX).toBeCloseTo(37.6, 2);
     expect(2 * LINE + BOX).toBeLessThan(FLOOR);
-    expect(3 * LINE + BOX).toBeCloseTo(49.675, 3);
-    expect(3 * LINE + BOX - FLOOR).toBeCloseTo(5.675, 3);
+    expect(3 * LINE + BOX).toBeCloseTo(51.4, 3);
+    expect(3 * LINE + BOX - FLOOR).toBeCloseTo(7.4, 3);
 
     // And the terms of that arithmetic are still declared on the chip - the
     // border included, so the term cannot go missing again.
     const chip = panel().querySelector<HTMLElement>('button[aria-label^="Utilize "]');
     expect(chip).not.toBeNull();
-    expect(chip!.style.font).toBe('600 11.5px/1.15 var(--mono)');
+    expect(chip!.style.font).toBe('600 0.75rem/1.15 var(--mono)');
     expect(chip!.style.minHeight).toBe('var(--tap)');
     expect(chip!.style.paddingTop).toBe('4px');
     expect(chip!.style.paddingBottom).toBe('4px');

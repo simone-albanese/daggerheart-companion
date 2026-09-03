@@ -549,7 +549,7 @@ function Shell(): React.JSX.Element {
                 {record.reason}
               </span>
             ))}
-            <span className="t-meta" style={{ color: 'var(--muted)' }}>
+            <span className="t-hint" style={{ color: 'var(--muted)' }}>
               Nothing has been deleted. These are still on this device exactly as they were saved,
               and this version of the app has not written over them.
             </span>
