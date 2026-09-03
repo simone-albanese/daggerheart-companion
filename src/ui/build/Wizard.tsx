@@ -22,10 +22,18 @@ import {
   TRAIT_VERBS,
   type Ancestry,
   type CharClass,
+  type Character,
+  type Dataset,
   type Ref,
   type Trait,
 } from '../../../shared/types.ts';
-import { deriveStats, newCharacter, syncCounters } from '../../engine/character.ts';
+import {
+  deriveStats,
+  newCharacter,
+  syncCounters,
+  type DatasetIndex,
+} from '../../engine/character.ts';
+import type { Contribution } from '../../engine/modifiers.ts';
 import { ignoresBurden } from '../../engine/burden.ts';
 import { CHARACTER_NAMES, judgeName } from '../../store/names.ts';
 import { cryptoRng } from '../../engine/dice.ts';
@@ -529,7 +537,7 @@ function StepBody({
     case 'traits':
       return <StepTraits draft={draft} set={set} />;
     case 'record':
-      return <StepRecord klass={klass} armorRef={draft.armor} />;
+      return <StepRecord draft={draft} klass={klass} />;
     case 'equipment':
       return <StepEquipment draft={draft} set={set} klass={klass} />;
     case 'background':
@@ -1252,12 +1260,52 @@ function Readout({
   );
 }
 
-function StepRecord({
+/**
+ * The sheet the wizard previews, which is the sheet Create will write.
+ *
+ * `assemble` is the one function that turns a draft into a character, and
+ * `finish` hands its result to `newCharacter` and `syncCounters`. The two
+ * preview steps used to build their own sheet out of the class and the armor
+ * alone, and `deriveStats`' modifier register reads everything else: Simiah's
+ * Nimble (+1 Evasion), Giant's Endurance (+1 HP), Human's High Stamina (+1
+ * Stress), a Tower Shield's Barrier (+2 Armor Score, -1 Evasion), Galapa's
+ * Shell and Mage Robes' Enchanted on the thresholds. So the Level, Evasion &
+ * HP step told a Simiah Warrior EVASION 11 under a caption saying the class
+ * decides it, and the sheet Create wrote said 12. One constructor for both, and
+ * it is Create's.
+ *
+ * `newCharacter` with no class ref is the fallback for a draft with no class
+ * yet - `assemble` needs one - and it is only reached by the equipment step,
+ * which can be opened out of order from the rail.
+ */
+function previewSheet(
+  draft: Draft,
+  klass: CharClass | undefined,
+  dataset: Dataset,
+  index: DatasetIndex,
+): Character {
+  return klass === undefined
+    ? newCharacter({ classRef: '', level: 1, activeArmor: draft.armor })
+    : newCharacter(assemble(draft, klass, dataset.consumables), index);
+}
+
+/**
+ * Who moved a readout, in the space the note has: `FROM WARRIOR · +1 SIMIAH`.
+ *
+ * The ledger names the source and the amount; a note that credited the class
+ * alone was true of the base and false of the number printed above it.
+ */
+const credits = (base: string, rows: readonly Contribution[]): string =>
+  [base, ...rows.map((r) => `${r.amount >= 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.source.toUpperCase()}`)].join(
+    ' · ',
+  );
+
+export function StepRecord({
+  draft,
   klass,
-  armorRef,
 }: {
+  draft: Draft;
   klass: CharClass | undefined;
-  armorRef: Ref | null;
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
@@ -1271,21 +1319,31 @@ function StepRecord({
     );
   }
 
-  // Every number here is the engine's, read off a sheet built from the choices
-  // made so far - not the book transcribed a second time. Anything typed in
-  // this component would be a number that could disagree with Play.
-  const sheet = newCharacter({ classRef: klass.id, activeArmor: armorRef, level: 1 });
+  // Every number here is the engine's, read off the sheet Create will write
+  // from the choices made so far - not the book transcribed a second time.
+  // Anything typed in this component would be a number that could disagree
+  // with Play.
+  const sheet = previewSheet(draft, klass, dataset, index);
   const stats = deriveStats(sheet, dataset, index);
-  const armor = armorRef === null ? undefined : index.armors.get(armorRef);
+  const armor = draft.armor === null ? undefined : index.armors.get(draft.armor);
+  const from = `FROM ${klass.name.toUpperCase()}`;
 
   return (
     <>
-      <Section label="Recorded at level 1" hint="Read only — the class decides these">
+      <Section label="Recorded at level 1" hint="Read only — worked out from every choice so far">
         <Columns min={150}>
           <Readout label="LEVEL" value={String(sheet.level)} note="EVERY CAMPAIGN STARTS HERE" />
-          <Readout label="EVASION" value={String(stats.evasion)} note={`FROM ${klass.name.toUpperCase()}`} />
-          <Readout label="HIT POINTS" value={String(stats.maxHp)} note={`FROM ${klass.name.toUpperCase()}`} />
-          <Readout label="STRESS" value={String(stats.maxStress)} note="EVERY PC STARTS THE SAME" />
+          <Readout label="EVASION" value={String(stats.evasion)} note={credits(from, stats.modifiers.evasion)} />
+          <Readout label="HIT POINTS" value={String(stats.maxHp)} note={credits(from, stats.modifiers.maxHp)} />
+          <Readout
+            label="STRESS"
+            value={String(stats.maxStress)}
+            note={
+              stats.modifiers.maxStress.length === 0
+                ? 'EVERY PC STARTS THE SAME'
+                : credits('SIX TO START', stats.modifiers.maxStress)
+            }
+          />
           <Readout
             label="HOPE"
             value={`${sheet.hope.marked} / ${stats.maxHope}`}
@@ -1333,12 +1391,11 @@ export function StepEquipment({
   const [open, setOpen] = useState<Slot | null>(null);
 
   // The picker's numbers have to come from somewhere and there is no character
-  // yet, so one is assembled from what has been decided so far and handed to
-  // the same engine the finished sheet will use. Nothing is transcribed twice.
-  const sheet = useMemo(
-    () => newCharacter({ classRef: klass?.id ?? '', level: 1, activeArmor: draft.armor }),
-    [klass, draft.armor],
-  );
+  // yet, so the sheet Create would write is assembled from the whole draft and
+  // handed to the same engine the finished sheet will use - see `previewSheet`
+  // for the shield and the ancestry this used to leave out. Nothing is
+  // transcribed twice.
+  const sheet = useMemo(() => previewSheet(draft, klass, dataset, index), [draft, klass, dataset, index]);
   const stats = useMemo(() => deriveStats(sheet, dataset, index), [sheet, dataset, index]);
 
   const primary = draft.primary === null ? undefined : index.weapons.get(draft.primary);

@@ -68,7 +68,13 @@ import {
   SlotBoxes,
   Stepper as BuildStepper,
 } from '../../src/ui/build/parts.tsx';
-import { StepCards, StepEquipment, StepExperiences, Wizard } from '../../src/ui/build/Wizard.tsx';
+import {
+  StepCards,
+  StepEquipment,
+  StepExperiences,
+  StepRecord,
+  Wizard,
+} from '../../src/ui/build/Wizard.tsx';
 import { emptyDraft } from '../../src/ui/build/creation.ts';
 import { AddSheet } from '../../src/ui/gm/AddSheet.tsx';
 import { AdversaryRow, FilterBar, NO_FILTER } from '../../src/ui/gm/AdversaryList.tsx';
@@ -591,6 +597,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // The gear step, with the class in hand: it is the class that decides whether
   // the burden sentence is true of this character, so a fixture without one
   // would mount the step with the one input its notes read left undefined.
+  'build/Wizard.tsx::StepRecord': () => <StepRecord draft={emptyDraft()} klass={dataset.classes[0]} />,
   'build/Wizard.tsx::StepEquipment': () => (
     <StepEquipment draft={emptyDraft()} set={noop} klass={dataset.classes[0]} />
   ),
