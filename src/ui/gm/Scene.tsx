@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 import type { Adversary } from '../../../shared/types.ts';
 import { countdownsIn } from '../../../shared/campaigns.ts';
 import type { Countdown } from '../../engine/encounter.ts';
-import { combatantHit, isVulnerableAt, SEVERITY_LABEL } from '../../engine/damage.ts';
+import { combatantHit, isVulnerableAt, SEVERITY_LABEL, severeIsNone } from '../../engine/damage.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
@@ -1075,7 +1075,7 @@ function CombatantCard({
             </span>
             <span className="t-meta">SEVERE</span>
             <span className="t-num" style={{ fontSize: 15 }}>
-              {c.thresholds[1]}
+              {severeIsNone(c.thresholds[1]) ? 'NONE' : c.thresholds[1]}
             </span>
           </>
         ) : (

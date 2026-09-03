@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import type { Adversary, Environment, Feature } from '../../../shared/types.ts';
+import { severeIsNone } from '../../engine/damage.ts';
 
 /** `phy`, `direct mag`, `phy/mag` - all of them, without a lookup table. */
 export function damageLabel(type: string): string {
@@ -199,10 +200,22 @@ export function AdversaryBlock({
           value={a.thresholds ? String(a.thresholds[0]) : '—'}
           color={a.thresholds ? undefined : 'var(--dim)'}
         />
+        {/*
+          * NONE, the book's own word, where the pair is `3/None`. Five tier-1
+          * blocks print a Severe that damage never reaches, and the parser
+          * stores it as `Number.MAX_SAFE_INTEGER`; `severeIsNone` in
+          * `engine/damage.ts` is the one test for that value. Printed the same
+          * way the environment band prints SPECIAL for a Difficulty the book
+          * gives no number for: the word, in `--dim`, rather than sixteen digits no
+          * GM could apply. `—` stays for the whole pair being None, because there
+          * the sentence under the grid carries the rule.
+          */}
         <Stat
           label="SEVERE"
-          value={a.thresholds ? String(a.thresholds[1]) : '—'}
-          color={a.thresholds ? undefined : 'var(--dim)'}
+          value={
+            a.thresholds === null ? '—' : severeIsNone(a.thresholds[1]) ? 'NONE' : String(a.thresholds[1])
+          }
+          color={a.thresholds !== null && !severeIsNone(a.thresholds[1]) ? undefined : 'var(--dim)'}
         />
         <Stat label="HP" value={String(a.hp)} color="var(--damage)" />
         {/*

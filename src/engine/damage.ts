@@ -394,6 +394,28 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  * `minionsRemaining` caps it: a card must never offer to defeat bodies that are
  * not standing.
  */
+/**
+ * `Thresholds: 3/None` - a Severe rung the book says damage never reaches.
+ *
+ * Five SRD 2.0 blocks print it, all tier 1 and all with two Hit Points: Octopus
+ * 3/None and Tiny Green Ooze 4/None (folio 105), Tiny Red Ooze 5/None and
+ * Phantom 5/None (106), Poltergeist 4/None (107). `Adversary.thresholds` is
+ * `[number, number]` and has no way to say None, so
+ * `shared/parsers/adversaries.ts` stores that Severe as `Number.MAX_SAFE_INTEGER`
+ * - out of reach rather than fabricated. The ladder needs no special case for
+ * it (`severityFor` compares, and nothing a GM types reaches the sentinel), but
+ * anything that PRINTS the pair does: sixteen digits on a stat block is not a
+ * threshold a GM can apply, and both GM screens were printing them. This is the
+ * one test for that value, so the two screens and the explanation below cannot
+ * disagree about what it means.
+ */
+export const severeIsNone = (severe: number): boolean =>
+  !Number.isFinite(severe) || severe >= Number.MAX_SAFE_INTEGER;
+
+/** The pair as the book writes it: `7/12`, or `3/None` where Severe is out of reach. */
+export const thresholdsText = (thresholds: [number, number]): string =>
+  `${thresholds[0]}/${severeIsNone(thresholds[1]) ? 'None' : thresholds[1]}`;
+
 export interface CombatantHit {
   /** What the GM typed, after the guard above. */
   amount: number;
@@ -447,7 +469,7 @@ export function combatantHit(
   } else {
     severity = severityFor(clean, thresholds, options.massiveDamageRule);
     marks = SEVERITY_HP[severity];
-    parts.push(`vs ${thresholds[0]}/${thresholds[1]} -> ${SEVERITY_LABEL[severity]}`);
+    parts.push(`vs ${thresholdsText(thresholds)} -> ${SEVERITY_LABEL[severity]}`);
   }
   const marked = Math.min(hp.max, hp.marked + marks);
 

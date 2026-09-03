@@ -490,8 +490,13 @@ function parseStats(
 
 /**
  * `4/None` means damage never reaches Severe. The contract has no way to say
- * that, so the Severe threshold is set out of reach rather than fabricated;
- * both creatures that print it die to a Major hit anyway.
+ * that, so the Severe threshold is set out of reach rather than fabricated.
+ * Five SRD 2.0 blocks print it, every one tier 1 with two Hit Points, so a
+ * Major hit already kills them: Octopus 3/None and Tiny Green Ooze 4/None
+ * (folio 105), Tiny Red Ooze 5/None and Phantom 5/None (106), Poltergeist
+ * 4/None (107). SRD 1.0 printed two. Nothing that DRAWS the pair may print the
+ * sentinel: `severeIsNone` in `src/engine/damage.ts` is the one test for it,
+ * and the bestiary block, the scene card and the hit explanation all read it.
  */
 function parseThresholds(text: string): [number, number] | null {
   if (text === 'None') return null;
