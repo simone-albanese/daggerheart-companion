@@ -174,7 +174,7 @@
  * | the 14-block grid, whole | **252.00** | **252.00** |
  * | bottom edge of the last grid row | **311.75** | **311.75** |
  * | `DOMAIN CARDS` / `ENVIRONMENTS` on one line | **yes** | **yes** |
- * | any label clipped | **none** | **none** |
+ * | any label clipped | **two: `TRANSFORMATIONS`, `MARTIAL STANCES` (ellipsised; re-measured 2026-09-04, the same on `main`)** | *not re-measured* |
  * | a chapter row | **369 x 44** | **351 x 44** |
  * | `RUNNING AN ADVENTURE` on one line | **yes** | **yes** |
  * | the 5 chapter rows, whole | **260.00** | **260.00** |

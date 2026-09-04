@@ -628,7 +628,8 @@
  * ramp on the audit rig (48 cases: six screens plus Play with every fold open
  * and the first-run screen, three viewports, two themes; 4282 visible text
  * nodes, 111198 characters): 85.9% of the visible characters were under 12px,
- * 71% of ALL characters sat in the old 11.5px `.t-dense` role, 332 text nodes
+ * 71.0% of ALL characters were 11.5px, 70.2% of them in the old `.t-dense`
+ * role itself (the rest were 11.5px chip words), 332 text nodes
  * across the 48 cases were under 10px (166 per theme; 81 distinct text-and-
  * path pairs), 16 live AA failures were roll-readout sub-lines faded by an
  * inline opacity, and the 11.5px paragraphs ran 136-152 characters a line on
