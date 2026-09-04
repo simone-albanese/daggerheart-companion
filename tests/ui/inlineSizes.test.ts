@@ -5,8 +5,9 @@
  * reaches it, and `stylesheets.test.ts` holds those roles. But 165 `font:`
  * shorthands and 30 `fontSize` literals live in components, where no
  * stylesheet rule can see them, and a px there is a size the setting never
- * reaches. Measured before the ramp on the audit rig: 85.6% of visible
- * characters under 12px and 164 text nodes under 10. So the rule this file
+ * reaches. Measured before the ramp on the audit rig: 85.9% of visible
+ * characters under 12px and 332 text nodes under 10 across the 48 cases, 81
+ * of them distinct by text and path. So the rule this file
  * holds is the one the ramp was built on: nothing in `src/ui` that is READ or
  * a LABEL sets a px size under 14. Glanced numbers and controls whose cells
  * are measured in px stay px on purpose, and each one is on the list below

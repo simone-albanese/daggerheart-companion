@@ -121,7 +121,7 @@ describe('stylesheets', () => {
   /*
    * The readability ramp, pinned as floors rather than as numbers.
    *
-   * Measured before the ramp on the audit rig: 85.6% of visible characters
+   * Measured before the ramp on the audit rig: 85.9% of visible characters
    * under 12px and 71% of all characters in the 11.5px `.t-dense` role. The
    * person this is for wears reading glasses and holds the phone at 35-45 cm,
    * so the floors are: nothing that is read is under 13px, nothing that is

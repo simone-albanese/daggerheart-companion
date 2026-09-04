@@ -427,8 +427,9 @@
  * `--counter-max` does NOT step here and that is the change that let the number
  * grow. It was 11 and rode beside the value; on its own line it is subordinate
  * to a 38px number and 10 is the right size for it - a px size of its own,
- * since `.t-meta` is 12 after the readability ramp and this line is a term of
- * a cell measured in px.
+ * since `.t-meta` is 12 where any pointer is coarse or the viewport is under
+ * 720 and 11 on a fine-pointer desk after the readability ramp, and this line
+ * is a term of a cell measured in px.
  */
 @media (min-width: 390px) {
   :root {
@@ -624,11 +625,14 @@
  * Someone wearing reading glasses, at a table in a dim room, holding a phone
  * at 35-45 cm - and the same person on a tablet or a PC, with the OS text size
  * turned up because that is what reading glasses mean. Measured before this
- * ramp on the audit rig (48 cases: six screens, three viewports, two themes):
- * 85.6% of the visible characters were under 12px, 71% of ALL characters sat
- * in the old 11.5px `.t-dense` role, 164 text nodes were under 10px, 16 live
- * AA failures were roll-readout sub-lines faded by an inline opacity, and the
- * 11.5px paragraphs ran 136-152 characters a line on a tablet and a desktop.
+ * ramp on the audit rig (48 cases: six screens plus Play with every fold open
+ * and the first-run screen, three viewports, two themes; 4282 visible text
+ * nodes, 111198 characters): 85.9% of the visible characters were under 12px,
+ * 71% of ALL characters sat in the old 11.5px `.t-dense` role, 332 text nodes
+ * across the 48 cases were under 10px (166 per theme; 81 distinct text-and-
+ * path pairs), 16 live AA failures were roll-readout sub-lines faded by an
+ * inline opacity, and the 11.5px paragraphs ran 136-152 characters a line on
+ * a tablet and a desktop.
  *
  * ## Two kinds of text, two kinds of size
  *
