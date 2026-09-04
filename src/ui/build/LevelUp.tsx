@@ -43,12 +43,14 @@ import { MAX_LEVEL, deriveStats, tierOf, type DerivedStats } from '../../engine/
 import {
   applyLevelUp,
   availableOptions,
+  nextSubclassCard,
   slotUsage,
   slotsPerTaking,
   tierAchievementFor,
   validatePlan,
   type AdvancementOption,
   type LevelUpPlan,
+  type SubclassCard,
 } from '../../engine/levelUp.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
@@ -129,9 +131,42 @@ export function LevelUp({
     return card === 'specialization' || card === 'mastery' ? { subclass: ref, tier: card } : null;
   };
 
+  /**
+   * The picks with each upgraded-subclass card resolved, in plan order.
+   *
+   * Which card a subclass pick hands over is not a choice - folio 54 says it
+   * is "the next card for your subclass", and `nextSubclassCard` reads it off
+   * that subclass's history plus the picks before this one. It used to be
+   * written into the detail on the tap, off a count of every subclass entry
+   * on the sheet, so a second subclass with only a foundation was offered a
+   * mastery and two subclass picks in one level both said "specialization".
+   * Resolving it here, every render, means the record cannot go stale when
+   * the pick above it moves to another subclass - the same reason
+   * `grantCardRef` is re-read below rather than trusted.
+   */
+  const resolvedPicks: Pick[] = [];
+  for (const p of picks) {
+    const option = options.find((o) => o.id === p.optionId && o.tier === p.optionTier);
+    const ref = p.detail['subclassRef'];
+    if (option?.kind === 'subclass' && typeof ref === 'string') {
+      const card = nextSubclassCard(character, ref, resolvedPicks);
+      const detail = { ...p.detail };
+      if (card === null) delete detail['card'];
+      else detail['card'] = card;
+      resolvedPicks.push({ ...p, detail });
+    } else {
+      resolvedPicks.push(p);
+    }
+  }
+  /** What the subclass rows under a pick offer: the next card, per subclass. */
+  const nextCardFor =
+    (pick: Pick) =>
+    (subclassRef: Ref): SubclassCard | null =>
+      nextSubclassCard(character, subclassRef, resolvedPicks.slice(0, picks.indexOf(pick)));
+
   // Index for index with `picks`, so each picker appears under the advancement
   // that earned it rather than in one anonymous pile at the bottom.
-  const grants = levelUpCardGrants(picks.map(subclassCardTaken), dataset);
+  const grants = levelUpCardGrants(resolvedPicks.map(subclassCardTaken), dataset);
   const grantFor = (pick: Pick): CardGrant | null => grants[picks.indexOf(pick)] ?? null;
 
   /**
@@ -158,7 +193,7 @@ export function LevelUp({
       exchangeFrom !== null && exchangeTo !== null
         ? { fromRef: exchangeFrom, toRef: exchangeTo }
         : null,
-    picks: picks.map((p, i) => {
+    picks: resolvedPicks.map((p, i) => {
       const detail = { ...p.detail };
       if (!grants[i]) delete detail['grantCardRef'];
       if (i === 0 && achievement !== null) detail['achievementExperience'] = experienceName.trim();
@@ -441,6 +476,7 @@ export function LevelUp({
                               stats={after}
                               toLevel={toLevel}
                               grant={grantFor(pick)}
+                              nextCardFor={nextCardFor(pick)}
                               claimed={claimedApartFrom}
                               onChange={(d) => setDetail(pick, d)}
                             />
@@ -475,6 +511,7 @@ export function LevelUp({
                           stats={after}
                           toLevel={toLevel}
                           grant={grantFor(pick)}
+                          nextCardFor={nextCardFor(pick)}
                           claimed={claimedApartFrom}
                           onChange={(d) => setDetail(pick, d)}
                         />
@@ -728,6 +765,7 @@ function PickDetail({
   stats,
   toLevel,
   grant,
+  nextCardFor,
   claimed,
   onChange,
 }: {
@@ -738,6 +776,8 @@ function PickDetail({
   toLevel: number;
   /** The subclass feature this pick just triggered, if it hands out a card. */
   grant: CardGrant | null;
+  /** The next card each subclass would take from this pick, or null when it holds both. */
+  nextCardFor: (subclassRef: Ref) => SubclassCard | null;
   /** Cards this plan has claimed, minus whichever ref is passed in. */
   claimed: (mine: unknown) => string[];
   onChange: (detail: Record<string, unknown>) => void;
@@ -871,10 +911,16 @@ function PickDetail({
     const owned = character.subclassRefs
       .map((r) => dataset.subclasses.find((s) => s.id === r))
       .filter((s): s is NonNullable<typeof s> => s !== undefined);
-    const upgrades = character.levelUpHistory.filter((h) => h.kind === 'subclass').length;
-    const nextCard = upgrades === 0 ? 'specialization' : 'mastery';
+    /*
+     * One row per subclass, and each row names ITS next card. "If you have
+     * only the foundation card, take a specialization; if you have a
+     * specialization already, take a mastery" (folio 54) is a sentence about
+     * one subclass, and a sheet can hold two - so the label above the rows no
+     * longer names a card, the rows do, and a subclass holding both is a dead
+     * row with the reason on it rather than a mastery offered a third time.
+     */
     return (
-      <DetailShell label={`Take the ${nextCard} card`}>
+      <DetailShell label="Take the next card for a subclass">
         {owned.length === 0 ? (
           <span className="t-dense" style={{ color: 'var(--dim)' }}>
             No subclass on this character yet.
@@ -882,14 +928,22 @@ function PickDetail({
         ) : (
           <div className="stack" style={{ gap: 8 }}>
             {owned.map((s) => {
-              const features = nextCard === 'specialization' ? s.specializationFeatures : s.masteryFeatures;
+              const next = nextCardFor(s.id);
+              const features =
+                next === 'specialization'
+                  ? s.specializationFeatures
+                  : next === 'mastery'
+                    ? s.masteryFeatures
+                    : [];
               return (
                 <Choice
                   key={s.id}
                   selected={pick.detail['subclassRef'] === s.id}
-                  onClick={() => onChange({ subclassRef: s.id, card: nextCard })}
+                  disabled={next === null}
+                  reason={next === null ? 'Both upgraded cards are already held' : undefined}
+                  onClick={() => onChange({ subclassRef: s.id, card: next })}
                   title={s.name}
-                  meta={nextCard.toUpperCase()}
+                  meta={next === null ? 'SPECIALIZATION AND MASTERY HELD' : next.toUpperCase()}
                   body={features.map((f) => `${f.name}. ${f.text}`).join('\n\n')}
                   clamp={4}
                 />

@@ -16,6 +16,7 @@ import { deriveStats, tierOf } from '@engine/character.ts';
 import {
   applyLevelUp,
   availableOptions,
+  nextSubclassCard,
   optionsForTier,
   slotUsage,
   tierAchievementFor,
@@ -1056,5 +1057,87 @@ describe('validatePlan: a card taken outright is held to step four\'s first sent
     // The simulator and the sample builder hold no index and choose their own
     // cards out of the dataset; without a context the dataset half is not run.
     expect(validatePlan(at(3), taking({ cardRef: 'blade-lv10' }, 'codex-lv1')).errors).toEqual([]);
+  });
+});
+
+describe('the upgraded subclass card is the next card for THAT subclass', () => {
+  /**
+   * "Take the next card for your subclass. If you have only the foundation
+   * card, take a specialization; if you have a specialization already, take a
+   * mastery." Folio 54. Per subclass - `features.ts` unlocks a card by the
+   * history entries naming that subclass - and counting the picks before this
+   * one in the same plan, because a level can spend the tier 3 and tier 4
+   * slots together.
+   */
+  const spec = (subclassRef: string, level: number, tier: Tier = 3) =>
+    advancement('subclass', 'subclass', tier, level, { subclassRef, card: 'specialization' });
+  const two = (history: Character['levelUpHistory'] = []): Character =>
+    at(8, { subclassRefs: ['first', 'second'], levelUpHistory: history });
+
+  it('reads each subclass off its own history, not a count of every subclass entry', () => {
+    const c = two([spec('first', 5)]);
+    expect(nextSubclassCard(c, 'first')).toBe('mastery');
+    expect(nextSubclassCard(c, 'second'), 'a foundation-only subclass was offered a mastery').toBe(
+      'specialization',
+    );
+  });
+
+  it('counts the picks before this one in the same plan, and runs out after the mastery', () => {
+    const c = two();
+    const first = pick('subclass', 3, { subclassRef: 'first', card: 'specialization' });
+    expect(nextSubclassCard(c, 'first', [first])).toBe('mastery');
+    expect(nextSubclassCard(c, 'second', [first])).toBe('specialization');
+    const both = two([
+      spec('first', 5),
+      advancement('subclass', 'subclass', 4, 8, { subclassRef: 'first', card: 'mastery' }),
+    ]);
+    expect(nextSubclassCard(both, 'first')).toBeNull();
+  });
+
+  it('holds nothing for an entry that names no card, as the feature list holds nothing', () => {
+    const c = two([advancement('subclass', 'subclass', 3, 5, { subclassRef: 'first' })]);
+    expect(nextSubclassCard(c, 'first')).toBe('specialization');
+  });
+
+  it('refuses the mastery of a subclass that has only its foundation', () => {
+    const c = two([spec('first', 5)]);
+    expect(
+      errorsOf(c, plan(8, [pick('subclass', 4, { subclassRef: 'second', card: 'mastery' }), pick('evasion', 4)])),
+    ).toMatch(/The next card for second is the specialization, not the mastery/);
+  });
+
+  it('refuses the specialization twice in one level, and takes specialization then mastery', () => {
+    const c = two();
+    const twice = plan(8, [
+      pick('subclass', 3, { subclassRef: 'first', card: 'specialization' }),
+      pick('subclass', 4, { subclassRef: 'first', card: 'specialization' }),
+    ]);
+    expect(errorsOf(c, twice)).toMatch(/The next card for first is the mastery, not the specialization/);
+
+    const inOrder = plan(8, [
+      pick('subclass', 3, { subclassRef: 'first', card: 'specialization' }),
+      pick('subclass', 4, { subclassRef: 'first', card: 'mastery' }),
+    ]);
+    expect(validatePlan(c, inOrder).errors).toEqual([]);
+    const after = applyLevelUp(c, inOrder);
+    expect(after.levelUpHistory.filter((h) => h.kind === 'subclass').map((h) => h.detail['card'])).toEqual([
+      'specialization',
+      'mastery',
+    ]);
+  });
+
+  it('refuses a third card, and a pick that names no card', () => {
+    const full = two([
+      spec('first', 5),
+      advancement('subclass', 'subclass', 4, 8, { subclassRef: 'first', card: 'mastery' }),
+    ]);
+    // Tier 4's slot is spent on this sheet, so hand it a fresh one via the
+    // subclass that still has room to be sure the refusal is about the card.
+    expect(
+      errorsOf(at(9, { ...full, level: 8 }), plan(9, [pick('subclass', 4, { subclassRef: 'first', card: 'mastery' }), pick('evasion', 4)])),
+    ).toMatch(/first already holds its mastery card/);
+    expect(
+      errorsOf(two(), plan(8, [pick('subclass', 3, { subclassRef: 'first' }), pick('evasion', 3)])),
+    ).toMatch(/The next card for first is the specialization; say so on the pick/);
   });
 });

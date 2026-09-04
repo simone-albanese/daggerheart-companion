@@ -375,6 +375,103 @@ describe('the card School of Knowledge hands over at level up', () => {
   });
 });
 
+describe('the upgraded subclass card is per subclass on the screen', () => {
+  /**
+   * "If you have only the foundation card, take a specialization; if you have
+   * a specialization already, take a mastery." Folio 54, per subclass. The
+   * rows used to read one card for every subclass off a count of every
+   * `subclass` entry on the sheet, so a second subclass holding only its
+   * foundation was offered the first one's next card.
+   */
+  const upgradeRows = (): HTMLButtonElement[] =>
+    buttons().filter(
+      (b) => (b.textContent ?? '').includes('Take an upgraded subclass card') && !b.disabled,
+    );
+  const choices = (name: string): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.textContent ?? '').startsWith(name));
+
+  it('offers a foundation-only subclass its specialization beside the other one\'s mastery', () => {
+    mount(
+      wizard('school-of-knowledge', {
+        subclassRefs: ['school-of-war', 'school-of-knowledge'],
+        level: 8,
+        levelUpHistory: [
+          {
+            level: 5,
+            slot: 0,
+            kind: 'subclass',
+            detail: { optionId: 'subclass', optionTier: 3, subclassRef: 'school-of-war', card: 'specialization' },
+          },
+        ],
+      }),
+    );
+    press('upgraded-subclass row', upgradeRow());
+    const war = namedChoice('School of War')!;
+    const knowledge = namedChoice('School of Knowledge')!;
+    expect(war.textContent).toContain('MASTERY');
+    expect(knowledge.textContent, 'a foundation-only subclass was offered a mastery').toContain(
+      'SPECIALIZATION',
+    );
+    expect(knowledge.textContent).not.toContain('MASTERY');
+  });
+
+  it('hands over the specialization and then the mastery when both slots go in one level', () => {
+    mount(wizard('school-of-knowledge', { level: 7 }));
+    const rows = upgradeRows();
+    expect(rows, 'tier 3 and tier 4 each offer the advancement at level 8').toHaveLength(2);
+
+    press('the first upgraded-subclass row', rows[0]);
+    press('School of Knowledge', choices('School of Knowledge')[0]);
+    press('the second upgraded-subclass row', upgradeRows().find((b) => b.getAttribute('aria-pressed') !== 'true'));
+    const [first, second] = choices('School of Knowledge');
+    expect(first!.textContent).toContain('SPECIALIZATION');
+    expect(second!.textContent, 'the second pick offered the specialization again').toContain('MASTERY');
+    press('School of Knowledge, again', second);
+
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.level).toBe(8);
+    expect(
+      after.levelUpHistory.filter((h) => h.kind === 'subclass').map((h) => h.detail['card']),
+      'two specialization entries: the mastery is never unlocked and the tier 4 slot is spent for nothing',
+    ).toEqual(['specialization', 'mastery']);
+  });
+
+  it('writes the specialization for the foundation-only subclass, and pays its grant, not the mastery\'s', () => {
+    // The record and the feature list, not the label: the old screen wrote
+    // `card: 'mastery'` for School of Knowledge here, `validatePlan` took it,
+    // and `features.ts` - which unlocks a mastery only under a specialization
+    // entry naming the same subclass - unlocked nothing, while the grant table
+    // offered Brilliant's card for a mastery the sheet would never hold.
+    mount(
+      wizard('school-of-knowledge', {
+        subclassRefs: ['school-of-war', 'school-of-knowledge'],
+        level: 8,
+        levelUpHistory: [
+          {
+            level: 5,
+            slot: 0,
+            kind: 'subclass',
+            detail: { optionId: 'subclass', optionTier: 3, subclassRef: 'school-of-war', card: 'specialization' },
+          },
+        ],
+      }),
+    );
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+    expect(grantBlock()!.textContent, 'the mastery\'s grant was offered for a specialization').toContain(
+      'Accomplished',
+    );
+    expect(grantBlock()!.textContent).not.toContain('Brilliant');
+
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const taken = stored().levelUpHistory.filter((h) => h.kind === 'subclass').at(-1)!;
+    expect(taken.detail['subclassRef']).toBe('school-of-knowledge');
+    expect(taken.detail['card'], 'a mastery was recorded over a foundation').toBe('specialization');
+  });
+});
+
 describe('every other subclass at level up', () => {
   it('offers no extra card to a Wizard of the School of War', () => {
     // The control. A screen that offered a card to everyone would pass every

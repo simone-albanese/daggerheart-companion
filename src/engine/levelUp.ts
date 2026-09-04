@@ -284,6 +284,59 @@ export interface CardExchange {
 /** The `optionId` an exchange records. No `AdvancementOption` has this id. */
 export const CARD_EXCHANGE_OPTION = 'card-exchange';
 
+/** The two cards the upgraded-subclass advancement can hand over. */
+export type SubclassCard = 'specialization' | 'mastery';
+
+/**
+ * The card "take an upgraded subclass card" would hand THIS subclass next.
+ *
+ * *"Take the next card for your subclass. If you have only the foundation
+ * card, take a specialization; if you have a specialization already, take a
+ * mastery."* Folio 54. Per subclass: the sentence is about the cards one
+ * subclass holds, and `features.ts` unlocks a specialization or a mastery by
+ * reading the history entries that name that subclass. The screen used to
+ * count every `subclass` entry on the sheet and offer the same card to every
+ * subclass, so a sheet whose first subclass had its specialization was offered
+ * the MASTERY of a second subclass that had only a foundation - a mastery the
+ * feature list would then never unlock, since no specialization entry names it.
+ *
+ * `earlier` is the picks that precede this one in the same plan, because a
+ * level that spends the tier 3 and tier 4 slots at once takes the
+ * specialization with one and the mastery with the other - read from the
+ * history alone, both would be the specialization, `validatePlan` used to
+ * accept the pair, and the mastery was never unlocked while the tier 4 slot
+ * was spent for nothing.
+ *
+ * Only a NAMED card counts, the way `features.ts` counts: an entry with no
+ * `card` unlocked nothing, so it holds nothing this reads.
+ *
+ * `null` when both cards are already held. No sheet this build writes reaches
+ * it - the option has one box in tier 3 and one in tier 4, so a subclass takes
+ * at most two cards and the second spends the last box - but a hand-built
+ * history can, and the screen then draws a dead row rather than offering a
+ * mastery a third time.
+ */
+export function nextSubclassCard(
+  c: Character,
+  subclassRef: Ref,
+  earlier: readonly LevelUpPlan['picks'][number][] = [],
+): SubclassCard | null {
+  const held = new Set<string>();
+  for (const h of c.levelUpHistory) {
+    if (h.kind === 'subclass' && h.detail['subclassRef'] === subclassRef) {
+      held.add(String(h.detail['card'] ?? ''));
+    }
+  }
+  for (const p of earlier) {
+    if (p.optionId === 'subclass' && p.detail['subclassRef'] === subclassRef) {
+      held.add(String(p.detail['card'] ?? ''));
+    }
+  }
+  if (!held.has('specialization')) return 'specialization';
+  if (!held.has('mastery')) return 'mastery';
+  return null;
+}
+
 /**
  * The three dataset facts the card rules need, and nothing else.
  *
@@ -413,7 +466,7 @@ export function validatePlan(
   let picksUsed = 0;
   const takenThisLevel = new Map<string, number>();
 
-  for (const pick of plan.picks) {
+  for (const [i, pick] of plan.picks.entries()) {
     const key = `${pick.optionId}@${pick.optionTier}`;
     const option = options.get(key);
     if (!option) {
@@ -476,10 +529,26 @@ export function validatePlan(
     }
     if (option.kind === 'subclass') {
       const ref = pick.detail['subclassRef'];
+      const card = pick.detail['card'];
       if (typeof ref !== 'string' || ref === '') {
         errors.push('Choose which subclass takes its next card.');
       } else if (!c.subclassRefs.includes(ref)) {
         errors.push(`${ref} is not one of your subclasses.`);
+      } else {
+        // "The next card for your subclass": the one the record says comes
+        // next, per subclass, counting the picks before this one in the plan.
+        // A card that skips or repeats a tier is refused, because the history
+        // entry would say a card was taken that the feature list cannot read.
+        const expected = nextSubclassCard(c, ref, plan.picks.slice(0, i));
+        if (expected === null) {
+          errors.push(`${ref} already holds its mastery card, so there is no next card to take.`);
+        } else if (card !== expected) {
+          errors.push(
+            card === 'specialization' || card === 'mastery'
+              ? `The next card for ${ref} is the ${expected}, not the ${card}.`
+              : `The next card for ${ref} is the ${expected}; say so on the pick.`,
+          );
+        }
       }
     }
     if (option.kind === 'hitPoint' && c.hp.max >= MAX_HP) {

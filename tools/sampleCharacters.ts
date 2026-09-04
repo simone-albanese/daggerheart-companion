@@ -45,6 +45,7 @@ import {
 import {
   applyLevelUp,
   availableOptions,
+  nextSubclassCard,
   tierAchievementFor,
   validatePlan,
   type LevelUpPlan,
@@ -302,6 +303,7 @@ function detailFor(
   ctx: PlanContext,
   taken: Taken,
   clearsMarks: boolean,
+  earlier: LevelUpPlan['picks'],
 ): Record<string, unknown> | null {
   switch (optionId) {
     case 'traits': {
@@ -327,8 +329,13 @@ function detailFor(
       return ref === null ? null : { cardRef: ref };
     }
     case 'subclass': {
+      // The next card for THAT subclass, counting the pick before this one:
+      // `validatePlan` refuses a card that skips or repeats a tier, and a
+      // detail with no card at all.
       const ref = c.subclassRefs[0];
-      return ref === undefined ? null : { subclassRef: ref };
+      if (ref === undefined) return null;
+      const card = nextSubclassCard(c, ref, earlier);
+      return card === null ? null : { subclassRef: ref, card };
     }
     case 'multiclass':
       return multiclassDetail(c, ctx);
@@ -365,7 +372,7 @@ function planFor(c: Character, outer: PlanContext): LevelUpPlan {
     const taken: Taken = { cards: new Set(), traits: new Set() };
     const picks: LevelUpPlan['picks'] = [];
     for (const option of combo) {
-      const detail = detailFor(option.id, c, ctx, taken, clearsMarks);
+      const detail = detailFor(option.id, c, ctx, taken, clearsMarks, picks);
       if (detail === null) return null;
       picks.push({ optionId: option.id, optionTier: option.tier, detail });
     }
