@@ -472,6 +472,63 @@ describe('the upgraded subclass card is per subclass on the screen', () => {
   });
 });
 
+describe('the trait picker at a level whose achievement clears the marks', () => {
+  /**
+   * "At level 5, you gain a new Experience at +2, permanently increase your
+   * Proficiency by 1, and clear any marked traits." Folio 53, and the same
+   * sentence for level 8. The marks are cleared BEFORE the advancements are
+   * chosen - `validatePlan` starts from `{}` at those levels and accepts the
+   * traits marked last tier - but the grid read the pre-level sheet, so it
+   * greyed them out and printed MARKED on the same screen whose banner says
+   * TRAIT MARKS CLEAR. A legal choice, withheld.
+   */
+  const marked = (level: number): Character => ({
+    ...wizard('school-of-war', { level }),
+    traitMarks: { agility: 1, strength: 1 },
+  });
+  const traitRow = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').includes('Gain a +1 bonus to two unmarked'));
+  const trait = (name: string): HTMLButtonElement =>
+    buttons().find((b) => (b.textContent ?? '').startsWith(name))!;
+
+  it('offers the traits marked last tier at level 5, because the achievement clears them', () => {
+    const before = marked(4);
+    mount(before);
+    expect(text()).toContain('TRAIT MARKS CLEAR');
+    press('the trait row', traitRow());
+    expect(trait('Agility').disabled, 'a trait the achievement clears was withheld').toBe(false);
+    expect(trait('Agility').textContent).not.toContain('MARKED');
+    expect(trait('Strength').disabled).toBe(false);
+
+    press('Agility', trait('Agility'));
+    press('Strength', trait('Strength'));
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.level).toBe(5);
+    expect(after.traits.agility).toBe(before.traits.agility + 1);
+    expect(after.traits.strength).toBe(before.traits.strength + 1);
+    // Cleared by the achievement, then marked again by this pick - not 2.
+    expect(after.traitMarks).toEqual({ agility: 1, strength: 1 });
+  });
+
+  it('offers them again at level 8, and still withholds them at level 6', () => {
+    mount(marked(7));
+    press('the trait row', traitRow());
+    expect(trait('Agility').disabled).toBe(false);
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    // The control: mid-tier, the marks stand and so does the grey.
+    mount(marked(5));
+    expect(text()).not.toContain('TRAIT MARKS CLEAR');
+    press('the trait row', traitRow());
+    expect(trait('Agility').disabled).toBe(true);
+    expect(trait('Agility').textContent).toContain('MARKED');
+    expect(trait('Finesse').disabled).toBe(false);
+  });
+});
+
 describe('every other subclass at level up', () => {
   it('offers no extra card to a Wizard of the School of War', () => {
     // The control. A screen that offered a card to everyone would pass every

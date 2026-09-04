@@ -164,6 +164,36 @@ export function LevelUp({
     (subclassRef: Ref): SubclassCard | null =>
       nextSubclassCard(character, subclassRef, resolvedPicks.slice(0, picks.indexOf(pick)));
 
+  /**
+   * The traits a trait pick may not take, and why - exactly what `validatePlan`
+   * refuses, so the grid never greys out a choice the validator would accept.
+   *
+   * *"At level 5, you gain a new Experience at +2, permanently increase your
+   * Proficiency by 1, and clear any marked traits."* Folio 53, and the same at
+   * level 8. The marks are cleared BEFORE the advancements are chosen, so at
+   * those two levels every trait is on offer again. The grid used to read
+   * `character.traitMarks` - the pre-level sheet - and withheld the traits
+   * marked last tier while the banner three sections up said TRAIT MARKS
+   * CLEAR.
+   *
+   * A trait an earlier trait pick in this same plan takes is marked too, as the
+   * validator counts it. `toggle` offers one taking of an option per level
+   * today, so that half is the validator's rule kept in step here rather than a
+   * state the screen reaches.
+   */
+  const markedBefore = (pick: Pick): ReadonlyMap<Trait, 'sheet' | 'plan'> => {
+    const marks = new Map<Trait, 'sheet' | 'plan'>();
+    if (achievement?.clearTraitMarks !== true) {
+      for (const t of TRAITS) if ((character.traitMarks[t] ?? 0) > 0) marks.set(t, 'sheet');
+    }
+    for (const p of picks.slice(0, picks.indexOf(pick))) {
+      const option = options.find((o) => o.id === p.optionId && o.tier === p.optionTier);
+      if (option?.kind !== 'trait') continue;
+      for (const t of (p.detail['traits'] as Trait[] | undefined) ?? []) marks.set(t, 'plan');
+    }
+    return marks;
+  };
+
   // Index for index with `picks`, so each picker appears under the advancement
   // that earned it rather than in one anonymous pile at the bottom.
   const grants = levelUpCardGrants(resolvedPicks.map(subclassCardTaken), dataset);
@@ -477,6 +507,7 @@ export function LevelUp({
                               toLevel={toLevel}
                               grant={grantFor(pick)}
                               nextCardFor={nextCardFor(pick)}
+                              marked={markedBefore(pick)}
                               claimed={claimedApartFrom}
                               onChange={(d) => setDetail(pick, d)}
                             />
@@ -512,6 +543,7 @@ export function LevelUp({
                           toLevel={toLevel}
                           grant={grantFor(pick)}
                           nextCardFor={nextCardFor(pick)}
+                          marked={markedBefore(pick)}
                           claimed={claimedApartFrom}
                           onChange={(d) => setDetail(pick, d)}
                         />
@@ -766,6 +798,7 @@ function PickDetail({
   toLevel,
   grant,
   nextCardFor,
+  marked,
   claimed,
   onChange,
 }: {
@@ -778,6 +811,12 @@ function PickDetail({
   grant: CardGrant | null;
   /** The next card each subclass would take from this pick, or null when it holds both. */
   nextCardFor: (subclassRef: Ref) => SubclassCard | null;
+  /**
+   * The traits this pick may not take: marked on the sheet as this level reads
+   * it, or by a trait pick above this one. What `validatePlan` refuses, so the
+   * grid and the validator cannot disagree about a trait.
+   */
+  marked: ReadonlyMap<Trait, 'sheet' | 'plan'>;
   /** Cards this plan has claimed, minus whichever ref is passed in. */
   claimed: (mine: unknown) => string[];
   onChange: (detail: Record<string, unknown>) => void;
@@ -803,9 +842,9 @@ function PickDetail({
       <DetailShell label="Choose two unmarked traits">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 7 }}>
           {TRAITS.map((t) => {
-            const marked = (character.traitMarks[t] ?? 0) > 0;
+            const markedBy = marked.get(t) ?? null;
             const on = picked.includes(t);
-            const blocked = marked || (!on && picked.length >= 2);
+            const blocked = markedBy !== null || (!on && picked.length >= 2);
             return (
               <button
                 key={t}
@@ -836,7 +875,11 @@ function PickDetail({
                   {on ? ' → ' : ''}
                   {on ? `${character.traits[t] + 1 >= 0 ? '+' : '−'}${Math.abs(character.traits[t] + 1)}` : ''}
                 </span>
-                {marked && <span className="t-meta" style={{ color: 'var(--dim)' }}>MARKED</span>}
+                {markedBy !== null && (
+                  <span className="t-meta" style={{ color: 'var(--dim)' }}>
+                    {markedBy === 'sheet' ? 'MARKED' : 'MARKED ABOVE'}
+                  </span>
+                )}
               </button>
             );
           })}
