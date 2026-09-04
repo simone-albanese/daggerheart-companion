@@ -954,10 +954,11 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
       let fromMulticlass = 0;
       for (const row of rows) {
         // The vault is checked alongside the loadout because `applyLevelUp`
-        // writes acquired cards straight into it with no legality check of its
-        // own, and because a loadout is only ever the first five cards a sheet
-        // acquired - a multiclass domain's cards are all in the vault, so the
-        // half-level cap would go entirely unproven if only loadouts were read.
+        // writes acquired cards into one or the other with no legality check
+        // of its own, and because a multiclass domain's cards arrive at level 5
+        // or later, when the loadout is usually full already - most of them sit
+        // in the vault, so the half-level cap would go largely unproven if only
+        // loadouts were read.
         const held: Array<[string, Ref]> = [
           ...row.character.loadout.map((ref, i): [string, Ref] => [`loadout[${i}]`, ref]),
           ...row.character.vault.map((ref, i): [string, Ref] => [`vault[${i}]`, ref]),
@@ -1006,7 +1007,7 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
     });
 
     it('owns no card twice and no subclass twice', () => {
-      // `applyLevelUp` appends a card to the vault and a subclass to the list
+      // `applyLevelUp` appends a card to the loadout or the vault and a subclass to the list
       // with no check that it is not already there - the level-up screen keeps
       // its two card pickers from choosing the same card, and nothing else
       // does. Two copies of one card is a card the player cannot vault, and a

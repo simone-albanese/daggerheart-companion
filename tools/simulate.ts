@@ -50,6 +50,7 @@ import {
 import {
   applyLevelUp,
   availableOptions,
+  nextSubclassCard,
   slotUsage,
   tierAchievementFor,
   validatePlan,
@@ -402,6 +403,8 @@ function planFor(c: Character, toLevel: number, ds: Dataset, ix: DatasetIndex, c
     achievement?.clearTraitMarks === true ? [] : TRAITS.filter((t) => (c.traitMarks[t] ?? 0) > 0),
   );
 
+  const picks: LevelUpPlan['picks'] = [];
+
   /** The detail an option needs, or null when this character cannot take it. */
   const detailFor = (id: string, t: Tier): Record<string, unknown> | null => {
     if (id === 'traits') {
@@ -425,8 +428,11 @@ function planFor(c: Character, toLevel: number, ds: Dataset, ix: DatasetIndex, c
       if (spent('multiclass', t)) return null;
       const own = c.subclassRefs[0];
       if (own === undefined) return null;
-      const upgrades = c.levelUpHistory.filter((h) => h.kind === 'subclass').length;
-      return { subclassRef: own, card: upgrades === 0 ? 'specialization' : 'mastery' };
+      // Per subclass and counting this level's earlier pick, as the validator
+      // reads it - a global count offered the specialization twice in a level
+      // that spent both subclass slots.
+      const card = nextSubclassCard(c, own, picks);
+      return card === null ? null : { subclassRef: own, card };
     }
     if (id === 'multiclass') {
       if (c.multiclassRef !== null || spent('subclass', t)) return null;
@@ -446,7 +452,6 @@ function planFor(c: Character, toLevel: number, ds: Dataset, ix: DatasetIndex, c
     return {};
   };
 
-  const picks: LevelUpPlan['picks'] = [];
   let budget = 2;
   // Rotated by the level as well as by the character, so the boxed options are
   // not always reached in the same tier: a character who never wanted the
@@ -503,6 +508,10 @@ function planFor(c: Character, toLevel: number, ds: Dataset, ix: DatasetIndex, c
     exchange: null,
     picks,
     newCardRef: stepFour?.id ?? null,
+    // Folio 54 offers "your loadout or vault"; some players take the free move
+    // into the loadout at once, some bank the card and fill up at the next
+    // rest, so both routes get walked.
+    placement: ch.cycle(2) === 0 ? 'loadout' : 'vault',
   };
 }
 

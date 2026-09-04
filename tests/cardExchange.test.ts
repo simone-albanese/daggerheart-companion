@@ -64,13 +64,14 @@ const ix = indexDataset(ds);
 
 /**
  * The context `validatePlan` asks for, built the way the screen builds it: the
- * index's cards, and the domains `deriveStats` answers for this sheet. Derived
- * rather than written out, so a test cannot grant a domain the app would not.
+ * index's cards, and the domains and card caps `deriveStats` answers for the
+ * sheet this plan produces - one level up. Derived rather than written out, so
+ * a test cannot grant a domain or a level the app would not.
  */
-const context = (c: Character): PlanContext => ({
-  cards: ix.cards,
-  domains: deriveStats(c, ds, ix).domains,
-});
+const context = (c: Character): PlanContext => {
+  const after = deriveStats({ ...c, level: c.level + 1 }, ds, ix);
+  return { cards: ix.cards, domains: after.domains, cardLevelCap: after.cardLevelCap };
+};
 
 const sheet = (patch: Partial<Character> = {}): Character =>
   makeCharacter({
@@ -93,6 +94,7 @@ const plan = (p: Partial<LevelUpPlan> = {}): LevelUpPlan => ({
   ],
   newCardRef: null,
   exchange: null,
+  placement: 'vault',
   ...p,
 });
 
@@ -174,8 +176,8 @@ describe('the rule the sentence carries', () => {
     const thin = indexDataset(makeDataset({ ...ds, domainCards: [card('held-lv3', 3)] }));
     expect(
       errorsFor(sheet(), plan({ exchange: { fromRef: 'held-lv3', toRef: 'open-lv1' } }), {
+        ...context(sheet()),
         cards: thin.cards,
-        domains: deriveStats(sheet(), ds, ix).domains,
       }),
     ).toContain('This build cannot name open-lv1, so it cannot check its level.');
   });

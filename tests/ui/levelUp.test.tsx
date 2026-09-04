@@ -299,7 +299,7 @@ describe('the card School of Knowledge hands over at level up', () => {
     expect(text()).toContain('Brilliant gives you an additional domain card');
   });
 
-  it('puts the card in the vault, and stops warning once it has been taken', () => {
+  it('banks the card with the level\'s others, and stops warning once it has been taken', () => {
     mount(wizard('school-of-knowledge'));
     press('upgraded-subclass row', upgradeRow());
     press('School of Knowledge', namedChoice('School of Knowledge'));
@@ -320,13 +320,16 @@ describe('the card School of Knowledge hands over at level up', () => {
 
     const after = stored();
     expect(after.level).toBe(6);
-    expect(after.vault, 'the level applied and the granted card never reached the vault').toHaveLength(1);
+    // The loadout, because it had room and the screen's default is folio 8's
+    // free move; `PlacementRow` has its own describe below.
+    expect(after.loadout, 'the level applied and the granted card never reached the sheet').toHaveLength(1);
+    expect(after.vault).toEqual([]);
 
     // The record says why it is there, so a sheet cannot carry a history of a
     // card it does not hold or a card it cannot explain.
     const taking = after.levelUpHistory.find((h) => h.kind === 'subclass')!;
-    expect(taking.detail['grantCardRef']).toBe(after.vault[0]);
-    expect(name).toContain(dataset.domainCards.find((c) => c.id === after.vault[0])!.name);
+    expect(taking.detail['grantCardRef']).toBe(after.loadout[0]);
+    expect(name).toContain(dataset.domainCards.find((c) => c.id === after.loadout[0])!.name);
   });
 
   it('drops the card again when the advancement moves to a subclass that owes none', () => {
@@ -352,13 +355,13 @@ describe('the card School of Knowledge hands over at level up', () => {
     press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
 
     expect(
-      stored().vault,
+      [...stored().loadout, ...stored().vault],
       'a card was banked for a feature this character does not have',
     ).toEqual([]);
   });
 
   it('takes the granted card off step four, so no card is taken twice', () => {
-    // Three pickers now write into one vault, and `applyLevelUp` appends
+    // Three pickers now write into one sheet, and `applyLevelUp` appends
     // whatever each hands it. Left to itself step four would happily offer the
     // card Accomplished just bought, and the character would own two copies.
     mount(wizard('school-of-knowledge'));
@@ -372,6 +375,228 @@ describe('the card School of Knowledge hands over at level up', () => {
     expect(onOffer(), 'both pickers should start out offering the whole list').toBe(2);
     press('a card in the granted picker', row);
     expect(onOffer(), 'step four is still offering the card the grant just took').toBe(1);
+  });
+});
+
+describe('the upgraded subclass card is per subclass on the screen', () => {
+  /**
+   * "If you have only the foundation card, take a specialization; if you have
+   * a specialization already, take a mastery." Folio 54, per subclass. The
+   * rows used to read one card for every subclass off a count of every
+   * `subclass` entry on the sheet, so a second subclass holding only its
+   * foundation was offered the first one's next card.
+   */
+  const upgradeRows = (): HTMLButtonElement[] =>
+    buttons().filter(
+      (b) => (b.textContent ?? '').includes('Take an upgraded subclass card') && !b.disabled,
+    );
+  const choices = (name: string): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.textContent ?? '').startsWith(name));
+
+  it('offers a foundation-only subclass its specialization beside the other one\'s mastery', () => {
+    mount(
+      wizard('school-of-knowledge', {
+        subclassRefs: ['school-of-war', 'school-of-knowledge'],
+        level: 8,
+        levelUpHistory: [
+          {
+            level: 5,
+            slot: 0,
+            kind: 'subclass',
+            detail: { optionId: 'subclass', optionTier: 3, subclassRef: 'school-of-war', card: 'specialization' },
+          },
+        ],
+      }),
+    );
+    press('upgraded-subclass row', upgradeRow());
+    const war = namedChoice('School of War')!;
+    const knowledge = namedChoice('School of Knowledge')!;
+    expect(war.textContent).toContain('MASTERY');
+    expect(knowledge.textContent, 'a foundation-only subclass was offered a mastery').toContain(
+      'SPECIALIZATION',
+    );
+    expect(knowledge.textContent).not.toContain('MASTERY');
+  });
+
+  it('hands over the specialization and then the mastery when both slots go in one level', () => {
+    mount(wizard('school-of-knowledge', { level: 7 }));
+    const rows = upgradeRows();
+    expect(rows, 'tier 3 and tier 4 each offer the advancement at level 8').toHaveLength(2);
+
+    press('the first upgraded-subclass row', rows[0]);
+    press('School of Knowledge', choices('School of Knowledge')[0]);
+    press('the second upgraded-subclass row', upgradeRows().find((b) => b.getAttribute('aria-pressed') !== 'true'));
+    const [first, second] = choices('School of Knowledge');
+    expect(first!.textContent).toContain('SPECIALIZATION');
+    expect(second!.textContent, 'the second pick offered the specialization again').toContain('MASTERY');
+    press('School of Knowledge, again', second);
+
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.level).toBe(8);
+    expect(
+      after.levelUpHistory.filter((h) => h.kind === 'subclass').map((h) => h.detail['card']),
+      'two specialization entries: the mastery is never unlocked and the tier 4 slot is spent for nothing',
+    ).toEqual(['specialization', 'mastery']);
+  });
+
+  it('writes the specialization for the foundation-only subclass, and pays its grant, not the mastery\'s', () => {
+    // The record and the feature list, not the label: the old screen wrote
+    // `card: 'mastery'` for School of Knowledge here, `validatePlan` took it,
+    // and `features.ts` - which unlocks a mastery only under a specialization
+    // entry naming the same subclass - unlocked nothing, while the grant table
+    // offered Brilliant's card for a mastery the sheet would never hold.
+    mount(
+      wizard('school-of-knowledge', {
+        subclassRefs: ['school-of-war', 'school-of-knowledge'],
+        level: 8,
+        levelUpHistory: [
+          {
+            level: 5,
+            slot: 0,
+            kind: 'subclass',
+            detail: { optionId: 'subclass', optionTier: 3, subclassRef: 'school-of-war', card: 'specialization' },
+          },
+        ],
+      }),
+    );
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+    expect(grantBlock()!.textContent, 'the mastery\'s grant was offered for a specialization').toContain(
+      'Accomplished',
+    );
+    expect(grantBlock()!.textContent).not.toContain('Brilliant');
+
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const taken = stored().levelUpHistory.filter((h) => h.kind === 'subclass').at(-1)!;
+    expect(taken.detail['subclassRef']).toBe('school-of-knowledge');
+    expect(taken.detail['card'], 'a mastery was recorded over a foundation').toBe('specialization');
+  });
+});
+
+describe('the trait picker at a level whose achievement clears the marks', () => {
+  /**
+   * "At level 5, you gain a new Experience at +2, permanently increase your
+   * Proficiency by 1, and clear any marked traits." Folio 53, and the same
+   * sentence for level 8. The marks are cleared BEFORE the advancements are
+   * chosen - `validatePlan` starts from `{}` at those levels and accepts the
+   * traits marked last tier - but the grid read the pre-level sheet, so it
+   * greyed them out and printed MARKED on the same screen whose banner says
+   * TRAIT MARKS CLEAR. A legal choice, withheld.
+   */
+  const marked = (level: number): Character => ({
+    ...wizard('school-of-war', { level }),
+    traitMarks: { agility: 1, strength: 1 },
+  });
+  const traitRow = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').includes('Gain a +1 bonus to two unmarked'));
+  const trait = (name: string): HTMLButtonElement =>
+    buttons().find((b) => (b.textContent ?? '').startsWith(name))!;
+
+  it('offers the traits marked last tier at level 5, because the achievement clears them', () => {
+    const before = marked(4);
+    mount(before);
+    expect(text()).toContain('TRAIT MARKS CLEAR');
+    press('the trait row', traitRow());
+    expect(trait('Agility').disabled, 'a trait the achievement clears was withheld').toBe(false);
+    expect(trait('Agility').textContent).not.toContain('MARKED');
+    expect(trait('Strength').disabled).toBe(false);
+
+    press('Agility', trait('Agility'));
+    press('Strength', trait('Strength'));
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.level).toBe(5);
+    expect(after.traits.agility).toBe(before.traits.agility + 1);
+    expect(after.traits.strength).toBe(before.traits.strength + 1);
+    // Cleared by the achievement, then marked again by this pick - not 2.
+    expect(after.traitMarks).toEqual({ agility: 1, strength: 1 });
+  });
+
+  it('offers them again at level 8, and still withholds them at level 6', () => {
+    mount(marked(7));
+    press('the trait row', traitRow());
+    expect(trait('Agility').disabled).toBe(false);
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    // The control: mid-tier, the marks stand and so does the grey.
+    mount(marked(5));
+    expect(text()).not.toContain('TRAIT MARKS CLEAR');
+    press('the trait row', traitRow());
+    expect(trait('Agility').disabled).toBe(true);
+    expect(trait('Agility').textContent).toContain('MARKED');
+    expect(trait('Finesse').disabled).toBe(false);
+  });
+});
+
+describe('where the level\'s cards go', () => {
+  /**
+   * "Acquire a new domain card ... and add it to your loadout or vault. If your
+   * loadout is already full, you can't add the new card to it until you move
+   * another into your vault." Folio 54. "When you gain a new domain card at
+   * level-up, you can immediately move it into your loadout for free." Folio
+   * 8. The screen used to send every card to the vault and offer no choice, so
+   * the free move was only reachable through the Rest screen and a player who
+   * levelled mid-session paid Recall Cost for the card the level gave them.
+   */
+  const pill = (label: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').startsWith(label));
+  const twoPicks = (): void => {
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('the Stress row', buttons().find((b) => (b.textContent ?? '').includes('Permanently gain one Stress')));
+  };
+  /** Step four's list is the only picker open when no advancement wants a card. */
+  const stepFourCard = (): HTMLButtonElement => cardRows(container)[0]!;
+
+  it('offers the loadout by default when it has room, and the card lands there', () => {
+    mount(wizard('school-of-war'));
+    expect(pill('LOADOUT · 5 FREE')!.getAttribute('aria-pressed')).toBe('true');
+    expect(text()).toContain('Moving it into the loadout now is free');
+    twoPicks();
+    press('a card at step four', stepFourCard());
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.loadout, 'the card the level granted went to the vault').toHaveLength(1);
+    expect(after.vault).toEqual([]);
+  });
+
+  it('sends it to the vault when the player says so', () => {
+    mount(wizard('school-of-war'));
+    press('the VAULT pill', pill('VAULT'));
+    expect(pill('VAULT')!.getAttribute('aria-pressed')).toBe('true');
+    twoPicks();
+    press('a card at step four', stepFourCard());
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.loadout).toEqual([]);
+    expect(after.vault).toHaveLength(1);
+  });
+
+  it('defaults to the vault, and locks the loadout pill, when the loadout is full', () => {
+    mount(wizard('school-of-war', { loadout: ['x1', 'x2', 'x3', 'x4', 'x5'] }));
+    const loadout = pill('LOADOUT · 0 FREE')!;
+    expect(loadout.disabled).toBe(true);
+    expect(loadout.title).toBe('Loadout is full (5) - move a card to the vault first');
+    expect(pill('VAULT')!.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('says how many cards will overflow when the level takes more than the room', () => {
+    mount(wizard('school-of-war', { loadout: ['x1', 'x2', 'x3', 'x4'] }));
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press(
+      'the additional domain card row',
+      buttons().find((b) => (b.textContent ?? '').includes('Choose an additional domain card')),
+    );
+    // Step four's card and the advancement's: two into one free slot. Each
+    // picker is inside its own `Section`, and the rows are told apart by it.
+    const section = (label: string): HTMLElement =>
+      [...container.querySelectorAll('section')].find((el) => el.querySelector('h3')?.textContent === label)!;
+    press('a card at step four', cardRows(section('A new domain card'))[0]);
+    press('a card for the advancement', cardRows(section('Two advancements'))[0]);
+    expect(text()).toContain('Your loadout has room for 1 more card, so 1 of the 2 this level takes go to the vault.');
   });
 });
 

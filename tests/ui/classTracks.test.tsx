@@ -152,6 +152,7 @@ describe('who the Focus track is drawn for', () => {
       picks,
       newCardRef: null,
       exchange: null,
+      placement: 'vault',
     });
     const before = makeCharacter({ classRef: 'warlockish', level: 4 });
     expect(drawsFocus(before)).toBe(false);

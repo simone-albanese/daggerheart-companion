@@ -241,7 +241,11 @@ export function Edit({
                       : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.primary }
                   }
                   onOpen={() => setPicking('primary')}
-                  onClear={() => patch({ activePrimaryWeapon: null })}
+                  onClear={() => {
+                    patch({ activePrimaryWeapon: null });
+                    // A Protective axe put down is Armor Score gone: resync.
+                    normalizeActive();
+                  }}
                 />
                 <GearSlot
                   label="Secondary weapon"
@@ -270,7 +274,11 @@ export function Edit({
                       : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.secondary }
                   }
                   onOpen={() => setPicking('secondary')}
-                  onClear={() => patch({ activeSecondaryWeapon: null })}
+                  onClear={() => {
+                    patch({ activeSecondaryWeapon: null });
+                    // A shield put down is Armor Score gone: resync.
+                    normalizeActive();
+                  }}
                 />
                 <GearSlot
                   label="Armor"
@@ -373,6 +381,20 @@ export function Edit({
                   ? { activePrimaryWeapon: ref }
                   : { activeSecondaryWeapon: ref },
               );
+              /*
+               * THE ARMOR TRACK FOLLOWS THE HANDS AS WELL AS THE ARMOR.
+               *
+               * `deriveStats` prices a shield's Barrier and a Labrys Axe's
+               * Protective into `armorScore` (the register in
+               * `engine/modifiers.ts`), and the header above reads that number
+               * live. Play's ARMOR counter and the damage calculator read the
+               * STORED `armorSlots.max`, which only `syncCounters` writes - and
+               * this pick ran `patch()` alone, where the armor pick below has
+               * always run `normalizeActive()` too. So a Tower Shield taken here
+               * left the header on 5 and the track on 3, and putting it down
+               * left two slots nothing was worn for. Same call, same reason.
+               */
+              normalizeActive();
               setPicking(null);
             }}
             onClose={() => setPicking(null)}
