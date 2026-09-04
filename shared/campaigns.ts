@@ -1019,14 +1019,22 @@ export const emptyBoard = (): GmBoard => ({
   openScene: null,
 });
 
-export function newCampaign(name: string, at: string, id: string): Campaign {
+/**
+ * A campaign as the app mints one. `openingFear` is the pool it opens with:
+ * SRD 2 p87, "You start a campaign with 1 Fear per PC in the party", so the
+ * GM store passes the party size it keeps in preferences, clamped to the
+ * pool's own ceiling the way every other Fear write is. Nothing passed means
+ * an empty pool, which is what every campaign opened with before this and
+ * what a fixture wants.
+ */
+export function newCampaign(name: string, at: string, id: string, openingFear = 0): Campaign {
   return {
     id,
     schemaVersion: CAMPAIGN_SCHEMA_VERSION,
     name,
     createdAt: at,
     updatedAt: at,
-    fear: 0,
+    fear: clampFear(openingFear),
     session: [],
     archive: [],
     register: [],

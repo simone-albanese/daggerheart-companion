@@ -81,6 +81,7 @@ import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaign
 import { publishCampaignSource, type CampaignSnapshot } from '../../store/campaignSource.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
 import { CAMPAIGN_NAMES, freeName } from '../../store/names.ts';
+import { useApp } from '../../store/state.ts';
 import { beforeClearAll, type QuarantinedRecord } from '../../store/db.ts';
 import { publishCampaignAlert, type CampaignRetry } from '../shell/campaignAlert.ts';
 import {
@@ -423,6 +424,14 @@ export const openEnvironment = (s: GmState): Ref | null =>
 function clampFear(n: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(MAX_FEAR, Math.round(n))) : 0;
 }
+
+/**
+ * The Fear a campaign opens with: SRD 2 p87, "You start a campaign with 1 Fear
+ * per PC in the party". The party size is the preference the rest control
+ * already reads, never `party.length` - the roster is a thing the GM fills in
+ * over time, and a campaign is minted before it exists.
+ */
+const openingFear = (): number => clampFear(useApp.getState().prefs.gmPartySize);
 
 // ---------------------------------------------------------------------------
 // Writing
@@ -824,7 +833,7 @@ export function hydrateGm(): Promise<void> {
     let firstWriteFailed = false;
     if (campaigns.length === 0) {
       const at = new Date().toISOString();
-      const first = newCampaign(FIRST_CAMPAIGN_NAME, at, crypto.randomUUID());
+      const first = newCampaign(FIRST_CAMPAIGN_NAME, at, crypto.randomUUID(), openingFear());
       try {
         await putCampaign(first);
       } catch (error) {
@@ -1422,6 +1431,7 @@ export const useGm = create<GmState>((set, get) => {
         freeName((name ?? '').trim() || FIRST_CAMPAIGN_NAME, get().campaigns, CAMPAIGN_NAMES),
         at,
         crypto.randomUUID(),
+        openingFear(),
       );
       let failed = false;
       try {

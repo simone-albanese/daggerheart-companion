@@ -218,11 +218,17 @@ describe('countdowns', () => {
     expect(tickCountdown(cd({ value: 3 }), 5).value).toBe(4);
   });
 
-  it('wraps a loop countdown back to its start when it runs out', () => {
+  it('lets a loop countdown reach 0, and returns it to its start on the next advance (p91)', () => {
+    // S8c-1: "reset to their starting value AFTER their countdown effect is
+    // triggered". It used to wrap on the tap that reached 0, so the 0 - and the
+    // SPENT line the board draws on it - never existed.
     const loop = cd({ kind: 'loop', start: 3, value: 1 });
-    expect(tickCountdown(loop, -1).value).toBe(3);
-    expect(tickCountdown(loop, -5).value).toBe(3);
+    expect(tickCountdown(loop, -1).value).toBe(0);
+    expect(tickCountdown(loop, -5).value).toBe(0);
+    expect(tickCountdown(cd({ kind: 'loop', start: 3, value: 0 }), -1).value).toBe(3);
     expect(tickCountdown(cd({ kind: 'loop', start: 3, value: 3 }), -1).value).toBe(2);
+    // Up from 0 is a correction, not a reset.
+    expect(tickCountdown(cd({ kind: 'loop', start: 3, value: 0 }), 1).value).toBe(1);
   });
 
   it('caps a loop countdown at its start like any other', () => {

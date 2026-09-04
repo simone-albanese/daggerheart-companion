@@ -136,14 +136,26 @@ describe('what the two kind lists say about a long-term countdown', () => {
     ).not.toContain('between sessions');
   });
 
-  it('leaves the other three kinds alone', () => {
-    // The section this correction had to answer: correcting one of four looks
-    // arbitrary. It is not, and the reason is that the other three describe the
-    // right thing - so they are here, unchanged, as the other half of that
-    // sentence.
+  it('says what advances the other three, as p91 does (S8c-2, S8c-1)', () => {
+    // p91: "Standard countdowns advance every time a player makes an action
+    // roll"; dynamic ones "advance according to this chart"; loop ones "reset
+    // to their starting value after their countdown effect is triggered". The
+    // hints are the app's words, and they no longer hand the standard trigger
+    // to the fiction or the dynamic amount to the GM.
     act(() => root.render(createElement(Countdowns, { phone: true })));
-    expect(hintFor('standard')).toContain('the fiction says it does');
-    expect(hintFor('dynamic')).toContain('the outcome of a roll');
-    expect(hintFor('loop')).toContain('returns to its starting value');
+    expect(hintFor('standard')).toContain('every action roll');
+    expect(hintFor('standard')).not.toContain('the fiction says');
+    expect(hintFor('dynamic')).toContain('the chart');
+    expect(hintFor('dynamic')).not.toContain('you decide');
+    expect(hintFor('loop')).toContain('the next advance returns it to its start');
+  });
+
+  it('says the same three things in the form that mints one', () => {
+    act(() => root.render(createElement(AddSheet, { onClose: () => {} })));
+    chooseKind('COUNTDOWN');
+    const said = options();
+    expect(said).toContain('every action roll');
+    expect(said).toContain('per the chart');
+    expect(said).toContain('the next advance returns it to its start');
   });
 });
