@@ -77,8 +77,20 @@ export interface DualityInput {
   disadvantage?: boolean;
   /** Experience bonuses the player chose to spend Hope on. */
   experienceBonus?: number;
-  /** Extra dice a feature grants, e.g. a Rally d6. */
+  /**
+   * Extra dice a feature grants and ADDS, e.g. a Rally d6, a Prayer d4, a
+   * Slayer d6, a Patron d8. Each is rolled and added on its own.
+   */
   bonusDice?: number[];
+  /**
+   * Advantage dice other players rolled for this roll - Help an Ally, SRD 2
+   * p49: *"they roll their own advantage die and apply it to an ally's action
+   * roll"*. They are NOT `bonusDice`: *"the player making the action roll adds
+   * only the highest result of all advantage dice rolled (including their own)
+   * and ignores the rest"*. So these and the roller's own advantage die form
+   * one pool of which the highest face is added once - see `highestAdvantage`.
+   */
+  helpDice?: number[];
   /**
    * A reaction roll: made in response to an attack or a hazard.
    *
@@ -94,7 +106,7 @@ export interface DualityInput {
    */
   reaction?: boolean;
   /** Fixed die results, for a table rolling physical dice. */
-  fixed?: { hope?: number; fear?: number; advantage?: number; bonus?: number[] };
+  fixed?: { hope?: number; fear?: number; advantage?: number; bonus?: number[]; help?: number[] };
 }
 
 export interface DualityResult {
@@ -104,6 +116,15 @@ export interface DualityResult {
   advantageDie: number | null;
   advantageSign: 1 | -1 | 0;
   bonusDice: number[];
+  /** What each Help an Ally die rolled, in the order `helpDice` was given. */
+  helpDice: number[];
+  /**
+   * The one advantage die that reached the total: the highest of the roller's
+   * own advantage die and every Help die (p49). Null when there was no
+   * advantage die of any kind. A disadvantage die is subtracted on its own and
+   * is never in this pool.
+   */
+  highestAdvantage: number | null;
   modifier: number;
   experienceBonus: number;
   difficulty: number | null;
@@ -121,9 +142,20 @@ export interface DualityResult {
 
 /**
  * Advantage and disadvantage cancel one-for-one, so they are never both rolled.
- * They are booleans rather than counts because this is one dice pool: sources
- * that grant a die outside your pool - an ally's Help an Ally - stack instead,
- * and belong in `bonusDice`, where they are rolled and added on their own.
+ * They are booleans rather than counts because this is one dice pool: a second
+ * source of advantage does not add a second die. The exception the book makes
+ * is Help an Ally, and it is not a stacking exception - p49 says the roller
+ * "adds only the highest result of all advantage dice rolled (including their
+ * own)". So a Help die goes in `helpDice`, pooled with this one, and a die
+ * that is ADDED on its own - Rally, Prayer, Slayer, Patron - is a `bonusDice`
+ * entry. This docblock used to say Help dice "stack instead" and belong in
+ * `bonusDice`; that premise is the one p49 contradicts in two places, and the
+ * engine answered 23 on the book's own worked example, whose answer is 18.
+ *
+ * Whether a Help die cancels a DISADVANTAGE is left to the table: the sign
+ * here is the roller's own declaration, a disadvantage die is subtracted as
+ * declared, and the Help pool is added on top. A table that rules the Help
+ * cancels it drops the DIS.
  */
 function advantageSign(input: DualityInput): 1 | -1 | 0 {
   const adv = input.advantage === true;
@@ -140,6 +172,15 @@ export function rollDuality(input: DualityInput, rng: Rng = cryptoRng): DualityR
 
   const bonusSpec = input.bonusDice ?? [];
   const bonusDice = bonusSpec.map((sides, i) => input.fixed?.bonus?.[i] ?? rng(sides));
+  const helpSpec = input.helpDice ?? [];
+  const helpDice = helpSpec.map((sides, i) => input.fixed?.help?.[i] ?? rng(sides));
+
+  // p49: one advantage die reaches the total, the highest of the roller's own
+  // and every Help die. A disadvantage die is the roller's alone and is
+  // subtracted as before.
+  const advantagePool = [...(sign === 1 && advantageDie !== null ? [advantageDie] : []), ...helpDice];
+  const highestAdvantage = advantagePool.length === 0 ? null : Math.max(...advantagePool);
+  const disadvantage = sign === -1 ? -(advantageDie ?? 0) : 0;
 
   const experienceBonus = input.experienceBonus ?? 0;
   const total =
@@ -147,7 +188,8 @@ export function rollDuality(input: DualityInput, rng: Rng = cryptoRng): DualityR
     fear +
     input.modifier +
     experienceBonus +
-    (advantageDie ?? 0) * sign +
+    (highestAdvantage ?? 0) +
+    disadvantage +
     bonusDice.reduce((a, b) => a + b, 0);
 
   const critical = hope === fear;
@@ -170,6 +212,8 @@ export function rollDuality(input: DualityInput, rng: Rng = cryptoRng): DualityR
     advantageDie,
     advantageSign: sign,
     bonusDice,
+    helpDice,
+    highestAdvantage,
     modifier: input.modifier,
     experienceBonus,
     difficulty: input.difficulty,

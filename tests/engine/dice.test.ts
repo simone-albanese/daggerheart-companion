@@ -272,7 +272,9 @@ describe('rollDuality fixed dice', () => {
 });
 
 describe('rollDuality bonus dice and experience', () => {
-  it('rolls each bonus die with its own size and adds them all', () => {
+  it('rolls each bonus die with its own size and adds them all - Rally, Prayer, Slayer, Patron', () => {
+    // These are dice a feature adds to the total on their own; the Help an
+    // Ally d6 is not one of them, see the describe below.
     const rng = scriptedRng(4, 4, 6, 8);
     const r = rollDuality({ modifier: 0, difficulty: null, bonusDice: [6, 8] }, rng);
     expect(rng.calls).toEqual([12, 12, 6, 8]);
@@ -285,6 +287,94 @@ describe('rollDuality bonus dice and experience', () => {
     expect(r.experienceBonus).toBe(3);
     expect(r.total).toBe(14);
     expect(r.outcome).toBe('success-hope');
+  });
+});
+
+/**
+ * SRD 2 p49, Help an Ally: "If multiple advantage dice apply to the same
+ * action roll due to one or more players using Help an Ally, the player making
+ * the action roll adds only the highest result of all advantage dice rolled
+ * (including their own) and ignores the rest." The book's own example: Anne,
+ * +1 Agility, 13 with Hope (8 and 5), her advantage die a 2, Bo's a 3 and
+ * Cameron's a 4 - "an 18 with Hope (13 + 1 + 4)". The engine used to add every
+ * one of them and answer 23.
+ */
+describe('rollDuality and Help an Ally', () => {
+  it('adds only the highest advantage die, the roller’s own included (p49, Anne)', () => {
+    const r = rollDuality(
+      {
+        modifier: 1,
+        difficulty: null,
+        advantage: true,
+        helpDice: [6, 6],
+        fixed: { hope: 8, fear: 5, advantage: 2, help: [3, 4] },
+      },
+      refusingRng,
+    );
+    expect(r.advantageDie).toBe(2);
+    expect(r.helpDice).toEqual([3, 4]);
+    expect(r.highestAdvantage).toBe(4);
+    expect(r.total).toBe(18);
+  });
+
+  it('adds only the highest Help die when the roller had no advantage of their own', () => {
+    const r = rollDuality(
+      { modifier: 1, difficulty: null, helpDice: [6, 6], fixed: { hope: 8, fear: 5, help: [3, 4] } },
+      refusingRng,
+    );
+    expect(r.advantageDie).toBeNull();
+    expect(r.highestAdvantage).toBe(4);
+    expect(r.total).toBe(18);
+  });
+
+  it('keeps the roller’s own die when it is the highest', () => {
+    const r = rollDuality(
+      {
+        modifier: 1,
+        difficulty: null,
+        advantage: true,
+        helpDice: [6],
+        fixed: { hope: 8, fear: 5, advantage: 6, help: [3] },
+      },
+      refusingRng,
+    );
+    expect(r.highestAdvantage).toBe(6);
+    expect(r.total).toBe(20);
+  });
+
+  it('still adds a Rally die on its own beside the Help pool', () => {
+    // Rally is a bonus die, not an advantage die: 13 + 1 + Rally 3 + best of
+    // (2, 4).
+    const r = rollDuality(
+      {
+        modifier: 1,
+        difficulty: null,
+        advantage: true,
+        bonusDice: [6],
+        helpDice: [6],
+        fixed: { hope: 8, fear: 5, advantage: 2, bonus: [3], help: [4] },
+      },
+      refusingRng,
+    );
+    expect(r.total).toBe(21);
+  });
+
+  it('rolls a Help die the table did not type, with its own size', () => {
+    const rng = scriptedRng(8, 5, 4);
+    const r = rollDuality({ modifier: 1, difficulty: null, helpDice: [6] }, rng);
+    expect(rng.calls).toEqual([12, 12, 6]);
+    expect(r.helpDice).toEqual([4]);
+    expect(r.total).toBe(18);
+  });
+
+  it('changes nothing about a roll with no Help dice', () => {
+    const r = rollDuality(fixed(8, 5, { advantage: true, fixed: { advantage: 2 } }), refusingRng);
+    expect(r.helpDice).toEqual([]);
+    expect(r.highestAdvantage).toBe(2);
+    expect(r.total).toBe(15);
+    const plain = rollDuality(fixed(8, 5), refusingRng);
+    expect(plain.highestAdvantage).toBeNull();
+    expect(plain.total).toBe(13);
   });
 });
 

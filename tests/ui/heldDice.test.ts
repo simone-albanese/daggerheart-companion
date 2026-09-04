@@ -49,6 +49,29 @@ describe('the tray', () => {
     expect(second.useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.sides)).toEqual([8]);
   });
 
+  it('keeps a Help an Ally die apart from a plain d6, across a reload', async () => {
+    /*
+     * The one thing the tray knows about a die's origin. SRD 2 p49: of the
+     * advantage dice on a roll - the roller's own and every Help an Ally die -
+     * "the player making the action roll adds only the highest result ... and
+     * ignores the rest", where a Rally d6 is added on its own. A tray that
+     * stored only sizes could not tell the engine which was which.
+     */
+    const first = await reload();
+    first.useHeldDice.getState().add('kaelith', 6, true);
+    first.useHeldDice.getState().add('kaelith', 6);
+    expect(first.useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.help)).toEqual([
+      true,
+      undefined,
+    ]);
+
+    const second = await reload();
+    expect(second.useHeldDice.getState().byCharacter['kaelith']?.map((d) => d.help)).toEqual([
+      true,
+      undefined,
+    ]);
+  });
+
   it('discards the die you held down and not its twin', async () => {
     const { useHeldDice } = await reload();
     useHeldDice.getState().add('kaelith', 6);

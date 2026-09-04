@@ -183,11 +183,14 @@ describe('both layouts read the one decision', () => {
     const drawn = source.match(/^\s*\{extras\}$/gm) ?? [];
     expect(drawn, 'one of the two layouts stopped drawing the armed dice').toHaveLength(2);
 
-    // And what the engine is handed carries all four of the things it honours.
+    // And what the engine is handed carries all five of the things it honours.
     // The old signature was `(fixed?: { hope: number; fear: number })`, which is
-    // the whole defect: the other two fell through to `rng`.
+    // the whole defect: the other two fell through to `rng`. The fifth, `help`,
+    // is the Help an Ally dice - SRD 2 p49 pools them with the roller's own
+    // advantage die and adds only the highest, so they are typed apart from
+    // the bonus dice that are added on their own.
     expect(source, 'the typed roll cannot supply the dice the engine asks for').toMatch(
-      /fixed\?: \{ hope: number; fear: number; advantage\?: number; bonus: number\[\] \}/,
+      /fixed\?: \{ hope: number; fear: number; advantage\?: number; bonus: number\[\]; help: number\[\] \}/,
     );
   });
 

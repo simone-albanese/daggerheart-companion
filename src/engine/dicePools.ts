@@ -5,8 +5,10 @@
  * THREE FEATURES IN THE SRD HAND OUT A POOL OF DICE, and until now the app knew
  * about none of them. `ui/player/heldDice.ts` is a *tray*: a player picks a die
  * size by hand, holds it, and arms it into a Duality Roll. Its docblock is
- * explicit that it is not an inventory and that it deliberately knows nothing
- * about where a die came from. That is the right answer for a die somebody
+ * explicit that it is not an inventory and that it knows one bit about where
+ * a die came from - whether it is a Help an Ally die, because SRD 2 p49 adds
+ * only the highest advantage die and the engine has to be told which dice are
+ * in that pool - and nothing more. That is the right answer for a die somebody
  * hands you - the Rally Die a bard gives each ally, the d6 from Help an Ally,
  * an Unstoppable Die - and it stays exactly as it is.
  *
