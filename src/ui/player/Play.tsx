@@ -3111,8 +3111,9 @@ function PlayDesktop({
                * `RecallButton`'s shape eleven rows down: the price is what you
                * read before deciding, and it now rides in the accessible name
                * too. The overlay that opens the card still stops at the band's
-               * top edge (`inset: 0 0 FOOTER_HEIGHT 0`), so a high miss opens
-               * the card and a low one vaults it - no new ambiguity, and the
+               * top edge - it is positioned from the card's body, so it ends
+               * where the band begins at any height - so a high miss opens
+               * the card and a low one vaults it: no new ambiguity, and the
                * dead strip between them is gone.
                */
               footer={
@@ -3130,17 +3131,17 @@ function PlayDesktop({
                     alignSelf: 'stretch',
                     /*
                      * -1px at the top, and it is the difference between
-                     * clearing the floor and missing it by one. `height:
-                     * FOOTER_HEIGHT` is a border box under this app's global
-                     * `box-sizing`, and the band's 1px `borderTop` is inside
-                     * it, so a stretched child measures 33 of the 34 - and 43
-                     * of the 44 `--control` resolves to on a touchscreen,
-                     * which is a pixel under the floor this project states.
-                     * The negative margin takes the *target* over that
-                     * hairline without painting anything on it. The overlay
-                     * that opens the reader stops at the same edge, and this
-                     * button is later in the DOM inside a `zIndex: 2` footer,
-                     * so the one pixel they share resolves here.
+                     * clearing the floor and missing it by one. The band's
+                     * `minHeight: FOOTER_HEIGHT` is a border-box floor under
+                     * this app's global `box-sizing`, and the band's 1px
+                     * `borderTop` is inside it, so a stretched child measures
+                     * 33 of the 34 - and 43 of the 44 `--control` resolves to
+                     * on a touchscreen, which is a pixel under the floor this
+                     * project states. The negative margin takes the *target*
+                     * over that hairline without painting anything on it. The
+                     * overlay that opens the reader ends at the same edge,
+                     * and this button is later in the DOM inside a `zIndex:
+                     * 2` footer, so the one pixel they share resolves here.
                      */
                     margin: '-1px -11px 0',
                     padding: '0 11px',

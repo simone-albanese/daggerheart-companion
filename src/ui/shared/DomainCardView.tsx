@@ -90,7 +90,7 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
 }
 
 /**
- * The footer's floor, shared so the overlay button can stop short of it.
+ * The footer's floor.
  *
  * 34px on a mouse, and the touch floor wherever there is a finger. The footer
  * is where the card's one action lives - TAKE, RECALL, TO VAULT - and a 44px
@@ -108,10 +108,10 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
  * with the `height` and flush with it on the floor. The Cards browser hands
  * a phone tile a two-row footer for the same reason, in its own file.
  * What a taller footer costs is the text box above it, which is `flex: 1`
- * with `minHeight: 0` and gives the lines up first; the overlay button's
- * `inset` still names this floor, and where the footer is taller the footer
- * itself - positioned, `zIndex: 2` - is what a tap on the overlap hits, so
- * the strip stays the one place on the card that does not open the reader.
+ * with `minHeight: 0` and gives the lines up first. The overlay that opens
+ * the card is positioned from the body and not from this constant, so it
+ * ends where the footer begins whatever the footer's height, and the strip
+ * stays the one place on the card that does not open the reader.
  */
 const FOOTER_HEIGHT = 'max(34px, var(--control))';
 
@@ -361,20 +361,6 @@ export function DomainCardView({
         opacity: dimmed ? 0.42 : 1,
       }}
     >
-      {onOpen !== undefined && (
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={`${card.name} — ${card.domain} level ${card.level} ${card.type}`}
-          style={{
-            position: 'absolute',
-            inset: `0 0 ${FOOTER_HEIGHT} 0`,
-            zIndex: 1,
-            width: '100%',
-            cursor: 'pointer',
-          }}
-        />
-      )}
       {!reading && <CardHead card={card} shapes={shapes} height={headHeight} />}
 
       <div
@@ -384,8 +370,39 @@ export function DomainCardView({
           padding: reading ? 'var(--s4) var(--s4) 0' : '10px 11px 0',
           display: 'flex',
           flexDirection: 'column',
+          // The containing block of the overlay below, so that the overlay
+          // ends where this box does - which is where the footer begins.
+          position: 'relative',
         }}
       >
+        {/*
+          The overlay that opens the card: the head and the body, and not a
+          pixel of the footer. It is positioned from this box rather than from
+          the card because the footer is a floor since the readability ramp,
+          and `inset: 0 0 FOOTER_HEIGHT 0` on the card was the footer's top
+          edge only while the footer was that tall: the rig at 393x852 read the
+          overlay running 21px into the phone's 66px two-row footer, over its
+          buttons - 14 overlaps across the two Cards cases. From here it ends
+          at the body's bottom whatever the footer's height, and reaches up
+          over the head by the head's declared height, so the head still
+          opens the card. (Where `CardHead`'s 34% cap binds, on a card shorter
+          than any in the app, the top would overshoot the card and the card's
+          own `overflow: hidden` keeps it.)
+        */}
+        {onOpen !== undefined && (
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label={`${card.name} — ${card.domain} level ${card.level} ${card.type}`}
+            style={{
+              position: 'absolute',
+              inset: reading ? 0 : `-${String(headHeight)}px 0 0 0`,
+              zIndex: 1,
+              width: '100%',
+              cursor: 'pointer',
+            }}
+          />
+        )}
         {reading ? (
           // The whole banner, on one line. The mark is the same shape-coded
           // silhouette the loadout and the filters use, so the domain is
