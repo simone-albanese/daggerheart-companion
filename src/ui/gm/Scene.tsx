@@ -799,7 +799,6 @@ function CombatantCard({
   const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
   const [incoming, setIncoming] = useState('');
   const c = combatant;
-  const down = c.hp.marked >= c.hp.max;
   /*
    * Read into a const so the narrowing survives into the handlers.
    * `c.minionsRemaining !== undefined` narrows the property for the JSX around
@@ -809,6 +808,21 @@ function CombatantCard({
    * `−`/`+` close over.
    */
   const minions = c.minionsRemaining;
+  /*
+   * DEFEATED IS THE COUNT ON A MINION CARD, AND THE HP TRACK ON EVERY OTHER.
+   *
+   * A Minion card is a group - the band prints how many bodies are standing -
+   * and its HP track is the one box each body has. This read the track alone,
+   * and the engine filled that box on the first hit, so one point of damage on
+   * a group of four dimmed the card, striped it red and wrote DEFEATED in the
+   * meta line while MINIONS 3 sat beside it; and stepping the count down to 0
+   * by hand left the box empty and the card never said it. `combatantHit`
+   * no longer marks a counted group's track (`engine/damage.ts`, "A counted
+   * group loses bodies"), and this reads the same number the band does. The
+   * card's counter is still drawn and still tappable - it is the body's box,
+   * and a GM who marks it is recording a wound, not a defeat.
+   */
+  const down = minions !== undefined ? minions <= 0 : c.hp.marked >= c.hp.max;
   // Derived, so it can never disagree with the track the GM is tapping - and
   // it is the same test the player's sheet reads. See the band below.
   const vulnerable = isVulnerableAt(c.stress.marked, c.stress.max);
@@ -991,7 +1005,7 @@ function CombatantCard({
        * DEFEATS the instant a number is typed into it, and the `Minion (N)`
        * feature under the fold carries the SRD's own sentence at length. A
        * combatant with no thresholds and no Minion group - which the shipped
-       * book does not contain, all 16 null-threshold adversaries being Minions
+       * book does not contain, all 28 null-threshold adversaries being Minions
        * - still gets the sentence, because there the slot IS empty.
        *
        * Keeping it as a second band line was costed rather than waved off: the
