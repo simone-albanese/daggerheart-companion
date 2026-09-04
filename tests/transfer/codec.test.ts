@@ -309,7 +309,7 @@ describe('the sentence the player reads about a parked reference', () => {
     // `GhostRow` on Play (and the cockpit's own copy of it in `PlayDesktop`),
     // `SwapRow` on Rest, which has never imported `GhostRow`. What is missing
     // is the name, and the sentence has to be about that.
-    expect(warning).toMatch(/CARD NOT IN THIS BUILD/);
+    expect(warning).toMatch(/CARD NOT IN THIS BOOK/);
     expect(warning).toMatch(/cannot do is name them/);
     // Nor "nothing repairs them later" full stop: `readBody` resolves an
     // incoming `?id` when the receiving registry knows it, so another device

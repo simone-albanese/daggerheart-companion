@@ -22,6 +22,7 @@ import { useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Experience, Gold, InventoryEntry, Item } from '../../../shared/types.ts';
 import { formatGold, gain, inHandfuls, spend } from '../../engine/gold.ts';
+import { FeatureText } from '../shared/FeatureText.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { ItemPicker } from './GearPicker.tsx';
 
@@ -437,8 +438,8 @@ export function FeatureBlock({
         <span style={{ font: '700 12.5px/1.2 var(--sans)', color: 'var(--text-2)' }}>{name}</span>
         {tag !== undefined && <span className="chip">{tag}</span>}
       </span>
-      <span className="t-dense" style={{ whiteSpace: 'pre-line' }}>
-        {text}
+      <span className="t-dense">
+        <FeatureText text={text} />
       </span>
     </span>
   );

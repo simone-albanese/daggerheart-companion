@@ -154,8 +154,8 @@ export function TierBenchmarks(): React.JSX.Element {
   if (drawn.length === 0) {
     return (
       <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
-        This dataset carries no benchmark tables. They come from the rules sections the SRD keeps
-        them in, so a rules layer that replaced those sections replaced these too.
+        This book carries no benchmark tables. They come from the rules sections the SRD keeps
+        them in, and those sections are not here.
       </p>
     );
   }

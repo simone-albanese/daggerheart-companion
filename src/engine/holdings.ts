@@ -99,7 +99,7 @@ export function characterRefs(c: Character): Ref[] {
  *
  * `deriveStats` already carries `unresolvedArmor` out with the stats, and every
  * screen that would otherwise print the unarmored ladder as though it were this
- * character's reads it: `Play` draws `ARMOR NOT IN THIS BUILD` in the defence
+ * character's reads it: `Play` draws `ARMOR NOT IN THIS BOOK` in the defence
  * band and `Vitals` captions the HP ladder with it. A weapon had no such thing.
  * `Play` and `Edit` both did `index.weapons.get(ref)`, got `undefined`, and
  * drew the empty state - so a sheet holding a weapon this bundle does not print

@@ -259,7 +259,7 @@ describe('what the card says the thing wants, and where it says it', () => {
     ]);
     // The card already explains the absence; a MOTIVES label with nothing
     // after it would be the app inventing a second explanation for it.
-    expect(text()).toContain('NOT IN THIS DATASET');
+    expect(text()).toContain('NOT IN THIS BOOK');
     expect(text()).not.toContain('MOTIVES & TACTICS');
     // And no fold either. A header a GM can press onto an empty section is the
     // same invented explanation one control louder.
@@ -271,7 +271,7 @@ describe('what the card says the thing wants, and where it says it', () => {
  * WHERE A MINION GROUP'S COUNT LIVES, AND WHAT MOVED OUT OF THE WAY FOR IT.
  *
  * The owner settled it on 2026-08-25: how many are still standing is a figure
- * of the creature, like Difficulty, so it sits in the strip with DIF and the
+ * of the creature, like Difficulty, so it sits in the strip with DIFF and the
  * thresholds instead of taking a row of its own. `Scene.tsx`'s band comment
  * argues it and costs it; these hold the two consequences a docblock cannot -
  * that the control is still there and still writes to the combatant it counts,
@@ -314,7 +314,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     ).toHaveLength(byRole.length);
   });
 
-  it('draws the count in the band with DIF, and drops the sentence for an empty slot', () => {
+  it('draws the count in the band with DIFF, and drops the sentence for an empty slot', () => {
     const a = minionAdversary();
     scene([makeCombatant(a, 0, 4)]);
 
@@ -323,7 +323,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     // word in `textContent` would pass on a card that drew no control at all.
     const strip = stepper('Decrease').closest('div');
     expect(strip, 'the Minion control is not inside a band').not.toBeNull();
-    expect(strip!.textContent).toContain('DIF');
+    expect(strip!.textContent).toContain('DIFF');
     expect(strip!.textContent).toContain('MINIONS');
     // The slot is not empty any more, so the sentence that existed to explain
     // an emptiness is not drawn. The rule it stated is still on the card: the
@@ -441,7 +441,7 @@ describe('the Difficulty of a place that prints none', () => {
 
   it('prints the book’s own word instead of leaving the field absent', () => {
     band(special()[0]!);
-    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).toContain('DIFF SPECIAL');
   });
 
   it('derives it from the strongest adversary in the open scene, and says the app did the arithmetic', () => {
@@ -456,11 +456,11 @@ describe('the Difficulty of a place that prints none', () => {
       [strong, weak],
     ]) {
       scene([makeCombatant(pair[0]!, 0, 4), makeCombatant(pair[1]!, 1, 4)], special()[0]!.id);
-      expect(text()).toContain(`≈ DIF ${strong.difficulty} · FROM THE STRONGEST ADVERSARY HERE`);
+      expect(text()).toContain(`≈ DIFF ${strong.difficulty} · FROM THE STRONGEST ADVERSARY HERE`);
       expect(text()).toContain('COMPUTED BY THIS APP');
-      expect(text()).not.toContain(`≈ DIF ${weak.difficulty}`);
+      expect(text()).not.toContain(`≈ DIFF ${weak.difficulty}`);
       // And the header still says what the book says, beside the substitute.
-      expect(text()).toContain('DIF SPECIAL');
+      expect(text()).toContain('DIFF SPECIAL');
     }
   });
 
@@ -473,7 +473,7 @@ describe('the Difficulty of a place that prints none', () => {
    * strongest card is only sometimes the same person. So the band draws no
    * substitute for Duel - the header still says SPECIAL, the feature is still
    * verbatim behind the fold - where it used to print the ambush arithmetic
-   * with the ambush attribution, "≈ DIF 15 · FROM THE STRONGEST ADVERSARY
+   * with the ambush attribution, "≈ DIFF 15 · FROM THE STRONGEST ADVERSARY
    * HERE", for a challenger who might be the 12.
    */
   it('claims no number for Duel, whose rule names the challenger and not the strongest', () => {
@@ -482,8 +482,8 @@ describe('the Difficulty of a place that prints none', () => {
     const duel = challengerRule()[0]!;
 
     scene([makeCombatant(weak, 0, 4), makeCombatant(strong, 1, 4)], duel.id);
-    expect(text()).toContain('DIF SPECIAL');
-    expect(text()).not.toContain('≈ DIF');
+    expect(text()).toContain('DIFF SPECIAL');
+    expect(text()).not.toContain('≈ DIFF');
     expect(text()).not.toContain('FROM THE STRONGEST ADVERSARY HERE');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
     // The rule itself is still on the screen, one fold down.
@@ -512,12 +512,12 @@ describe('the Difficulty of a place that prints none', () => {
 
     scene([stale], special()[0]!.id);
 
-    expect(text()).toContain('≈ DIF 18 · FROM THE STRONGEST ADVERSARY HERE');
-    expect(text()).not.toContain(`≈ DIF ${a.difficulty}`);
+    expect(text()).toContain('≈ DIFF 18 · FROM THE STRONGEST ADVERSARY HERE');
+    expect(text()).not.toContain(`≈ DIFF ${a.difficulty}`);
     // The card is the other half of the claim: the two agree because they read
     // the same field, which is the whole reason the field was chosen.
     const card = container.querySelector('article.panel');
-    expect(card?.textContent).toContain('DIF18');
+    expect(card?.textContent).toContain('DIFF18');
   });
 
   it('reads it off a combatant whose adversary this dataset does not have', () => {
@@ -541,9 +541,9 @@ describe('the Difficulty of a place that prints none', () => {
       special()[0]!.id,
     );
 
-    expect(text()).toContain('NOT IN THIS DATASET');
-    expect(text()).toContain('≈ DIF 15 · FROM THE STRONGEST ADVERSARY HERE');
-    expect(text()).not.toContain('≈ DIF 0');
+    expect(text()).toContain('NOT IN THIS BOOK');
+    expect(text()).toContain('≈ DIFF 15 · FROM THE STRONGEST ADVERSARY HERE');
+    expect(text()).not.toContain('≈ DIFF 0');
   });
 
   it('claims no number while browsing, where there is no fight to read', () => {
@@ -555,14 +555,14 @@ describe('the Difficulty of a place that prints none', () => {
     });
     band(special()[0]!);
 
-    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).toContain('DIFF SPECIAL');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
-    expect(text()).not.toContain('≈ DIF');
+    expect(text()).not.toContain('≈ DIFF');
   });
 
   it('claims no number in a scene with nothing in it', () => {
     scene([], special()[0]!.id);
-    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).toContain('DIFF SPECIAL');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
   });
 
@@ -589,8 +589,8 @@ describe('the Difficulty of a place that prints none', () => {
   it('leaves a place that prints a Difficulty alone', () => {
     const e = marketplace();
     scene([makeCombatant(dataset.adversaries[0]!, 0, 4)], e.id);
-    expect(text()).toContain(`DIF ${e.difficulty}`);
-    expect(text()).not.toContain('DIF SPECIAL');
+    expect(text()).toContain(`DIFF ${e.difficulty}`);
+    expect(text()).not.toContain('DIFF SPECIAL');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
   });
 });
@@ -846,9 +846,9 @@ describe('a full Stress track says so on the band, on the GM side too', () => {
      */
     scene([withStress(3, 3)]);
     const bands = [...container.querySelectorAll('div.row')].filter((d) =>
-      (d.textContent ?? '').trim().startsWith('DIF'),
+      (d.textContent ?? '').trim().startsWith('DIFF'),
     );
-    expect(bands, 'the band no longer starts with DIF').toHaveLength(1);
+    expect(bands, 'the band no longer starts with DIFF').toHaveLength(1);
     const band = bands[0]!;
     const dividers = [...band.children].filter(
       (el) => (el as HTMLElement).style.width === '1px' && (el as HTMLElement).style.height === '13px',
@@ -862,7 +862,7 @@ describe('a full Stress track says so on the band, on the GM side too', () => {
 
     scene([withStress(2, 3)]);
     const plain = [...container.querySelectorAll('div.row')].filter((d) =>
-      (d.textContent ?? '').trim().startsWith('DIF'),
+      (d.textContent ?? '').trim().startsWith('DIFF'),
     )[0]!;
     expect(
       [...plain.children].filter(

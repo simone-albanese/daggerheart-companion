@@ -429,15 +429,15 @@ function EnvironmentRow({
             17, Divine Usurpation and Time Court 20), so the type never had
             anything to do with it and no other type is exempt either.
 
-            Dropping the field on 0 was right about the 0 - printing `DIF 0`
+            Dropping the field on 0 was right about the 0 - printing `DIFF 0`
             would be a number the book does not give - and wrong about the
             silence: a row reading `T1 · EVENT` where every neighbour reads
-            `T1 · EVENT · DIF 14` says the app lost the field, not that the
+            `T1 · EVENT · DIFF 14` says the app lost the field, not that the
             place has no fixed Difficulty. So it prints the book's own word.
-            No row gets wider for it: `T1 · EVENT · DIF SPECIAL` is shorter than
-            `T4 · EXPLORATION · DIF 19`, which this list already sets.
+            No row gets wider for it: `T1 · EVENT · DIFF SPECIAL` is shorter than
+            `T4 · EXPLORATION · DIFF 19`, which this list already sets.
           */}
-          T{environment.tier} · {environment.type.toUpperCase()} · DIF{' '}
+          T{environment.tier} · {environment.type.toUpperCase()} · DIFF{' '}
           {environment.difficulty > 0 ? environment.difficulty : 'SPECIAL'}
         </span>
       </button>

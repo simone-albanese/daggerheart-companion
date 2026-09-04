@@ -15,8 +15,8 @@
  * phone the only trace in the whole app was a fold label going `3 WORN` ->
  * `2 WORN`. The contrast is what made that a finding rather than an
  * observation: this app already knows how to say it - an armor that has left
- * the build draws `ARMOR NOT IN THIS BUILD` and a domain card draws
- * `CARD NOT IN THIS BUILD`. Only the two weapon slots were silent, and they are
+ * the build draws `ARMOR NOT IN THIS BOOK` and a domain card draws
+ * `CARD NOT IN THIS BOOK`. Only the two weapon slots were silent, and they are
  * the slots that carry a damage die.
  *
  * The assertions below are the new truth. The CONTRAST is kept, because the
@@ -174,7 +174,7 @@ const withoutTheNine = (): Dataset => shipped;
  * The nine RESTORED rather than SRD 1.0 whole, and that is not laziness: this
  * fixture's other refs come from the shipped book (its off-hand is a Hatchet,
  * which SRD 1.0 does not print), so swapping the entire weapon list would
- * empty the secondary slot and put a second WEAPON NOT IN THIS BUILD on the
+ * empty the secondary slot and put a second WEAPON NOT IN THIS BOOK on the
  * page - the control would fail for a reason that has nothing to do with what
  * it controls for.
  */
@@ -200,7 +200,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
 
   /*
    * The positive control, and it is not decoration: the first version of this
-   * file ran at 393px, where `Play` folds the whole `Weapons & armour` section
+   * file ran at 393px, where `Play` folds the whole `Weapons & armor` section
    * away, and its assertion passed on a screen that was not drawing the weapon
    * EITHER WAY. Desktop width is where the slot is actually on the page, so
    * what is said there means something. It is kept now for the mirror-image
@@ -210,12 +210,12 @@ describe('an equipped weapon that the next dataset does not print', () => {
     const body = draw(before(), { activePrimaryWeapon: AXE });
     expect(body).toContain('Axe of Fortunis');
     expect(body).toContain('d10+8');
-    expect(body).not.toContain('WEAPON NOT IN THIS BUILD');
+    expect(body).not.toContain('WEAPON NOT IN THIS BOOK');
   });
 
   it('SAYS SO on Play once it is not, in the house words, naming the ref', () => {
     const body = draw(withoutTheNine(), { activePrimaryWeapon: AXE });
-    expect(body).toContain('WEAPON NOT IN THIS BUILD');
+    expect(body).toContain('WEAPON NOT IN THIS BOOK');
     // The ref, because it is the whole of what is knowable: it is what a newer
     // bundle, or the device this sheet came from, would resolve.
     expect(body).toContain(AXE);
@@ -239,7 +239,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
       activePrimaryWeapon: null,
       activeSecondaryWeapon: ANLACE,
     });
-    expect(body).toContain('WEAPON NOT IN THIS BUILD');
+    expect(body).toContain('WEAPON NOT IN THIS BOOK');
     expect(body).toContain(ANLACE);
     expect(body).toContain('SECONDARY');
   });
@@ -249,7 +249,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
       activePrimaryWeapon: AXE,
       activeSecondaryWeapon: ANLACE,
     });
-    expect(times(body, 'WEAPON NOT IN THIS BUILD')).toBe(2);
+    expect(times(body, 'WEAPON NOT IN THIS BOOK')).toBe(2);
     expect(body).toContain(AXE);
     expect(body).toContain(ANLACE);
   });
@@ -271,7 +271,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
   it('is a paragraph and not a control, and is marked by shape and not by colour alone', () => {
     draw(withoutTheNine(), { activePrimaryWeapon: AXE });
     const rows = [...container.querySelectorAll('div')].filter(
-      (d) => (d.textContent ?? '').includes('WEAPON NOT IN THIS BUILD'),
+      (d) => (d.textContent ?? '').includes('WEAPON NOT IN THIS BOOK'),
     );
     const row = rows[rows.length - 1]!;
     expect(row.tagName).toBe('DIV');
@@ -296,8 +296,8 @@ describe('an equipped weapon that the next dataset does not print', () => {
         armors: shipped.armors.filter((a) => a.id !== armorRef),
       };
       const body = draw(ds, { activePrimaryWeapon: AXE });
-      expect(body).toContain('ARMOR NOT IN THIS BUILD');
-      expect(body).toContain('WEAPON NOT IN THIS BUILD');
+      expect(body).toContain('ARMOR NOT IN THIS BOOK');
+      expect(body).toContain('WEAPON NOT IN THIS BOOK');
       expect(body).toContain(armorRef);
       expect(body).toContain(AXE);
       expect(body).not.toContain('Axe of Fortunis');
@@ -314,8 +314,8 @@ describe('an equipped weapon that the next dataset does not print', () => {
       activePrimaryWeapon: null,
       activeSecondaryWeapon: null,
     });
-    expect(body).not.toContain('WEAPON NOT IN THIS BUILD');
-    expect(body).not.toContain('NOT IN THIS BUILD');
+    expect(body).not.toContain('WEAPON NOT IN THIS BOOK');
+    expect(body).not.toContain('NOT IN THIS BOOK');
   });
 
   /*
@@ -341,7 +341,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
       ),
     ).toEqual({ primary: null, secondary: null });
     const body = draw(ds, { activePrimaryWeapon: '', activeSecondaryWeapon: '' });
-    expect(body).not.toContain('NOT IN THIS BUILD');
+    expect(body).not.toContain('NOT IN THIS BOOK');
   });
 
   it('is still not dropped: the ref stays on the sheet, and the engine is what reports it', () => {
@@ -371,7 +371,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
     const ds = withoutTheNine();
     const body = drawEdit(ds, { activePrimaryWeapon: AXE });
     expect(body).not.toContain(`Search ${ds.weapons.length} weapons`);
-    expect(body).toContain('WEAPON NOT IN THIS BUILD');
+    expect(body).toContain('WEAPON NOT IN THIS BOOK');
     expect(body).toContain(AXE);
     // «REPLACE», not «CHOOSE»: there is something in the slot.
     expect(body).toContain('REPLACE');
@@ -382,7 +382,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
       activePrimaryWeapon: null,
       activeSecondaryWeapon: ANLACE,
     });
-    expect(body).toContain('WEAPON NOT IN THIS BUILD');
+    expect(body).toContain('WEAPON NOT IN THIS BOOK');
     expect(body).toContain(ANLACE);
   });
 
@@ -404,8 +404,8 @@ describe('an equipped weapon that the next dataset does not print', () => {
     const armorRef = playedCharacter().activeArmor!;
     const ds = { ...withoutTheNine(), armors: shipped.armors.filter((a) => a.id !== armorRef) };
     const body = drawEdit(ds, { activePrimaryWeapon: AXE });
-    expect(body).toContain('ARMOR NOT IN THIS BUILD');
-    expect(body).toContain('WEAPON NOT IN THIS BUILD');
+    expect(body).toContain('ARMOR NOT IN THIS BOOK');
+    expect(body).toContain('WEAPON NOT IN THIS BOOK');
     expect(body).not.toContain(`Search ${ds.armors.length} sets of armor`);
   });
 
@@ -416,7 +416,7 @@ describe('an equipped weapon that the next dataset does not print', () => {
   it('on a phone the fold no longer quietly loses a count, and names it once opened', () => {
     setViewport(393);
     const before = draw(shipped, { activePrimaryWeapon: AXE });
-    expect(before).toContain('Weapons & armour');
+    expect(before).toContain('Weapons & armor');
     expect(before).toContain('3 WORN');
 
     const after = draw(withoutTheNine(), { activePrimaryWeapon: AXE });
@@ -428,12 +428,12 @@ describe('an equipped weapon that the next dataset does not print', () => {
 
     // Shut, the fold's children are not rendered at all; the sentence is behind
     // the same tap the weapons themselves are behind, and the tap reaches it.
-    expect(after).not.toContain('WEAPON NOT IN THIS BUILD');
-    const header = buttons().find((b) => (b.textContent ?? '').includes('Weapons & armour'));
+    expect(after).not.toContain('WEAPON NOT IN THIS BOOK');
+    const header = buttons().find((b) => (b.textContent ?? '').includes('Weapons & armor'));
     expect(header, 'no disclosure header to open').toBeDefined();
     click(header!);
     const opened = container.textContent ?? '';
-    expect(opened).toContain('WEAPON NOT IN THIS BUILD');
+    expect(opened).toContain('WEAPON NOT IN THIS BOOK');
     expect(opened).toContain(AXE);
   });
 });

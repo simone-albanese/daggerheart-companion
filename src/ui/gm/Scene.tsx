@@ -866,7 +866,7 @@ function CombatantCard({
           </span>
           <span className="t-meta" style={{ letterSpacing: '0.08em' }}>
             {adversary === undefined
-              ? 'NOT IN THIS DATASET'
+              ? 'NOT IN THIS BOOK'
               : `T${adversary.tier} · ${adversary.role.toUpperCase()}`}
             {down ? ' · DEFEATED' : ''}
           </span>
@@ -1041,12 +1041,12 @@ function CombatantCard({
           background: 'var(--app)',
         }}
       >
-        <span className="t-meta">DIF</span>
+        <span className="t-meta">DIFF</span>
         <span className="t-num" style={{ fontSize: 15 }}>
           {c.difficulty}
         </span>
         {/*
-          VULNERABLE SITS ON DIF, BECAUSE DIF IS THE NUMBER IT CHANGES.
+          VULNERABLE SITS ON DIFF, BECAUSE DIFF IS THE NUMBER IT CHANGES.
 
           The condition reads "all rolls targeting them have advantage", so
           what it costs a GM is not a fact about the monster - it is a fact
@@ -1417,7 +1417,7 @@ function CombatantCard({
             The undefined arm needs nothing: a combatant whose adversary is not
             in this dataset has no motives to print, no features either, and so
             draws no fold at all - and the meta line in the header already says
-            NOT IN THIS DATASET rather than leaving the absence unexplained.
+            NOT IN THIS BOOK rather than leaving the absence unexplained.
           */}
           {adversary.motives.length > 0 && (
             <span className="t-meta" style={{ lineHeight: 1.5 }}>

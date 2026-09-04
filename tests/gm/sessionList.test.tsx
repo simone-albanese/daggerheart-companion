@@ -1091,7 +1091,7 @@ describe('the encounter arm', () => {
     expect(text()).toContain(adversary.name);
     // Dropping it would quietly lower what the row says is planned.
     expect(text()).toContain('the-gnawing');
-    expect(text()).toContain('NOT IN THIS DATASET');
+    expect(text()).toContain('NOT IN THIS BOOK');
   });
 
   it('states a saved fight as a fact, because nothing here can put its marks back', () => {
@@ -1479,7 +1479,7 @@ describe('the link arm', () => {
     seed(link({ kind: 'adversary', ref: 'the-gnawing' }));
     list();
     expect(text()).toContain('the-gnawing');
-    expect(text()).toContain('not in the dataset this device has loaded');
+    expect(text()).toContain('not in this book');
     expect(armControls(), 'an unresolved link offered a control').toHaveLength(0);
   });
 

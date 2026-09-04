@@ -288,7 +288,7 @@ const QUESTIONS: Question[] = [
     id: 'who',
     gm: false,
     title: 'Who are you at this table?',
-    why: 'This decides which quarter of the app you get, and whether you need the character wizard at all.',
+    why: 'This decides which parts of the app you see, and whether you need the character wizard at all.',
     options: [
       {
         glyph: 'PC',

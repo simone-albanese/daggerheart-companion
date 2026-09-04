@@ -1674,7 +1674,7 @@ export function GearSlot({
   empty: string;
   /**
    * The slot holds a ref this dataset does not print, with the words to say so
-   * - `WEAPON NOT IN THIS BUILD`, the same form the Play sheet uses for an
+   * - `WEAPON NOT IN THIS BOOK`, the same form the Play sheet uses for an
    * armor and a domain card. Null when the slot is genuinely empty, which is a
    * different fact and must not read as this one.
    */

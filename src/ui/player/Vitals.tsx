@@ -859,7 +859,7 @@ export function IncomingDamage({
     /*
      * The band says the armor is unreadable in the cells where MAJOR and
      * SEVERE would be, so there is nothing for this to add and no number it
-     * could take. It used to say `ARMOR NOT IN THIS BUILD · MARK HP BY HAND`
+     * could take. It used to say `ARMOR NOT IN THIS BOOK · MARK HP BY HAND`
      * a second time, one row below the first; on a phone that is 44px spent
      * repeating the sentence directly above it.
      *
@@ -938,7 +938,7 @@ export function IncomingDamage({
     >
       {ladderUnknown ? (
         <span className="t-meta" style={{ color: 'var(--damage)', flex: 1, minWidth: 0 }}>
-          ARMOR NOT IN THIS BUILD · MARK HP BY HAND
+          ARMOR NOT IN THIS BOOK · MARK HP BY HAND
         </span>
       ) : (
         <>

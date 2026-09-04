@@ -72,6 +72,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { FeatureText } from '../shared/FeatureText.tsx';
 import { feetRange, rangeDistances } from '../shared/srdReference.ts';
 import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
@@ -459,7 +460,7 @@ function GhostRow({ refId, onVault }: { refId: Ref; onVault?: () => void }): Rea
         }}
       >
         <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
-          CARD NOT IN THIS BUILD
+          CARD NOT IN THIS BOOK
         </span>
         <span
           className="t-meta"
@@ -856,8 +857,8 @@ function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] 
       <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.05em' }}>
         {feature.source.toUpperCase()}
       </span>
-      <span className="t-dense" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
-        {feature.text}
+      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <FeatureText text={feature.text} />
       </span>
     </div>
   );
@@ -1552,7 +1553,7 @@ function Defenses({
       {unknownThresholds ? (
         <div className="panel stack" style={{ padding: tight ? '4px 6px' : '8px 6px', gap: 3, minWidth: 0 }}>
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
-            ARMOR NOT IN THIS BUILD
+            ARMOR NOT IN THIS BOOK
           </span>
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {stats.unresolvedArmor}
@@ -1903,7 +1904,7 @@ function VanishedWeapon({
     >
       <span className="spread">
         <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
-          WEAPON NOT IN THIS BUILD
+          WEAPON NOT IN THIS BOOK
         </span>
         <span
           className="t-meta"
@@ -2727,7 +2728,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
             }}
           >
             <span className="t-meta" style={{ color: 'var(--damage)' }}>
-              NOT IN BUILD
+              NOT IN THIS BOOK
             </span>
             <span
               className="t-meta"
@@ -3245,7 +3246,7 @@ function PlayDesktop({
               }}
             >
               <span className="t-meta" style={{ color: 'var(--damage)' }}>
-                CARD NOT IN THIS BUILD
+                CARD NOT IN THIS BOOK
               </span>
               <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
                 {refId}
@@ -3913,7 +3914,7 @@ function PlayPhone({
        *
        * Two folds share this row because both have a short name and a short
        * summary at 360 - `2 WORN` and `2` - which is the test a fold has to
-       * pass to be paired at all. `Weapons & armour` leads because Giorgio's
+       * pass to be paired at all. `Weapons & armor` leads because Giorgio's
        * message does: "E fare entrare le armi e le experience."
        *
        * If the character has no Experiences the fold is not drawn, the pair has
@@ -3927,7 +3928,7 @@ function PlayPhone({
           <Disclosure
             id="equipped"
             characterId={character.id}
-            label="Weapons & armour"
+            label="Weapons & armor"
             /*
              * What is armed rides on the closed header, the way the modifier
              * row's does. A declaration you cannot see is not a declaration, and

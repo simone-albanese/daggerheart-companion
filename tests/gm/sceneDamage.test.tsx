@@ -278,7 +278,7 @@ describe('the damage field on the combatant card', () => {
 
   /*
    * A combatant whose adversary this dataset cannot resolve. The card already
-   * says NOT IN THIS DATASET; what it must not do is invent a divisor, and what
+   * says NOT IN THIS BOOK; what it must not do is invent a divisor, and what
    * it must still do is apply the HP, because the thresholds are on the
    * combatant's own copy and are the GM's own number.
    */

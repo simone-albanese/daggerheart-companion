@@ -239,7 +239,7 @@ export function Edit({
                   unresolved={
                     missing.primary === null
                       ? null
-                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.primary }
+                      : { banner: 'WEAPON NOT IN THIS BOOK', ref: missing.primary }
                   }
                   onOpen={() => setPicking('primary')}
                   onClear={() => {
@@ -273,7 +273,7 @@ export function Edit({
                   unresolved={
                     missing.secondary === null
                       ? null
-                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.secondary }
+                      : { banner: 'WEAPON NOT IN THIS BOOK', ref: missing.secondary }
                   }
                   onOpen={() => setPicking('secondary')}
                   onClear={() => {
@@ -291,7 +291,7 @@ export function Edit({
                   unresolved={
                     stats.unresolvedArmor === null
                       ? null
-                      : { banner: 'ARMOR NOT IN THIS BUILD', ref: stats.unresolvedArmor }
+                      : { banner: 'ARMOR NOT IN THIS BOOK', ref: stats.unresolvedArmor }
                   }
                   onOpen={() => setPicking('armor')}
                   onClear={() => {
@@ -492,7 +492,7 @@ function TransformationSection({
           style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
         >
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
-            TRANSFORMATION NOT IN THIS BUILD
+            TRANSFORMATION NOT IN THIS BOOK
           </span>
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {ref}
@@ -997,7 +997,7 @@ function StancesSection({
           style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
         >
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
-            STANCE NOT IN THIS BUILD
+            STANCE NOT IN THIS BOOK
           </span>
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {ref}
@@ -1016,7 +1016,7 @@ function StancesSection({
             className="btn btn-ghost"
             aria-label={
               isArmed(ref)
-                ? `Drop it — tap again to confirm. This ref cannot be added back.`
+                ? `Drop it — tap again to confirm. It cannot be added back on this screen.`
                 : `Drop it`
             }
             style={{
@@ -1098,7 +1098,7 @@ function StancesSection({
                     className="btn btn-ghost"
                     aria-label={
                       live
-                        ? `Drop ${s.name} — tap again to confirm. This sheet has no picker to put it back.`
+                        ? `Drop ${s.name} — tap again to confirm. It cannot be added back on this screen.`
                         : `Drop ${s.name}`
                     }
                     onClick={() => {
@@ -1131,8 +1131,8 @@ function StancesSection({
                       className="t-meta"
                       style={{ flex: '0 0 100%', color: 'var(--damage)', lineHeight: 1.4 }}
                     >
-                      TAP ✕ AGAIN TO DROP {s.name.toUpperCase()} — THIS SHEET HAS NO PICKER TO PUT
-                      IT BACK
+                      TAP ✕ AGAIN TO DROP {s.name.toUpperCase()} — IT CANNOT BE ADDED BACK ON THIS
+                      SCREEN
                     </span>
                   )}
                 </div>

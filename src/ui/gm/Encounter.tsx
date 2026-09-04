@@ -540,9 +540,9 @@ function Adjustments({
       <span className="t-meta" style={{ color: 'var(--dim)', lineHeight: 1.5 }}>
         {adjustments.damageBump
           ? bump === null
-            ? 'THE DAMAGE BUMP IS ON; NO RULES LAYER HERE SAYS WHAT IT ADDS'
+            ? 'THE DAMAGE BUMP IS ON; THIS BOOK DOES NOT SAY WHAT IT ADDS'
             : `THIS FIGHT: ${bump.toUpperCase()}`
-          : 'ROUND CIRCLES ARE DERIVED FROM THE ROSTER AND CANNOT BE TOGGLED'}
+          : 'THE ROUND ONES COME FROM THE ROSTER · TAP THE SQUARE ONES'}
       </span>
     </section>
   );
@@ -584,7 +584,7 @@ function Adjustments({
  * the clause after it says whose place it is. No environment is said as an
  * absence rather than left blank, because a blank beside a SEND reads as
  * "nothing to say" and this has something to say. A ref this dataset cannot
- * resolve prints the ref and `NOT IN THIS DATASET`, the same words the
+ * resolve prints the ref and `NOT IN THIS BOOK`, the same words the
  * unresolved roster row above uses and for the same reason: the record still
  * carries it, the fight still opens with it, and inventing a name for a record
  * this build cannot read would be the one dishonest option. That last state
@@ -619,7 +619,7 @@ function opensIn(environment: Environment | undefined, ref: Ref | null, minting:
     return minting
       ? 'NO ENVIRONMENT ON THE BOARD · THIS FIGHT OPENS WITHOUT ONE'
       : 'THE OPEN SCENE HAS NO ENVIRONMENT · THIS FIGHT OPENS WITHOUT ONE';
-  return `OPENS IN ${ref} · NOT IN THIS DATASET`;
+  return `OPENS IN ${ref} · NOT IN THIS BOOK`;
 }
 
 function Roster({
@@ -714,7 +714,7 @@ function Roster({
           <span className="stack" style={{ flex: 1, minWidth: 'var(--control)', gap: 4 }}>
             <span style={{ font: '700 14px/1.15 var(--sans)', color: 'var(--muted)' }}>{ref}</span>
             <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
-              NOT IN THIS DATASET · COSTS NOTHING AND CANNOT BE SENT
+              NOT IN THIS BOOK · COSTS NOTHING AND CANNOT BE SENT
             </span>
           </span>
           <button

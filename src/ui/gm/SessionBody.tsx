@@ -238,7 +238,7 @@ const ADJUSTMENT_LABEL: Record<keyof EncounterAdjustments, string> = {
 
 const ADJUSTMENT_KEYS: Array<keyof EncounterAdjustments> = ['easier', 'damageBump', 'harder'];
 
-const NOT_HERE = 'NOT IN THIS DATASET';
+const NOT_HERE = 'NOT IN THIS BOOK';
 
 /**
  * One verb, at the size a thumb finds without looking, named after its row.
@@ -643,9 +643,9 @@ function SceneArm({
       */}
       <Fact>
         To change this plan: put its ROSTER on the board, edit it in the builder, then bring it
-        back with KEEP THE BOARD’S ROSTER HERE. The board is the campaign’s one workbench for
-        building an encounter — this row is a copy, and neither writes to the other until you tap
-        one of these. The fight itself is never on the board: it is on this row.
+        back with KEEP THE BOARD’S ROSTER HERE. The board and this row are two copies: neither
+        changes the other until you tap one of these. The fight itself is never on the board: it
+        is on this row.
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -941,7 +941,7 @@ function AdjustmentNotes({ adjustments }: { adjustments: EncounterAdjustments })
       {adjustments.damageBump && (
         <Fact>
           {bump === null
-            ? 'This row was built with the damage bump on, and no rules layer this device has loaded carries the line that says what it adds. Nothing in the scene rolls it for you either way.'
+            ? 'This row was built with the damage bump on, and this book does not carry the line that says what it adds. Nothing in the scene rolls it for you either way.'
             : `This row was built with “${bump}”. Nothing in the scene rolls that for you — it is added at the table, on every adversary attack.`}
         </Fact>
       )}
@@ -1386,9 +1386,8 @@ function Unresolved({
   return (
     <div className="stack" style={{ gap: 8 }}>
       <Fact>
-        This {LINK_KIND_LABEL[kind].toLowerCase()} is not in the dataset this device has loaded, so
-        there is nothing to show. The link is kept: load the layer it came from and it resolves
-        again.
+        This {LINK_KIND_LABEL[kind].toLowerCase()} is not in this book, so there is nothing to show.
+        The link is kept, and it will show again if a later version carries it.
       </Fact>
       <RawRef refId={refId} />
     </div>

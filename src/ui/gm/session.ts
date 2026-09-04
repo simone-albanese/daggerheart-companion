@@ -87,7 +87,7 @@ export const LINK_KIND_LABEL: Record<LinkTarget['kind'], string> = {
 };
 
 /** Said once, so the closed row and the open one cannot disagree about it. */
-const NOT_HERE = 'NOT IN THIS DATASET';
+const NOT_HERE = 'NOT IN THIS BOOK';
 
 /**
  * The name to draw, and whether the app made it up.
@@ -398,7 +398,7 @@ export function describeItem(
     case 'link': {
       if (item.target.kind === 'unknown') {
         const word = item.target.named.trim();
-        const tail = 'NOT A KIND THIS BUILD KNOWS';
+        const tail = 'NOT A KIND THIS APP KNOWS';
         return word === '' ? tail : `${word.toUpperCase()} · ${tail}`;
       }
       const kind = LINK_KIND_LABEL[item.target.kind].toUpperCase();

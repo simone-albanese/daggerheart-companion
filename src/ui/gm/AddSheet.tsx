@@ -662,8 +662,7 @@ function CountdownForm({ onDone }: { onDone: () => void }): React.JSX.Element {
         />
       </Field>
       <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-        A countdown is the one row that needs a name: it is what the top bar prints when it is
-        pinned, and what its − button is called out loud.
+        A countdown needs a name: the top bar shows it when pinned.
       </p>
       <Field label="KIND">
         <select

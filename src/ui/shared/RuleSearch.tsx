@@ -2278,8 +2278,8 @@ function AskRow({
         (section === null ? (
           <div className="stack" style={{ flex: 'none', gap: 8 }}>
             <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
-              This dataset no longer carries that section, so there is nothing to draw. The
-              question is kept: load the layer it came from and it points somewhere again.
+              This book no longer carries that section, so there is nothing to draw. The
+              question is kept, and it will point somewhere again if a later version carries it.
             </p>
             {onQuery !== undefined && word !== '' && (
               <button

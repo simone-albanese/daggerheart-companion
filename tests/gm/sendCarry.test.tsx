@@ -216,7 +216,7 @@ describe('what SEND says about where the fight opens', () => {
     render(createElement(Encounter, { phone: false }));
     const seen = text();
     expect(seen).toContain('a-layer-not-loaded');
-    expect(seen).toContain('NOT IN THIS DATASET');
+    expect(seen).toContain('NOT IN THIS BOOK');
     // Not one of the nineteen it *could* have reached for. The board still
     // carries the ref and the fight still opens with it; what this build cannot
     // do is say the place's name, and it does not.
@@ -369,7 +369,7 @@ describe('the sentence and the button agree', () => {
 
     const seen = text();
     expect(seen).toContain('OPENS IN a-layer-not-loaded');
-    expect(seen).toContain('NOT IN THIS DATASET');
+    expect(seen).toContain('NOT IN THIS BOOK');
     // Neither destination's clause. This is the branch that does not split,
     // and asserting the absence of both is what says so.
     expect(seen).not.toContain("THE OPEN SCENE'S OWN PLACE");
@@ -504,7 +504,7 @@ describe('what the environment list says about a Difficulty it has no number for
     openList();
     for (const e of special) {
       expect(rowFor(e.name).textContent, `${e.name} said nothing about its Difficulty`).toContain(
-        'DIF SPECIAL',
+        'DIFF SPECIAL',
       );
     }
   });
@@ -512,7 +512,7 @@ describe('what the environment list says about a Difficulty it has no number for
   it('never prints a 0 anybody could read as a Difficulty', () => {
     openList();
     for (const e of special) {
-      expect(rowFor(e.name).textContent).not.toContain('DIF 0');
+      expect(rowFor(e.name).textContent).not.toContain('DIFF 0');
     }
   });
 
@@ -527,7 +527,7 @@ describe('what the environment list says about a Difficulty it has no number for
     expect(events.length).toBe(10);
     for (const e of numbered) {
       expect(rowFor(e.name).textContent, `${e.name} lost its Difficulty`).toContain(
-        `DIF ${String(e.difficulty)}`,
+        `DIFF ${String(e.difficulty)}`,
       );
     }
   });

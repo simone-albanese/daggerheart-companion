@@ -139,7 +139,17 @@ describe('the features a character actually holds', () => {
 
     click(header);
     const screen = text();
-    const missing = held.features.filter((f) => !screen.includes(f.name) || !screen.includes(f.text));
+    // `FeatureText` draws each line as its own block and a `- ` line as a
+    // bullet, so a feature's text reaches `textContent` line by line with the
+    // hyphens turned into bullets - which is what this compares against.
+    const asDrawn = (t: string): string =>
+      t
+        .split('\n')
+        .map((l) => (l.startsWith('- ') ? `• ${l.slice(2)}` : l))
+        .join('');
+    const missing = held.features.filter(
+      (f) => !screen.includes(f.name) || !screen.includes(asDrawn(f.text)),
+    );
     expect(
       missing.map((f) => `${f.source} · ${f.name}`),
       'these features are on the sheet and not on the screen. Before this section existed ' +
@@ -254,7 +264,7 @@ describe('the gear that is actually equipped', () => {
       activeArmor: 'gambeson-armor',
     });
     play(c);
-    click(fold('Weapons & armour'));
+    click(fold('Weapons & armor'));
     const screen = text();
     expect(screen, 'the Greatsword still says only its dice').toContain('Massive: -1 to Evasion');
     expect(screen).toContain('Barrier: +2 to Armor Score; -1 to Evasion');
@@ -270,7 +280,7 @@ describe('the gear that is actually equipped', () => {
       activeArmor: 'gambeson-armor',
     });
     play(c);
-    click(fold('Weapons & armour'));
+    click(fold('Weapons & armor'));
     const screen = text();
     expect(screen).toContain('−1 EVASION');
     expect(screen).toContain('+2 ARMOR');
@@ -285,7 +295,7 @@ describe('the gear that is actually equipped', () => {
       activeArmor: null,
     });
     play(c);
-    click(fold('Weapons & armour'));
+    click(fold('Weapons & armor'));
     const screen = text();
     expect(screen).toContain('Reliable: +1 to attack rolls');
     expect(screen, 'an attack-roll bonus was charted as a sheet number').not.toContain(

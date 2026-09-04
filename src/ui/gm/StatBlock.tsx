@@ -482,7 +482,7 @@ export function EnvironmentBand({
         </span>
         <span style={{ font: '700 14px/1.15 var(--sans)', flex: 1, minWidth: 0 }}>{e.name}</span>
         <span className="t-meta" style={{ flex: 'none' }}>
-          T{e.tier} · {e.type.toUpperCase()} · DIF {special ? 'SPECIAL' : e.difficulty}
+          T{e.tier} · {e.type.toUpperCase()} · DIFF {special ? 'SPECIAL' : e.difficulty}
         </span>
         <span className="chip" style={{ flex: 'none', color: 'var(--text-2)' }}>
           {open ? 'HIDE' : `${e.features.length} FEATURES`}
@@ -504,7 +504,7 @@ export function EnvironmentBand({
           )}
           {derived !== null && (
             <span className="t-meta" style={{ lineHeight: 1.5, color: 'var(--dim)' }}>
-              ≈ DIF {derived} · FROM THE STRONGEST ADVERSARY HERE · COMPUTED BY THIS APP
+              ≈ DIFF {derived} · FROM THE STRONGEST ADVERSARY HERE · COMPUTED BY THIS APP
             </span>
           )}
         </div>

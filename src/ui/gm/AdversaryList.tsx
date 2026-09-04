@@ -178,7 +178,7 @@ export function AdversaryRow({
           {a.name}
         </span>
         <span className="t-meta" style={{ letterSpacing: '0.08em' }}>
-          T{a.tier} · {a.role.toUpperCase()} · DIF {a.difficulty} · HP {a.hp}
+          T{a.tier} · {a.role.toUpperCase()} · DIFF {a.difficulty} · HP {a.hp}
         </span>
       </button>
       {trailing}
