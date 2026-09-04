@@ -434,6 +434,18 @@ export interface RevisionCounts {
    */
   moduleWeapons: number;
   moduleArmors: number;
+  /**
+   * Adversaries whose stat line prints `Stress: None`, stored as `stress: null`.
+   *
+   * A whole number for the same reason the two above are: a book with no such
+   * block yields none, and that empty answer is one a parser that quietly went
+   * back to writing `0` for the word would also give. `Adversary.stress` has
+   * been `number | null` since schema 6, and the parser wrote `0` for a bump
+   * longer than that - the bestiary drew a zero-box Stress track in stress
+   * colour for Spellbound Armor, whose own Tireless feature says it cannot
+   * mark Stress. `null` is a claim about the book, so it is counted like one.
+   */
+  noStressTrack: number;
 }
 
 export const REVISION_COUNTS: Record<string, RevisionCounts> = {
@@ -463,6 +475,12 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
      */
     moduleWeapons: 0,
     moduleArmors: 0,
+    /*
+     * Zero, measured: no stat line in SRD 1.0 prints `Stress: None`. The
+     * committed dataset agrees (no null Stress track in `data/srd-1.0.json`),
+     * and `tests/tools/schema.test.ts` keeps the census.
+     */
+    noStressTrack: 0,
   },
   'srd-2.0-2026-08-25': {
     domainCardsPerDomain: 21,
@@ -543,6 +561,12 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
      */
     moduleWeapons: 76,
     moduleArmors: 16,
+    /*
+     * One: Spellbound Armor, folio 110, `Difficulty: 10 | Thresholds: 9/17 |
+     * HP: 6 | Stress: None`. Every Difficulty line in the book was read for the
+     * word and that is the only one that prints it.
+     */
+    noStressTrack: 1,
   },
 };
 
@@ -1119,6 +1143,13 @@ export function validate(ds: Dataset): Issue[] {
       ds.armors.filter((a) => a.module !== undefined).length,
       counts.moduleArmors,
       `counted in ${ds.revision}`,
+    );
+    expectCount(
+      issues,
+      'adversaries/stress-none',
+      ds.adversaries.filter((a) => a.stress === null).length,
+      counts.noStressTrack,
+      `stat lines printing Stress: None, counted in ${ds.revision}`,
     );
   }
 

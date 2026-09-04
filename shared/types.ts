@@ -746,7 +746,7 @@ export interface Adversary extends Sourced {
   description: string;
   motives: string[];
   difficulty: number;
-  /** `null` where the stat block says `None`: the SRD's 16 Minions, no others. */
+  /** `null` where the stat block says `None`: SRD 2.0's 28 Minions (SRD 1.0's 16), no others. */
   thresholds: [number, number] | null;
   hp: number;
   /**

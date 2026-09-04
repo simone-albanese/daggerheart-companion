@@ -461,18 +461,17 @@ function parseHeader(lines: Sourced[], ctx: string): Header {
 }
 
 /**
- * `Stress: None` - one block in SRD 2.0, none in SRD 1.0.
+ * `Stress: None` - one block in SRD 2.0, none in SRD 1.0 - is `null`.
  *
  * Spellbound Armor (folio 110) prints it, and its own Tireless feature says
- * why: "The Armor can't be forced to mark Stress." `Adversary.stress` is a
- * number and cannot say None, so 0 stands for a creature with no Stress track
- * at all - the same shape environments.ts uses for `Difficulty: Special`, and
- * the rule stays legible because the feature that carries it is in the record.
- * The honest fix is `stress: number | null`, a schema bump and a converter;
- * that is shared/types.ts and belongs to no lane, so it is reported instead.
+ * why: "The Armor can't be forced to mark Stress." `Adversary.stress` has been
+ * `number | null` since schema 6, which is the honest shape for it and the one
+ * `thresholds` already uses for the same word on the same printed line. It was
+ * written as `0` for one bump longer than the type allowed, so the bestiary
+ * drew a zero-box Stress track in stress colour for a creature the book says
+ * has none; `tools/validate.ts` now counts the null tracks per revision, so a
+ * parser that went back to 0 fails the build rather than the GM's screen.
  */
-const NO_STRESS_TRACK = 0;
-
 function parseStats(
   line: string,
   ctx: string,
@@ -484,14 +483,19 @@ function parseStats(
     difficulty: Number(shape[1]),
     thresholds: parseThresholds(shape[2]!),
     hp: Number(shape[3]),
-    stress: shape[4] === 'None' ? NO_STRESS_TRACK : Number(shape[4]),
+    stress: shape[4] === 'None' ? null : Number(shape[4]),
   };
 }
 
 /**
  * `4/None` means damage never reaches Severe. The contract has no way to say
- * that, so the Severe threshold is set out of reach rather than fabricated;
- * both creatures that print it die to a Major hit anyway.
+ * that, so the Severe threshold is set out of reach rather than fabricated.
+ * Five SRD 2.0 blocks print it, every one tier 1 with two Hit Points, so a
+ * Major hit already kills them: Octopus 3/None and Tiny Green Ooze 4/None
+ * (folio 105), Tiny Red Ooze 5/None and Phantom 5/None (106), Poltergeist
+ * 4/None (107). SRD 1.0 printed two. Nothing that DRAWS the pair may print the
+ * sentinel: `severeIsNone` in `src/engine/damage.ts` is the one test for it,
+ * and the bestiary block, the scene card and the hit explanation all read it.
  */
 function parseThresholds(text: string): [number, number] | null {
   if (text === 'None') return null;

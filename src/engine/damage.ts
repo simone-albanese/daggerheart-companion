@@ -362,10 +362,26 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  *
  * `severityFor(amount, thresholds: [number, number], massiveDamageRule)` does
  * not take `null`, and that is not an oversight to work around: the SRD does
- * not give Minions a severity at all. Its sixteen no-threshold adversaries are
- * all and only Minions, and what it says about them is that any damage defeats
- * one. So the no-thresholds branch is the caller's, it returns `severity: null`
- * rather than an invented rung, and it marks the whole track.
+ * not give Minions a severity at all. SRD 2.0's 28 no-threshold adversaries
+ * (SRD 1.0's 16) are all and only Minions, and what it says about them is that
+ * any damage defeats one. So the no-thresholds branch is the caller's, it
+ * returns `severity: null` rather than an invented rung, and what it marks
+ * depends on whether anybody is counting bodies.
+ *
+ * ## A counted group loses bodies, not Hit Points
+ *
+ * A Minion card on the scene is a GROUP - `minionsRemaining` is the party's
+ * worth of bodies, and the band on the card prints it - while its HP track is
+ * the one box each body has. "Defeated when they take any damage" (p94) is a
+ * sentence about a body: the body that took the hit leaves the count, and the
+ * ones still standing are unhurt. So for a combatant whose bodies are counted
+ * the no-thresholds branch marks NO Hit Points and `defeated` is the count
+ * reaching 0. Marking the track filled the group's one box on the first hit,
+ * and the card read DEFEATED with three Minions still standing beside it -
+ * and never read it when the count did reach 0, because the box was empty.
+ * A no-threshold combatant nobody is counting - a manual's, or one an older
+ * scene persisted without a count - is still one body, and any damage still
+ * marks its whole track.
  *
  * Nothing at or below zero does anything. An empty field, a minus sign, a
  * pasted word - these arrive from a text input on a card, and a NaN that walked
@@ -389,11 +405,34 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  * range the attack would succeed against" - so one hit defeats
  * `1 + floor(amount / N)` of them, and `amount === N` defeats two rather than
  * one. The divisor lives on the `Adversary` record and not on the combatant,
- * so a combatant whose `adversaryRef` this dataset cannot resolve has none, and
- * then there is no Minion arithmetic at all rather than a guessed divisor.
- * `minionsRemaining` caps it: a card must never offer to defeat bodies that are
- * not standing.
+ * so a combatant whose `adversaryRef` this dataset cannot resolve has none.
+ * Without one there is no OVERKILL arithmetic rather than a guessed divisor -
+ * but the `1` is not the divisor's: it is p94's "any damage" body, so a counted
+ * group with no divisor still loses exactly one. `minionsRemaining` caps both:
+ * a card must never offer to defeat bodies that are not standing.
  */
+/**
+ * `Thresholds: 3/None` - a Severe rung the book says damage never reaches.
+ *
+ * Five SRD 2.0 blocks print it, all tier 1 and all with two Hit Points: Octopus
+ * 3/None and Tiny Green Ooze 4/None (folio 105), Tiny Red Ooze 5/None and
+ * Phantom 5/None (106), Poltergeist 4/None (107). `Adversary.thresholds` is
+ * `[number, number]` and has no way to say None, so
+ * `shared/parsers/adversaries.ts` stores that Severe as `Number.MAX_SAFE_INTEGER`
+ * - out of reach rather than fabricated. The ladder needs no special case for
+ * it (`severityFor` compares, and nothing a GM types reaches the sentinel), but
+ * anything that PRINTS the pair does: sixteen digits on a stat block is not a
+ * threshold a GM can apply, and both GM screens were printing them. This is the
+ * one test for that value, so the two screens and the explanation below cannot
+ * disagree about what it means.
+ */
+export const severeIsNone = (severe: number): boolean =>
+  !Number.isFinite(severe) || severe >= Number.MAX_SAFE_INTEGER;
+
+/** The pair as the book writes it: `7/12`, or `3/None` where Severe is out of reach. */
+export const thresholdsText = (thresholds: [number, number]): string =>
+  `${thresholds[0]}/${severeIsNone(thresholds[1]) ? 'None' : thresholds[1]}`;
+
 export interface CombatantHit {
   /** What the GM typed, after the guard above. */
   amount: number;
@@ -430,7 +469,7 @@ export function combatantHit(
       severity: thresholds === null ? null : 'none',
       hp: 0,
       marked: hp.marked,
-      defeated: hasFallenAt(hp.marked, hp.max),
+      defeated: standing === undefined ? hasFallenAt(hp.marked, hp.max) : standing <= 0,
       minionsDefeated: 0,
       minionsRemaining: standing,
       explanation: 'no damage',
@@ -442,22 +481,29 @@ export function combatantHit(
   let marks: number;
   if (thresholds === null) {
     severity = null;
-    marks = Math.max(0, hp.max - hp.marked);
-    parts.push('no thresholds -> defeated');
+    // A counted group loses a body, not its one box - see the docblock.
+    marks = standing === undefined ? Math.max(0, hp.max - hp.marked) : 0;
+    parts.push(standing === undefined ? 'no thresholds -> defeated' : 'no thresholds -> a body falls');
   } else {
     severity = severityFor(clean, thresholds, options.massiveDamageRule);
     marks = SEVERITY_HP[severity];
-    parts.push(`vs ${thresholds[0]}/${thresholds[1]} -> ${SEVERITY_LABEL[severity]}`);
+    parts.push(`vs ${thresholdsText(thresholds)} -> ${SEVERITY_LABEL[severity]}`);
   }
   const marked = Math.min(hp.max, hp.marked + marks);
 
   const divisor = options.minionGroup;
+  const hasDivisor = divisor !== undefined && Number.isFinite(divisor) && divisor > 0;
+  const overkill = hasDivisor ? Math.floor(clean / divisor) : 0;
   let minionsDefeated = 0;
   let minionsRemaining = standing;
-  if (divisor !== undefined && Number.isFinite(divisor) && divisor > 0) {
-    const raw = 1 + Math.floor(clean / divisor);
-    minionsDefeated = standing === undefined ? raw : Math.min(raw, Math.max(0, standing));
-    if (standing !== undefined) minionsRemaining = Math.max(0, standing - minionsDefeated);
+  if (standing !== undefined) {
+    // The 1 is p94's "any damage" body; the overkill is the divisor's, when there is one.
+    minionsDefeated = Math.min(1 + overkill, Math.max(0, standing));
+    minionsRemaining = Math.max(0, standing - minionsDefeated);
+  } else if (hasDivisor) {
+    minionsDefeated = 1 + overkill;
+  }
+  if (minionsDefeated > 0) {
     parts.push(`${minionsDefeated} minion${minionsDefeated === 1 ? '' : 's'} defeated`);
   }
 
@@ -466,7 +512,7 @@ export function combatantHit(
     severity,
     hp: marks,
     marked,
-    defeated: hasFallenAt(marked, hp.max),
+    defeated: standing === undefined ? hasFallenAt(marked, hp.max) : (minionsRemaining ?? 0) <= 0,
     minionsDefeated,
     minionsRemaining,
     explanation: parts.join(' · '),
