@@ -56,6 +56,7 @@
  */
 import { TRAITS } from '../../shared/types.ts';
 import type { Character, Ref, Trait } from '../../shared/types.ts';
+import { isBarehanded } from './brawler.ts';
 import type { DatasetIndex } from './character.ts';
 
 /**
@@ -501,6 +502,29 @@ const SUBCLASS_MODS: Record<Ref, SubclassRow[]> = {
 };
 
 /**
+ * On the sheet, from the class - and the one row in this file that is gated on
+ * ANOTHER slot of the sheet.
+ *
+ * SRD 2 p12, Brawler, *I Am the Weapon*: *"You have a primary weapon called
+ * Brawler's Strike equipped while you have no other Active Weapons ... While
+ * this weapon is active, you gain a +1 bonus to your Evasion."* The gate is a
+ * fact the sheet stores - `activePrimaryWeapon` and `activeSecondaryWeapon`,
+ * both empty - so the row was admissible under this file's own rule the whole
+ * time, and it sat in the auditor's `UNPRICED_LANE` for as long as there was no
+ * class lane to hold it: a weaponless Brawler read Evasion 10 where the class
+ * is built around 11. `whileBarehanded` is that gate, read through the same
+ * `isBarehanded` that `brawler.ts` prices the strike's damage by, so the two
+ * halves of one sentence cannot disagree about when the weapon is active.
+ *
+ * A multiclass grants a class feature as the class does, so the collector walks
+ * `multiclassRef` beside `classRef` - the same pair `drawsFavor` reads.
+ */
+type ClassRow = Row & { whileBarehanded?: true };
+const CLASS_MODS: Record<Ref, ClassRow[]> = {
+  brawler: [{ stat: 'evasion', amount: 1, feature: 'I Am the Weapon', whileBarehanded: true }],
+};
+
+/**
  * On the sheet. Empty, and kept rather than deleted.
  *
  * Not one of the nine communities in `data/srd-1.0.json` moves a derived
@@ -519,6 +543,7 @@ export const REGISTERS = {
   armor: ARMOR_MODS,
   loot: LOOT_MODS,
   ancestry: ANCESTRY_MODS,
+  class: CLASS_MODS,
   subclass: SUBCLASS_MODS,
   community: COMMUNITY_MODS,
 } as const;
@@ -531,6 +556,7 @@ export const REGISTERS = {
 export type Lane =
   | 'ancestry'
   | 'community'
+  | 'class'
   | 'subclass'
   | 'armor'
   | 'primary'
@@ -684,6 +710,25 @@ export function collectModifiers(
       for (const row of COMMUNITY_MODS[c.communityRef] ?? []) {
         add('community', c.communityRef, community.name ?? c.communityRef, row);
       }
+    }
+  }
+
+  /*
+   * The class and the multiclass, and the one row gated on the weapon slots.
+   *
+   * `CLASS_MODS` says why the gate is admissible; here it is simply read. A
+   * `Set`, so a sheet naming the same class twice does not price it twice.
+   */
+  const barehanded = isBarehanded(c);
+  const classRefs = new Set(
+    [c.classRef, c.multiclassRef].filter((r): r is Ref => typeof r === 'string' && r !== ''),
+  );
+  for (const ref of classRefs) {
+    const klass = ix.classes.get(ref);
+    if (klass === undefined) continue;
+    for (const row of CLASS_MODS[ref] ?? []) {
+      if (row.whileBarehanded === true && !barehanded) continue;
+      add('class', ref, klass.name, row);
     }
   }
 

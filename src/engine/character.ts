@@ -34,7 +34,7 @@ import type {
   Weapon,
 } from '../../shared/types.ts';
 import { hasCompanionFeature } from './companion.ts';
-import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
+import { applyProficiency, formatDamage, parseDamage, type DamageDice } from './dice.ts';
 import { collectModifiers, sumOf, traitDeltas, type Ledger } from './modifiers.ts';
 
 export const MAX_HP = 12;
@@ -883,7 +883,7 @@ export function rollModifier(
 export function weaponDamage(
   weapon: Weapon,
   stats: DerivedStats,
-): { spec: string; count: number; sides: number; modifier: number } | null {
+): ({ spec: string } & DamageDice) | null {
   const parsed = parseDamage(weapon.damage);
   if (!parsed) return null;
   const scaled = applyProficiency(parsed, stats.proficiency);

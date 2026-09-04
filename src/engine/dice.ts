@@ -278,26 +278,87 @@ export const outcomeDetail = (r: DualityResult): string =>
 // Damage
 // ---------------------------------------------------------------------------
 
-/** `2d6+3`, `d12`, `d10+2`, `1d20`. */
+/** A second kind of die in the same pool: the `d6` of `d8+d6`. */
+export interface DieGroup {
+  count: number;
+  sides: number;
+}
+
+/**
+ * `2d6+3`, `d12`, `d10+2`, `1d20` - and `d8+d6`.
+ *
+ * `also` is the pool's other dice, when it has any. Every weapon and every
+ * Beastform in the shipped dataset rolls one kind of die, so it is absent for
+ * all of them; the one pool in the book that rolls two is the Brawler's
+ * *Brawler's Strike* (SRD 2 p12), "d8+d6 physical damage using your
+ * Proficiency (both the d8 and d6 scale off your Proficiency)". `parseDamage`
+ * used to read that spec as `1d8` and drop the d6 without a word, which is
+ * why the field exists rather than a second parse: a reader that copies
+ * `count`, `sides` and `modifier` by name and forgets this one drops the d6
+ * the same way, so `diceOf` is the one place the pool is flattened and
+ * `rollDamage`, `highestDamage` and the face slots all read it.
+ */
 export interface DamageDice {
   count: number;
   sides: number;
   modifier: number;
+  also?: DieGroup[];
 }
 
+/**
+ * Read a damage spec: a die, then any number of `+` terms that are each a die
+ * or a flat number. Null when there is no die in it at all.
+ *
+ * `d8+d6` reads as one d8 and `also` one d6; `d8-d6` is not a pool and reads
+ * null rather than as a d8. The first die is found wherever it sits in the
+ * string - a layer spelling `1d8+2 mag` keeps working - and the terms after it
+ * are read only while they follow on directly, so trailing words are ignored
+ * the way they always were.
+ */
 export function parseDamage(spec: string): DamageDice | null {
-  const m = /(\d*)\s*d\s*(\d+)\s*([+-]\s*\d+)?/i.exec(spec.replace(/−/g, '-'));
-  if (!m) return null;
-  return {
-    count: m[1] ? Number(m[1]) : 1,
-    sides: Number(m[2]),
-    modifier: m[3] ? Number(m[3].replace(/\s+/g, '')) : 0,
-  };
+  const text = spec.replace(/−/g, '-');
+  const head = /(\d*)\s*d\s*(\d+)/i.exec(text);
+  if (!head) return null;
+  let modifier = 0;
+  const also: DieGroup[] = [];
+  const term = /\s*([+-])\s*(?:(\d*)\s*d\s*(\d+)|(\d+))/iy;
+  term.lastIndex = head.index + head[0].length;
+  for (let m = term.exec(text); m !== null; m = term.exec(text)) {
+    const sign = m[1] === '-' ? -1 : 1;
+    if (m[4] !== undefined) modifier += sign * Number(m[4]);
+    else if (sign === 1) also.push({ count: m[2] ? Number(m[2]) : 1, sides: Number(m[3]) });
+    else return null;
+  }
+  const out: DamageDice = { count: head[1] ? Number(head[1]) : 1, sides: Number(head[2]), modifier };
+  return also.length === 0 ? out : { ...out, also };
 }
 
 export function formatDamage(d: DamageDice): string {
   const mod = d.modifier === 0 ? '' : d.modifier > 0 ? `+${d.modifier}` : `${d.modifier}`;
-  return `${d.count}d${d.sides}${mod}`;
+  const also = (d.also ?? []).map((g) => `+${g.count}d${g.sides}`).join('');
+  return `${d.count}d${d.sides}${also}${mod}`;
+}
+
+/**
+ * Every die in the pool, as the number of faces each has, in the order they
+ * are rolled and typed: the main dice first, then each `also` group. The one
+ * flattening of a pool, so the roller, the critical bonus and the face slots
+ * cannot disagree about how many dice there are or which one is the d6.
+ */
+export function diceOf(d: DamageDice): number[] {
+  return [
+    ...Array.from({ length: d.count }, () => d.sides),
+    ...(d.also ?? []).flatMap((g) => Array.from({ length: g.count }, () => g.sides)),
+  ];
+}
+
+/**
+ * The highest the damage dice could have rolled, modifier excluded: what a
+ * critical adds. `count * sides` for a one-kind pool, and the d6s as well for
+ * the Brawler's.
+ */
+export function highestDamage(d: DamageDice): number {
+  return diceOf(d).reduce((a, b) => a + b, 0);
 }
 
 export interface DamageResult {
@@ -322,11 +383,11 @@ export function rollDamage(
   options: { critical?: boolean; extraModifier?: number; fixed?: number[] } = {},
   rng: Rng = cryptoRng,
 ): DamageResult {
-  const rolled = Array.from({ length: dice.count }, (_, i) =>
-    options.fixed?.[i] ?? rng(dice.sides),
-  );
+  // `diceOf`, so a `d8+d6` pool rolls its d6s too, after its d8s, and a
+  // `fixed` face lands on the die of the same index.
+  const rolled = diceOf(dice).map((sides, i) => options.fixed?.[i] ?? rng(sides));
   const modifier = dice.modifier + (options.extraModifier ?? 0);
-  const criticalBonus = options.critical === true ? dice.count * dice.sides : 0;
+  const criticalBonus = options.critical === true ? highestDamage(dice) : 0;
   return {
     dice: rolled,
     modifier,
@@ -337,7 +398,18 @@ export function rollDamage(
   };
 }
 
-/** Scale a weapon's damage by Proficiency: `d8+2` at Proficiency 3 -> `3d8+2`. */
+/**
+ * Scale a weapon's damage by Proficiency: `d8+2` at Proficiency 3 -> `3d8+2`,
+ * and `d8+d6` -> `3d8+3d6` - "both the d8 and d6 scale off your Proficiency"
+ * (SRD 2 p12).
+ */
 export function applyProficiency(dice: DamageDice, proficiency: number): DamageDice {
-  return { ...dice, count: Math.max(1, dice.count * Math.max(1, proficiency)) };
+  const scale = (count: number): number => Math.max(1, count * Math.max(1, proficiency));
+  return {
+    ...dice,
+    count: scale(dice.count),
+    ...(dice.also === undefined
+      ? {}
+      : { also: dice.also.map((g) => ({ ...g, count: scale(g.count) })) }),
+  };
 }

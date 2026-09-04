@@ -4081,6 +4081,44 @@ describe('what the attack is made with', () => {
     expect(weaponRow('Unarmed').textContent).toContain('d4');
   });
 
+  /*
+   * The Brawler's own weapon. SRD 2 p12, "I Am the Weapon": "You have a
+   * primary weapon called Brawler's Strike equipped while you have no other
+   * Active Weapons. It uses a trait of your choice, has Melee range, and deals
+   * d8+d6 physical damage using your Proficiency." The only barehanded attack
+   * this screen offered a Brawler was the Unarmed row's [Proficiency]d4.
+   */
+  it('carries the Brawler’s Strike row for a barehanded Brawler, both dice scaled (p12)', () => {
+    play(seed({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    const row = weaponRow('Brawler’s Strike');
+    // Proficiency 2 at level 3: 2d8+2d6, and the trait is the player's to pick.
+    expect(row.textContent).toContain('2d8+2d6');
+    expect(row.textContent).toContain('A TRAIT OF YOUR CHOICE');
+    // The Unarmed row stays: p50's [Proficiency]d4 is everyone's.
+    expect(weaponRow('Unarmed').textContent).toContain('2d4');
+  });
+
+  it('does not draw it for a Brawler holding a weapon, nor for any other class', () => {
+    play(seed({ classRef: 'brawler', activeSecondaryWeapon: null }));
+    expect(() => weaponRow('Brawler’s Strike')).toThrow();
+    play(seed({ activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    expect(() => weaponRow('Brawler’s Strike')).toThrow();
+  });
+
+  it('leaves it standing under whichever trait the player picks, and moves no chip itself', () => {
+    play(seed({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    click(weaponRow('Brawler’s Strike'));
+    expect(weaponRow('Brawler’s Strike').getAttribute('aria-pressed')).toBe('true');
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · BRAWLER’S STRIKE');
+    expect(weaponRow('Brawler’s Strike').textContent).toContain('ARMED · A TRAIT OF YOUR CHOICE');
+    // "a trait of your choice": arming moved nothing, and Knowledge completes
+    // the declaration rather than withdrawing it.
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    click(traitChip('KNO'));
+    expect(traitChip('KNO').getAttribute('aria-pressed')).toBe('true');
+    expect(weaponRow('Brawler’s Strike').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('does not pick the trait for the GM when it is armed', () => {
     play(seed());
     click(weaponRow('Unarmed'));

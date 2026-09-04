@@ -24,7 +24,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Beastform, CompanionState } from '../../shared/types.ts';
-import type { DerivedStats } from '../../src/engine/character.ts';
+import { indexDataset, type DerivedStats } from '../../src/engine/character.ts';
 import { formatDamage, rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
 import {
   beastformSource,
@@ -42,8 +42,9 @@ import {
   unarmedSource,
   type ArmedAttack,
   type AttackSource,
+  brawlerSource,
 } from '../../src/ui/player/attack.ts';
-import { makeCharacter, makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
+import { makeCharacter, makeClass, makeDataset, makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
 
 const weaponSource = (damage: string, proficiency: number): AttackSource => {
   const source = sourceFromWeapon(
@@ -581,5 +582,58 @@ describe('whose Experiences a roll is declared with', () => {
     const orphan = { ...character, companion: null };
     expect(experiencesFor(orphan, source)).toBe(experiencesFor(orphan, source));
     expect(experiencesFor(orphan, source)).toBe(experiencesFor(null, null));
+  });
+});
+
+/**
+ * SRD 2 p12, Brawler, "I Am the Weapon": "You have a primary weapon called
+ * Brawler's Strike equipped while you have no other Active Weapons. It uses a
+ * trait of your choice, has Melee range, and deals d8+d6 physical damage using
+ * your Proficiency (both the d8 and d6 scale off your Proficiency)." No such
+ * weapon is in the dataset, because it is a rule and not an item; the only
+ * barehanded attack the app offered a Brawler was the Unarmed row's
+ * [Proficiency]d4.
+ */
+describe('the Brawler’s Strike (p12)', () => {
+  const ds = makeDataset({
+    classes: [
+      makeClass({
+        id: 'brawler',
+        name: 'Brawler',
+        classFeatures: [{ name: 'I Am the Weapon', text: 'Your barehanded attacks are as strong as any blade.' }],
+      }),
+      makeClass({ id: 'warrior', name: 'Warrior' }),
+    ],
+  });
+  const ix = indexDataset(ds);
+  const barehanded = (p = {}) =>
+    makeCharacter({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null, ...p });
+
+  it('is d8+d6 with both dice scaled by Proficiency, physical, and named', () => {
+    const one = brawlerSource(barehanded(), makeStats({ proficiency: 1 }), ix);
+    expect(one?.damage).toEqual({ count: 1, sides: 8, modifier: 0, also: [{ count: 1, sides: 6 }] });
+    const three = brawlerSource(barehanded(), makeStats({ proficiency: 3 }), ix);
+    expect(three?.damage).toEqual({ count: 3, sides: 8, modifier: 0, also: [{ count: 3, sides: 6 }] });
+    expect(formatDamage(three!.damage)).toBe('3d8+3d6');
+    expect(sourceName(three!)).toBe('Brawler’s Strike');
+    expect(damageTypeOf(three!)).toBe('phy');
+    expect(isRollableDamage(three!.damage)).toBe(true);
+  });
+
+  it('is not offered while a weapon is in either hand', () => {
+    expect(brawlerSource(barehanded({ activePrimaryWeapon: 'w' }), makeStats(), ix)).toBeNull();
+    expect(brawlerSource(barehanded({ activeSecondaryWeapon: 'w' }), makeStats(), ix)).toBeNull();
+  });
+
+  it('is offered only by a class that grants I Am the Weapon, a multiclass included', () => {
+    expect(brawlerSource(barehanded({ classRef: 'warrior' }), makeStats(), ix)).toBeNull();
+    expect(brawlerSource(barehanded({ classRef: 'warrior', multiclassRef: 'brawler' }), makeStats(), ix)).not.toBeNull();
+  });
+
+  it('adds the highest of every die of the pool on a critical, the d6s included', () => {
+    const source = brawlerSource(barehanded(), makeStats({ proficiency: 3 }), ix)!;
+    const offer = damageOffer(attack({ source, critical: true, proficiency: 3 }));
+    // 3d8 is at most 24 and 3d6 at most 18: the critical adds 42, not 24.
+    expect(offer.label).toBe('CRITICAL · 3d8+3d6 +42');
   });
 });

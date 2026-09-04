@@ -567,3 +567,47 @@ describe('syncCounters', () => {
     expect(next.id).toBe(c.id);
   });
 });
+
+/**
+ * SRD 2 p12, Brawler, "I Am the Weapon": "You have a primary weapon called
+ * Brawler's Strike equipped while you have no other Active Weapons ... While
+ * this weapon is active, you gain a +1 bonus to your Evasion." A weaponless
+ * Brawler read 10 - the class's starting Evasion and nothing else - where the
+ * class is built around 11, because the register had no class lane and no row
+ * gated on the weapon slots.
+ */
+describe('the Brawler’s Evasion', () => {
+  const BRAWLER = makeClass({
+    id: 'brawler',
+    name: 'Brawler',
+    startingEvasion: 10,
+    classFeatures: [{ name: 'I Am the Weapon', text: 'Your barehanded attacks are as strong as any blade.' }],
+  });
+  const withBrawler = makeDataset({ classes: [BRAWLER, makeClass({ id: 'warrior', name: 'Warrior', startingEvasion: 10 })] });
+  const bix = indexDataset(withBrawler);
+  const brawler = (p: Partial<Character> = {}): Character =>
+    makeCharacter({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null, ...p });
+
+  it('is 11 with both hands empty, and the ledger says why (p12)', () => {
+    const s = deriveStats(brawler(), withBrawler, bix);
+    expect(s.evasion).toBe(11);
+    expect(s.modifiers.evasion).toEqual([
+      { lane: 'class', ref: 'brawler', source: 'Brawler', feature: 'I Am the Weapon', amount: 1 },
+    ]);
+  });
+
+  it('is 10 the moment a weapon is in either hand', () => {
+    expect(deriveStats(brawler({ activePrimaryWeapon: 'w' }), withBrawler, bix).evasion).toBe(10);
+    expect(deriveStats(brawler({ activeSecondaryWeapon: 'w' }), withBrawler, bix).evasion).toBe(10);
+  });
+
+  it('reaches a Warrior who multiclassed into Brawler, and no other Warrior', () => {
+    const warrior = brawler({ classRef: 'warrior' });
+    expect(deriveStats(warrior, withBrawler, bix).evasion).toBe(10);
+    expect(deriveStats({ ...warrior, multiclassRef: 'brawler' }, withBrawler, bix).evasion).toBe(11);
+  });
+
+  it('still sits under a manual override', () => {
+    expect(deriveStats(brawler({ evasionOverride: 3 }), withBrawler, bix).evasion).toBe(3);
+  });
+});

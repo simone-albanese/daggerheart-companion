@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyProficiency,
+  diceOf,
   cryptoRng,
   formatDamage,
+  highestDamage,
   OUTCOME_DETAIL,
   OUTCOME_LABEL,
   outcomeDetail,
@@ -572,5 +574,71 @@ describe('reaction rolls', () => {
   it('never promise a Hope in the readout', () => {
     const detail = outcomeDetail(rollDuality(fixedDice(10, 2)));
     expect(detail).not.toMatch(/hope|fear/i);
+  });
+});
+
+/**
+ * SRD 2 p12, Brawler, "I Am the Weapon": Brawler's Strike "deals d8+d6
+ * physical damage using your Proficiency (both the d8 and d6 scale off your
+ * Proficiency)". The one pool in the book that rolls two kinds of die.
+ * `parseDamage('d8+d6')` used to answer `1d8` and drop the d6 without a word.
+ */
+describe('a pool of two kinds of die (Brawler’s Strike, p12)', () => {
+  it('reads d8+d6 as a d8 and also a d6, rather than as a d8', () => {
+    expect(parseDamage('d8+d6')).toEqual({
+      count: 1,
+      sides: 8,
+      modifier: 0,
+      also: [{ count: 1, sides: 6 }],
+    });
+    expect(parseDamage('2d8+2d6+3')).toEqual({
+      count: 2,
+      sides: 8,
+      modifier: 3,
+      also: [{ count: 2, sides: 6 }],
+    });
+    // A die subtracted is not a pool this app knows how to roll.
+    expect(parseDamage('d8-d6')).toBeNull();
+    // And a one-kind pool carries no `also` at all, so nothing downstream
+    // starts reading an empty list as a second kind of die.
+    expect(parseDamage('d8+2')).toEqual({ count: 1, sides: 8, modifier: 2 });
+  });
+
+  it('prints and round-trips as 1d8+1d6', () => {
+    expect(formatDamage(parseDamage('d8+d6')!)).toBe('1d8+1d6');
+    expect(formatDamage(parseDamage('1d8+1d6+2')!)).toBe('1d8+1d6+2');
+  });
+
+  it('scales both the d8 and the d6 by Proficiency (p12)', () => {
+    const scaled = applyProficiency(parseDamage('d8+d6')!, 3);
+    expect(scaled).toEqual({ count: 3, sides: 8, modifier: 0, also: [{ count: 3, sides: 6 }] });
+    expect(formatDamage(scaled)).toBe('3d8+3d6');
+  });
+
+  it('flattens to the d8s then the d6s, and the critical adds every one of them', () => {
+    const pool = applyProficiency(parseDamage('d8+d6')!, 2);
+    expect(diceOf(pool)).toEqual([8, 8, 6, 6]);
+    expect(highestDamage(pool)).toBe(28);
+    // A one-kind pool still answers count × sides, which is what the critical
+    // added before this file knew a second kind.
+    expect(highestDamage({ count: 3, sides: 10, modifier: 2 })).toBe(30);
+  });
+
+  it('rolls every die of the pool with its own size, in that order', () => {
+    const pool = applyProficiency(parseDamage('d8+d6')!, 2);
+    const rng = scriptedRng(7, 3, 5, 2);
+    const r = rollDamage(pool, { critical: true }, rng);
+    expect(rng.calls).toEqual([8, 8, 6, 6]);
+    expect(r.dice).toEqual([7, 3, 5, 2]);
+    expect(r.criticalBonus).toBe(28);
+    expect(r.total).toBe(7 + 3 + 5 + 2 + 28);
+    expect(r.spec).toBe('2d8+2d6');
+  });
+
+  it('lands a typed face on the die of the same index, d6s included', () => {
+    const pool = applyProficiency(parseDamage('d8+d6')!, 1);
+    const r = rollDamage(pool, { fixed: [8, 6] }, refusingRng);
+    expect(r.dice).toEqual([8, 6]);
+    expect(r.total).toBe(14);
   });
 });

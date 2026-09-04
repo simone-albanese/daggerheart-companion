@@ -60,9 +60,10 @@ interface Site {
  * A judge on the design round caught the version of this that swept only armor,
  * the two weapon slots and loot - which is every lane except the one the
  * reported bug came from, because Simiah's Nimble is an ancestry feature. The
- * sweep and the collector read the same six lanes, plus classes and consumables
- * so that the reverse scan can see a bonus arriving somewhere the collector does
- * not yet look at all.
+ * sweep and the collector read the same seven lanes - classes among them since
+ * the Brawler's *I Am the Weapon* was priced - plus consumables so that the
+ * reverse scan can see a bonus arriving somewhere the collector does not look
+ * at all.
  *
  * AND THEN IT READ EIGHT OF THE FIFTEEN COLLECTIONS THERE THEN WERE.
  * `domainCards`, `beastforms` and `transformations` were never walked - 210,
@@ -297,21 +298,25 @@ const UNPRICED_AMOUNT: Record<string, string> = {
  * state a fact the sheet stores". `UNPRICED_AMOUNT` says "the book states a
  * number and `Amount` cannot name it". Neither is true of these: the book
  * states `+2`, and `Amount` has held plain numbers since the file was written.
- * What is missing is a LANE. `collectModifiers` walks six registers and none of
- * them is `domainCards`, `beastforms` or `classes`, and no row anywhere is
- * conditional on another field of the sheet. Filing these under either of the
+ * What is missing is a LANE. `collectModifiers` walks seven registers and none
+ * of them is `domainCards` or `beastforms`. Filing these under either of the
  * other two maps would have made a missing walk read as a decision about the
  * book, which is exactly the dishonesty the split between those two exists to
  * prevent.
  *
- * ALL THIRTEEN ARRIVED WITH THIS COMMIT - the map did not exist before it -
- * and none of them is new content: they were in `data/srd-2.0.json` the whole
- * time, invisible because `everySite()` read eight of the fifteen collections
- * there then were, and because the first shape could not see the word `bonus`.
- * Nothing regresses - the app has never applied any of them - but the backlog
- * is now written down instead of merely absent.
+ * ALL THIRTEEN ARRIVED WITH THE COMMIT THAT MADE THIS MAP, and none of them
+ * was new content: they were in `data/srd-2.0.json` the whole time, invisible
+ * because `everySite()` read eight of the fifteen collections there then were,
+ * and because the first shape could not see the word `bonus`. Nothing
+ * regressed - the app had never applied any of them - but the backlog was
+ * written down instead of merely absent.
  *
  * To clear one: give `collectModifiers` the lane, and the gate a row can read.
+ * TWELVE REMAIN. The Brawler's *I Am the Weapon* was the thirteenth, and it is
+ * the one that has been cleared exactly that way: `modifiers.ts` has a `class`
+ * lane now, and its one row is gated on both weapon slots being empty - the
+ * first row in the file conditional on another slot of the sheet (findings
+ * S2-1 and B1-1, SRD 2 p12).
  */
 const UNPRICED_LANE: Record<string, string> = {
   /*
@@ -320,8 +325,6 @@ const UNPRICED_LANE: Record<string, string> = {
    */
   'armor|rune-forged-exosuit':
     'Attuned, "The maximum number of domain cards in your loadout is reduced by one, but you gain a bonus to your damage thresholds equal to your tier." The thresholds half IS priced. The loadout half is not, and the reason is measured: `deriveStats` reports `loadoutLimit`, but `src/engine/loadout.ts:57` refuses a card against the flat `MAX_LOADOUT` and `tools/simulate.ts:800` asserts `stats.loadoutLimit === MAX_LOADOUT` as an invariant. Moving the reported number alone would print "5 of 4 active" on the sheet of a character the app had just let take a fifth card. The edit is three files, none of them this lane\'s.',
-  'class|brawler':
-    'I Am the Weapon: "While this weapon is active, you gain a +1 bonus to your Evasion" - and Brawler\'s Strike is active "while you have no other Active Weapons", which IS a fact the sheet stores (`activePrimaryWeapon` and `activeSecondaryWeapon`, both empty). So this is admissible under the register\'s own rule and still unwritable twice over: there is no `class` lane, and no row in the file is conditional on another slot of the sheet.',
   'domainCard|fortified-armor':
     'Fortified Armor (Blade 4): "While you are wearing armor, gain a +2 bonus to your damage thresholds." No cost, no clock; the gate is `activeArmor` being set, which the sheet stores, plus the card being in the loadout rather than the vault - which the sheet also stores. A lane away from being a row.',
   'domainCard|armorer':
@@ -594,6 +597,10 @@ describe('the register against the book', () => {
           .map((f) => f.text)
           .join(' ');
       }
+      if (lane === 'class') {
+        // The class features, which is where "I Am the Weapon" prints its +1.
+        return (entity['classFeatures'] as Array<{ text: string }>).map((f) => f.text).join(' ');
+      }
       return String((entity['feature'] as { text?: string } | undefined)?.text ?? '');
     };
 
@@ -830,8 +837,8 @@ describe('the book against the register', () => {
     const sites = everySite();
     const lanes = new Set(sites.map((s) => s.lane));
     /*
-     * TWELVE. The six the collector walks, plus classes and consumables so the
-     * scan sees a bonus arriving where the collector does not look, plus
+     * TWELVE. The seven the collector walks, plus consumables so the scan sees
+     * a bonus arriving where the collector does not look, plus
      * `domainCards`, `beastforms` and `transformations` - 265 sites that were
      * never read - plus `stances`, which arrived AFTER those three were fixed
      * and would have hidden two more. 265 is measured, not derived from record
@@ -1057,5 +1064,46 @@ describe('what a sheet actually reads', () => {
       'Simiah · Nimble +1',
       'Gambeson Armor · Flexible +1',
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The class lane, and the one row gated on another slot of the sheet
+// ---------------------------------------------------------------------------
+
+/**
+ * SRD 2 p12, Brawler, "I Am the Weapon": "You have a primary weapon called
+ * Brawler's Strike equipped while you have no other Active Weapons ... While
+ * this weapon is active, you gain a +1 bonus to your Evasion." The gate is
+ * `activePrimaryWeapon` and `activeSecondaryWeapon`, both empty - a fact the
+ * sheet stores - and this file carried the row as `UNPRICED_LANE` debt for as
+ * long as the collector had no class lane. A weaponless Brawler read 10.
+ */
+describe('the class lane', () => {
+  const brawler = (patch: Partial<Character> = {}): Character => ({
+    ...newCharacter({ classRef: 'brawler' }, index),
+    activePrimaryWeapon: null,
+    activeSecondaryWeapon: null,
+    ...patch,
+  });
+
+  it('prices I Am the Weapon at +1 Evasion while both hands are empty (p12)', () => {
+    const ledger = collectModifiers(brawler(), index, 1);
+    expect(ledger.evasion).toEqual([
+      { lane: 'class', ref: 'brawler', source: 'Brawler', feature: 'I Am the Weapon', amount: 1 },
+    ]);
+    expect(sumOf(ledger, 'evasion')).toBe(1);
+  });
+
+  it('withdraws it the moment a weapon is in either hand', () => {
+    expect(sumOf(collectModifiers(brawler({ activePrimaryWeapon: 'battleaxe' }), index, 1), 'evasion')).toBe(0);
+    expect(sumOf(collectModifiers(brawler({ activeSecondaryWeapon: 'shortsword' }), index, 1), 'evasion')).toBe(0);
+  });
+
+  it('reads the multiclass as it reads the class, and prices a class once', () => {
+    const warrior = brawler({ classRef: 'warrior' });
+    expect(sumOf(collectModifiers(warrior, index, 1), 'evasion')).toBe(0);
+    expect(sumOf(collectModifiers({ ...warrior, multiclassRef: 'brawler' }, index, 1), 'evasion')).toBe(1);
+    expect(sumOf(collectModifiers(brawler({ multiclassRef: 'brawler' }), index, 1), 'evasion')).toBe(1);
   });
 });
