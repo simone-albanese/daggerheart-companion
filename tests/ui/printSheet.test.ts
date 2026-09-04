@@ -213,6 +213,28 @@ describe('the print model', () => {
     expect(hope!.boxes + hope!.crossed).toBe(6);
   });
 
+  it('crosses out the seventh slot too on a Light in the Dark sheet with seven scars', () => {
+    // A Beastbound's companion adds a seventh Hope slot (SRD 2 p22). Capping
+    // the struck diamonds on the base six printed six struck slots on a
+    // seven-slot track, with the seventh open, for a character with no Hope
+    // left at all.
+    const shipped = indexDataset(baseDataset);
+    const seven = Array.from({ length: 7 }, (_, i) => `scar ${String(i)}`);
+    const ranger = makeCharacter({
+      classRef: 'ranger',
+      subclassRefs: ['beastbound'],
+      scars: seven,
+      companion: { ...newCompanion('Ashfoot', 'A grey wolf'), upgrades: ['light-in-the-dark'] },
+    });
+    const hope = buildSheet(ranger, baseDataset, shipped).tracks.find((t) => t.kind === 'hope');
+    expect(hope).toMatchObject({ boxes: 0, crossed: 7, growth: 0 });
+    // And the same seven scars on a six-slot sheet strike six, never a seventh.
+    const plain = buildSheet(makeCharacter({ scars: seven }), baseDataset, shipped).tracks.find(
+      (t) => t.kind === 'hope',
+    );
+    expect(plain).toMatchObject({ boxes: 0, crossed: 6 });
+  });
+
   it('says where Evasion and the thresholds came from', () => {
     const { character, dataset, index } = scene();
     const sheet = buildSheet(character, dataset, index);

@@ -16,7 +16,7 @@
  * track stays where it was and the bodies move - and a test that read only
  * one of the two would pass on a card that had forgotten the other entirely.
  *
- * These read `data/srd-1.0.json` rather than a fixture, for `sceneTruth.test
+ * These read `data/srd-2.0.json` rather than a fixture, for `sceneTruth.test
  * .tsx`'s reason: every claim here is a claim about the book this app ships. A
  * fixture written in this file could be given a threshold pair and a Minion
  * divisor to order and would go on passing after a rebuild moved either.

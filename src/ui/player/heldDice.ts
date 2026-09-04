@@ -171,16 +171,17 @@ export const useHeldDice = create<HeldDiceState>((set, get) => {
      * - and step 1 is not decoration. It is the exact hole `add` has had all
      * along, which cost nothing while dice were free and costs a Favor now.
      *
-     * ## `charge` is a predicate, which is what keeps this file blind
+     * ## `charge` is a predicate, which is what keeps this file nearly blind
      *
-     * The header above stakes this tray on knowing nothing about where a die
-     * came from, and taking a price would have been the end of that: a `cost:
-     * 'favor'` argument here would put the Warlock's currency, the character
-     * record and a class feature into a file whose whole claim is that it holds
-     * dice and nothing else. A function that answers yes or no puts none of
-     * them here. This file does not know that the price is a Favor, that the
-     * track is on the character record, or that the die belongs to a patron -
-     * only that something was asked and said yes.
+     * The header above lets this tray keep exactly one bit about where a die
+     * came from - `help`, because the arithmetic needs it - and nothing else.
+     * Taking a price would have been a second thing: a `cost: 'favor'`
+     * argument here would put the Warlock's currency, the character record and
+     * a class feature into a file whose whole claim is that it holds dice and
+     * one flag. A function that answers yes or no puts none of them here. This
+     * file does not know that the price is a Favor, that the track is on the
+     * character record, or that the die belongs to a patron - only that
+     * something was asked and said yes.
      *
      * `engine/dicePools.ts::PoolCost` is the other half: it says WHICH pools
      * cost something, and it is read by the screen, not by the tray.

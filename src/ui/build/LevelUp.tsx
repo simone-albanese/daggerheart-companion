@@ -187,9 +187,11 @@ export function LevelUp({
    * CLEAR.
    *
    * A trait an earlier trait pick in this same plan takes is marked too, as the
-   * validator counts it. `toggle` offers one taking of an option per level
-   * today, so that half is the validator's rule kept in step here rather than a
-   * state the screen reaches.
+   * validator counts it. That half is reachable: `toggle` refuses a second
+   * taking of the same option out of the same tier's boxes, but from level 5
+   * on `availableOptions` lists the trait option once per tier the character
+   * has reached, so a level-5-to-10 plan can hold a tier 2 trait pick and a
+   * tier 3 (or 4) one, and the second grid must grey out what the first took.
    */
   const markedBefore = (pick: Pick): ReadonlyMap<Trait, 'sheet' | 'plan'> => {
     const marks = new Map<Trait, 'sheet' | 'plan'>();

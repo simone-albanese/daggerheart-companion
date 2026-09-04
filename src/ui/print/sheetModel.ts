@@ -30,10 +30,10 @@ import { TRAITS, TRAIT_LABELS, TRAIT_VERBS,
   damageKindLong,
 } from '../../../shared/types.ts';
 import {
-  BASE_HOPE,
   deriveStats,
   drawsFavor,
   drawsFocus,
+  hopeSlots,
   MAX_HP,
   MAX_LEVEL,
   MAX_STRESS,
@@ -92,7 +92,9 @@ export interface SheetTrack {
    * The SRD's death moves say a scar means "permanently cross out a Hope slot",
    * so a scarred Hope track is six diamonds with some of them struck through -
    * not four diamonds, which would lose the fact that this character used to
-   * have six.
+   * have six. Seven, when a companion's Light in the Dark added one: the cap
+   * is the sheet's own slot count, not the base six, so a seventh scar on that
+   * sheet crosses out the seventh diamond instead of leaving it open.
    */
   crossed: number;
 }
@@ -519,7 +521,7 @@ export function buildSheet(
         label: 'Hope',
         boxes: stats.maxHope,
         growth: 0,
-        crossed: Math.min(scars, BASE_HOPE),
+        crossed: Math.min(scars, hopeSlots(character, index)),
       },
       { kind: 'armor', label: 'Armor', boxes: stats.armorScore, growth: 0, crossed: 0 },
       ...classTracks,

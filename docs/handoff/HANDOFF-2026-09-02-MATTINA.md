@@ -124,7 +124,7 @@ offerta sì, **dado no**. Non puoi invocare un patrono che non hai.
 2. **`src/ui/gm/Bestiary.tsx`** dice «129 adversaries and 19 environments»: sono **264 e 47**.
 3. La cifra **`43 of the 189 domain cards`** è stata **ritirata invece che ricontata**: nessuna
    lettura del libro la riproduce. Chi la vuole indietro deve prima decidere cosa contava.
-4. **Il debito dell'SRD 2**: 6 voci in `UNPRICED_AMOUNT`, 13 in `UNPRICED_LANE`, 32 in
+4. **Il debito dell'SRD 2**: 6 voci in `UNPRICED_AMOUNT`, 13 in `UNPRICED_LANE` (12 dal 4 settembre 2026, riga class del Brawler), 32 in
    `SITUATIONAL`; lo sweep percorre 12 collezioni su 16; gli 11 sottosistemi delle Supplemental
    Campaign Mechanics che nulla legge; `srdIndex` che non indicizza livello né modulo per le
    armi; `Item.roll` chiamato d100 quando è 1..60.

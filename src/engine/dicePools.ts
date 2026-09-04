@@ -307,9 +307,10 @@ const POOLS: Record<string, PoolSpec> = {
      * The book's own limit is tighter and is NOT this number - "before making
      * an action roll... rolling your Patron Die" is one die for one roll. It is
      * not enforced and it is not meant to be: the tray this die is armed into
-     * knows nothing about where a die came from, by design and by its own
-     * docblock, so "one Patron Die per action roll" is not a question it can be
-     * asked. The limit the app CAN hold a player to is the one it takes the
+     * keeps one bit about a die's origin - whether it is a Help an Ally die,
+     * because the highest-only rule needs it - and nothing that says "patron",
+     * so "one Patron Die per action roll" is not a question it can be asked.
+     * The limit the app CAN hold a player to is the one it takes the
      * payment for, and that is the Favor track - which is where the screen
      * gates the control. Everything else in this file is the same bargain:
      * `NOTHING HERE DECIDES A RULE`, it prints the sentence and does the

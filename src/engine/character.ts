@@ -617,6 +617,23 @@ function advancementCount(c: Character, kind: string): number {
   return c.levelUpHistory.filter((a) => a.kind === kind).length;
 }
 
+/**
+ * How many Hope slots this sheet has before any scar is struck through: the
+ * six every character starts with, plus the one a Beastbound's companion adds
+ * with Light in the Dark. `deriveStats` subtracts the scars from this; the
+ * printed sheet caps the struck-out diamonds on it, so seven scars on a
+ * seven-slot track cross out seven and never draw a slot the sheet never had.
+ */
+export function hopeSlots(c: Character, ix: DatasetIndex): number {
+  const lightInTheDark =
+    c.companion !== null &&
+    c.companion.upgrades.includes(LIGHT_IN_THE_DARK) &&
+    hasCompanionFeature(c, ix)
+      ? 1
+      : 0;
+  return BASE_HOPE + lightInTheDark;
+}
+
 export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): DerivedStats {
   const ix = index ?? indexDataset(ds);
   const klass = ix.classes.get(c.classRef);
@@ -813,13 +830,7 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * own sheet owns, and the only one a player could not record by hand,
    * because `syncCounters` wrote this number back over the track.
    */
-  const lightInTheDark =
-    c.companion !== null &&
-    c.companion.upgrades.includes(LIGHT_IN_THE_DARK) &&
-    hasCompanionFeature(c, ix)
-      ? 1
-      : 0;
-  const maxHope = Math.max(0, BASE_HOPE + lightInTheDark - c.scars.length);
+  const maxHope = Math.max(0, hopeSlots(c, ix) - c.scars.length);
 
   const domains: DomainId[] = [...(klass?.domains ?? [])];
   if (c.multiclassDomain && !domains.includes(c.multiclassDomain)) {

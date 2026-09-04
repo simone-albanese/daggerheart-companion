@@ -11,7 +11,7 @@
  * with nothing put in its place, so the field read as absent rather than as
  * special.
  *
- * These read `data/srd-1.0.json` rather than a fixture, the way
+ * These read `data/srd-2.0.json` rather than a fixture, the way
  * `tests/gm/bestiaryFilter.test.tsx` does, and for its reason: every claim here
  * is a claim about the book this app ships. A fixture written in this file
  * could be given motives, impulses and a zero Difficulty to order, and would go
@@ -299,7 +299,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     return found;
   };
 
-  it('is the same sixteen adversaries that carry all three Minion facts', () => {
+  it('is the same twenty-eight adversaries that carry all three Minion facts', () => {
     const byRole = dataset.adversaries.filter((a) => a.role === 'Minion');
     expect(byRole.length).toBeGreaterThan(0);
     expect(
@@ -740,7 +740,8 @@ describe('END SCENE names what the second tap takes', () => {
  * to get wrong from either end alone.
  *
  * WHAT STOOD HERE FIRST: "`Scene.tsx` only ever resolves adversaries out of
- * that dataset", meaning `data/srd-1.0.json`.
+ * that dataset", meaning the shipped SRD file (`data/srd-1.0.json` then,
+ * `data/srd-2.0.json` now).
  *
  * WHY THAT WAS CORRECTED: `Scene` reads `useApp((s) => s.dataset.adversaries)`,
  * and `state.ts` filled `dataset` from `resolveDataset` - the SRD merged field
@@ -762,9 +763,9 @@ describe('END SCENE names what the second tap takes', () => {
  * `content` and `art` from the device - so the overlay data this paragraph used
  * to reason about is not sitting on a phone somewhere, it is gone. `loadDataset`
  * returns `baseDataset` unchanged, `state.ts` sets `dataset` once in `init` and
- * nothing writes it again, so `s.dataset.adversaries` IS `data/srd-1.0.json`'s
+ * nothing writes it again, so `s.dataset.adversaries` IS `data/srd-2.0.json`'s
  * and can be nothing else. Measured against the shipped dataset rather than
- * counted from memory: 129 adversaries, 0 with an empty `motives`, 0 with an
+ * counted from memory: 264 adversaries, 0 with an empty `motives`, 0 with an
  * empty `features`. `Scene.tsx`'s own fold comment carries the same finding for
  * the label it builds out of those two fields.
  *
