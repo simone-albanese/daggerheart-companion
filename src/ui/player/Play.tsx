@@ -52,6 +52,7 @@ import {
   type Ref,
   type Trait,
   damageKindLong,
+  dealsMagic,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatDamage } from '../../engine/dice.ts';
@@ -2085,6 +2086,24 @@ function Equipped({
               {(w.trait === 'spellcast' ? 'SPELLCAST' : TRAIT_LABELS[w.trait].toUpperCase())} ·{' '}
               {reach} · {damageKindLong(w.damageType).toUpperCase()}
             </span>
+            {/*
+             * SRD 2 p55: "Weapons that deal magic damage can only be wielded
+             * by characters with a Spellcast trait." Said here, where the
+             * weapon is armed, because arming one on a sheet with no such
+             * trait used to roll at +0 under a bare SPELLCAST chip for the four
+             * spellcast-trait weapons and arm a named trait for the other 136
+             * with nothing on screen disagreeing. The same sentence
+             * `weaponNote` prints in the Build slot; see `magicNote` in
+             * `build/gear.ts` for why it is said and not refused.
+             */}
+            {dealsMagic(w.damageType) && stats.spellcastTrait === null && (
+              <span
+                className="t-meta"
+                style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em', color: 'var(--text-2)' }}
+              >
+                MAGIC WEAPONS NEED A SPELLCAST TRAIT — THIS SHEET HAS NONE
+              </span>
+            )}
             {/*
              * THE WEAPON'S OWN FEATURE, WHICH THIS ROW HAS NEVER DRAWN.
              *

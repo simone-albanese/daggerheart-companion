@@ -4082,6 +4082,24 @@ describe('what the attack is made with', () => {
   });
 
   /*
+   * SRD 2 p55, Damage Type: "Weapons that deal magic damage can only be
+   * wielded by characters with a Spellcast trait." Arming a Hallowed Axe on a
+   * sheet with no subclass Spellcast trait used to arm Strength and say
+   * nothing; the sentence is now on the row, the way the Build slot says it.
+   */
+  it('says a magic weapon needs a Spellcast trait, on a sheet that has none (p55)', () => {
+    // No subclass, so no Spellcast trait - the Warrior's and the Guardian's case.
+    play(seed({ subclassRefs: [], activePrimaryWeapon: 'hallowed-axe', activeSecondaryWeapon: null }));
+    expect(weaponRow('Hallowed Axe').textContent).toContain('MAGIC WEAPONS NEED A SPELLCAST TRAIT');
+    // The fixture's bard has one, and the sentence goes with it.
+    play(seed({ activePrimaryWeapon: 'hallowed-axe', activeSecondaryWeapon: null }));
+    expect(weaponRow('Hallowed Axe').textContent).not.toContain('SPELLCAST TRAIT');
+    // A physical weapon on the traitless sheet says nothing either.
+    play(seed({ subclassRefs: [], activeSecondaryWeapon: null }));
+    expect(fold('Weapons & armour').textContent).not.toContain('SPELLCAST TRAIT');
+  });
+
+  /*
    * The Brawler's own weapon. SRD 2 p12, "I Am the Weapon": "You have a
    * primary weapon called Brawler's Strike equipped while you have no other
    * Active Weapons. It uses a trait of your choice, has Melee range, and deals

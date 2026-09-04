@@ -1285,13 +1285,13 @@ describe('what a filled weapon slot says about what is in it', () => {
   });
 
   it('says nothing about an empty slot', () => {
-    const empty = { weapon: undefined, primary: LONGSWORD, level: 1, ignoresBurden: false };
+    const empty = { weapon: undefined, primary: LONGSWORD, level: 1, ignoresBurden: false, spellcastTrait: null };
     expect(weaponNote({ slot: 'secondary', ...empty })).toBeNull();
     expect(weaponNote({ slot: 'primary', ...empty, primary: undefined })).toBeNull();
   });
 
   it('counts the hands rather than asking whether the primary is two-handed', () => {
-    const at = { slot: 'secondary', weapon: HATCHET, level: 1, ignoresBurden: false } as const;
+    const at = { slot: 'secondary', weapon: HATCHET, level: 1, ignoresBurden: false, spellcastTrait: null } as const;
     expect(weaponNote({ ...at, primary: LONGSWORD })).toBe(
       'Longsword and Hatchet are 3 hands — your maximum burden is 2',
     );
@@ -1310,6 +1310,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: LONGSWORD,
         level: 1,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBe(
       'Longsword and Longsword are 4 hands — your maximum burden is 2 · ' +
@@ -1335,6 +1336,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: BROADSWORD,
         level: 1,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBe('The book lists Broadsword as a primary weapon');
     // Both directions, from the one comparison.
@@ -1345,6 +1347,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: HATCHET,
         level: 1,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBe('The book lists Hatchet as a secondary weapon');
     // And silence when the two agree, which is every default pick.
@@ -1355,6 +1358,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: BROADSWORD,
         level: 1,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBeNull();
   });
@@ -1369,6 +1373,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: LONGSWORD,
         level: 10,
         ignoresBurden: true,
+        spellcastTrait: null,
       }),
     ).toBe('The book lists Longsword as a primary weapon');
   });
@@ -1381,8 +1386,53 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: LONGSWORD,
         level: 1,
         ignoresBurden: true,
+        spellcastTrait: null,
       }),
     ).toBeNull();
+  });
+
+  /*
+   * SRD 2 p55: "Weapons that deal magic damage can only be wielded by
+   * characters with a Spellcast trait", and every Magic Weapons table is
+   * bannered "All magic weapons require a Spellcast trait". The slot said
+   * nothing, and the pickers listed all 140 to a Warrior at full eligibility.
+   */
+  it('says a magic weapon needs a Spellcast trait, on a sheet that has none (p55)', () => {
+    const HALLOWED_AXE = weapon('Hallowed Axe'); // primary, tier 1, mag, Strength
+    expect([HALLOWED_AXE.damageType, HALLOWED_AXE.trait]).toEqual(['mag', 'strength']);
+    // The measurement the note is built on: 136 magic weapons and four that
+    // can deal either kind, all of them bannered in the book.
+    expect(weapons.filter((w) => w.damageType === 'mag')).toHaveLength(136);
+    expect(weapons.filter((w) => w.damageType === 'phy/mag')).toHaveLength(4);
+
+    const at = { slot: 'primary', weapon: HALLOWED_AXE, primary: HALLOWED_AXE, level: 1, ignoresBurden: false } as const;
+    expect(weaponNote({ ...at, spellcastTrait: null })).toBe(
+      'Magic weapons need a Spellcast trait — this sheet has none',
+    );
+    // Said, not refused: the sentence goes the moment the sheet has the trait.
+    expect(weaponNote({ ...at, spellcastTrait: 'knowledge' })).toBeNull();
+    // A physical weapon is nobody's concern.
+    expect(weaponNote({ ...at, weapon: BROADSWORD, primary: BROADSWORD, spellcastTrait: null })).toBeNull();
+    // An either-kind weapon is on the Magic Weapons table too.
+    const SHADOWBLADE = weapon('Shadowblade');
+    expect(SHADOWBLADE.damageType).toBe('phy/mag');
+    expect(weaponNote({ ...at, weapon: SHADOWBLADE, primary: SHADOWBLADE, spellcastTrait: null })).toBe(
+      'Magic weapons need a Spellcast trait — this sheet has none',
+    );
+  });
+
+  it('prints the Spellcast line beside the others rather than instead of them', () => {
+    const LEGENDARY_HALLOWED_AXE = weapon('Legendary Hallowed Axe');
+    expect(
+      weaponNote({
+        slot: 'primary',
+        weapon: LEGENDARY_HALLOWED_AXE,
+        primary: LEGENDARY_HALLOWED_AXE,
+        level: 1,
+        ignoresBurden: false,
+        spellcastTrait: null,
+      }),
+    ).toMatch(/^Tier 4 — .* · Magic weapons need a Spellcast trait — this sheet has none$/);
   });
 
   it('leaves the burden sentence off the main hand, where it would be said twice', () => {
@@ -1393,6 +1443,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: LONGSWORD,
         level: 1,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBeNull();
   });
@@ -1410,6 +1461,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: LONGSWORD,
         level: 1,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBe(
       'Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2 · ' +
@@ -1423,6 +1475,7 @@ describe('what a filled weapon slot says about what is in it', () => {
         primary: LONGSWORD,
         level: 10,
         ignoresBurden: false,
+        spellcastTrait: null,
       }),
     ).toBe('Longsword and Legendary Hatchet are 3 hands — your maximum burden is 2');
   });
@@ -1431,7 +1484,7 @@ describe('what a filled weapon slot says about what is in it', () => {
     // 391 weapons in each hand, walked, against plain array code.
     for (const w of weapons) {
       for (const slot of ['primary', 'secondary'] as const) {
-        const note = weaponNote({ slot, weapon: w, primary: w, level: 10, ignoresBurden: true });
+        const note = weaponNote({ slot, weapon: w, primary: w, level: 10, ignoresBurden: true, spellcastTrait: 'knowledge' });
         const said = note !== null && note.includes('The book lists');
         expect(said, `${w.name} in the ${slot} slot`).toBe(w.slot !== slot);
       }
@@ -1455,6 +1508,7 @@ describe('what a filled weapon slot says about what is in it', () => {
           primary: p,
           level: 10,
           ignoresBurden: false,
+          spellcastTrait: null,
         });
         const saysHands = note !== null && note.includes('hands');
         expect(saysHands, `${p.name} + ${w.name}`).toBe(shouldSay);
@@ -1683,7 +1737,7 @@ describe('gear that is already on a character the pickers would refuse', () => {
   });
 
   it('reaches the weapon slot through `weaponNote`, beside the other two clauses', () => {
-    const at = { slot: 'secondary', primary: undefined, ignoresBurden: false } as const;
+    const at = { slot: 'secondary', primary: undefined, ignoresBurden: false, spellcastTrait: null } as const;
     expect(weaponNote({ ...at, weapon: weapon('Legendary Hatchet'), level: 1 })).toBe(
       'Tier 4 — kept; you cannot equip it again until level 8',
     );

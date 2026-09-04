@@ -38,9 +38,11 @@ import type {
   Range,
   Sourced,
   Tier,
+  Trait,
   Weapon,
   WeaponTrait,
 } from '../../../shared/types.ts';
+import { dealsMagic } from '../../../shared/types.ts';
 import { TIER_LEVELS, tierOf } from '../../engine/character.ts';
 
 /** One line of a picker: the thing, and whether it is within reach. */
@@ -187,6 +189,8 @@ export interface WeaponInSlot {
   level: number;
   /** Combat Training: this character equips without counting hands. */
   ignoresBurden: boolean;
+  /** The trait a Spellcast Roll uses on this sheet, or null when it has none. */
+  spellcastTrait: Trait | null;
 }
 
 /**
@@ -286,23 +290,56 @@ const bookSlotNote = ({ slot, weapon }: WeaponInSlot): string | null =>
     : `The book lists ${weapon.name} as a ${weapon.slot} weapon`;
 
 /**
+ * A magic weapon on a sheet with no Spellcast trait. Null otherwise.
+ *
+ * SRD 2 p55, Damage Type: *"Weapons that deal magic damage can only be wielded
+ * by characters with a Spellcast trait."* Every Magic Weapons table (p56, p59,
+ * p62, p64, p191) carries the banner *"All magic weapons require a Spellcast
+ * trait"*. The dataset holds 140 such weapons - 136 `mag` and the four
+ * either-kind Shadowblades - and the pickers listed all of them to a Warrior
+ * or a Guardian at full eligibility with nothing said, while on Play the four
+ * `spellcast`-trait weapons armed a roll at +0 and the rest armed a named trait
+ * as if nothing were wrong.
+ *
+ * ## Said, not refused - and here the book's own grammar is the harder call
+ *
+ * The section above draws the line on the verb: a bare number is a note, a
+ * "can't" is a refusal. *"Can only be wielded by"* is the tier rule's grammar,
+ * not the burden's, so by that reading this would be a refusal. It is a note
+ * anyway, for a reason the tier limit does not have: the gate is not settled
+ * when the slot is filled. The Spellcast trait comes off a subclass, and a
+ * sheet can gain one after the weapon is picked - the wizard's steps are not
+ * ordered around it, and a multiclass foundation card brings one at level 5 -
+ * so a refusal would decline a weapon the same build legally owns a step
+ * later. The sentence is printed instead, in every slot that holds one, and it
+ * stays until the sheet has the trait.
+ */
+const magicNote = ({ weapon, spellcastTrait }: WeaponInSlot): string | null =>
+  weapon === undefined || !dealsMagic(weapon.damageType) || spellcastTrait !== null
+    ? null
+    : 'Magic weapons need a Spellcast trait — this sheet has none';
+
+/**
  * Everything true of the thing in this slot that the slot itself does not
  * already show, in the one line `GearSlot` has for it. Null when there is
  * nothing to say, and null for an empty slot - an empty slot has its own words.
  *
  * Joined with the same `·` `originStamp` uses, in order of how far the fact
  * reaches: the hands are about this character's whole loadout, the book's slot
- * and the tier are about this one item. All of them are printed, because the
- * ternary that used to choose between two of them was choosing which true thing
- * to withhold.
+ * and the tier are about this one item, and the Spellcast trait is about this
+ * item on this sheet. All of them are printed, because the ternary that used
+ * to choose between two of them was choosing which true thing to withhold.
  */
 export function weaponNote(at: WeaponInSlot): string | null {
   if (at.weapon === undefined) return null;
   // `slotTierNote`, never `tierNote`: this is a slot, and a slot is the one
   // place where "usable from level 8" is no longer the whole truth.
-  const lines = [handsNote(at), bookSlotNote(at), slotTierNote(at.weapon.tier, at.level)].filter(
-    (line): line is string => line !== null,
-  );
+  const lines = [
+    handsNote(at),
+    bookSlotNote(at),
+    slotTierNote(at.weapon.tier, at.level),
+    magicNote(at),
+  ].filter((line): line is string => line !== null);
   return lines.length === 0 ? null : lines.join(' · ');
 }
 
