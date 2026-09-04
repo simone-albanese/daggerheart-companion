@@ -38,7 +38,14 @@ export interface ImportReport {
   replaced: Character[];
   /** Nothing was written for these. Each one is a question for the user. */
   conflicts: ImportConflict[];
-  /** Whatever the file or codec layer wanted to say, carried through. */
+  /**
+   * Whatever the file or codec layer wanted to say, carried through - and one
+   * sentence per character this build refused to write, in the refusal's own
+   * words. A record on the device last saved by a newer build is left alone
+   * (`db.putCharacter`), the character in the file is left out, and the rest
+   * of the file still lands: a `.dhbackup` restore that stopped at the first
+   * such record and reported nothing was the failure this list closes.
+   */
   warnings: string[];
 }
 
@@ -152,7 +159,9 @@ const pending = new Map<string, Character>();
 /** Ids whose last write attempt failed and which are still not on the disk. */
 const failing = new Set<string>();
 /**
- * Ids being deleted right now. Nothing may write them back.
+ * Ids whose disk copy is being replaced from outside the queue right now - a
+ * delete, or an import the user chose. Nothing the queue holds may write them
+ * back.
  *
  * `pending.delete(id)` on its own was not enough: a batch already in flight has
  * taken its copy out of `pending` before `remove` runs, so its `put` could
@@ -287,6 +296,64 @@ function schedule(c: Character): void {
     void flush();
   }, 400);
 }
+
+/**
+ * Write a character the user chose over whatever the queue still holds for it.
+ *
+ * `resolveImport`'s TAKE THEIRS and `importCharacters` in replace mode used to
+ * call `db.putCharacter` bare. After a refused write of the local copy, that
+ * copy is still in `pending` as a retry, so the next flush - an edit to
+ * another character, `pagehide` - put it straight back over the record the
+ * user had just chosen: memory showed the file's copy, the disk held the one
+ * they rejected, and the next launch showed that one. `remove` closed the
+ * same window for a delete; this is the same two steps for a put. The retry
+ * copy is dropped now, `removed` keeps a batch already in flight from
+ * re-queueing it, and the write waits behind that batch so it lands strictly
+ * after whatever was mid-air.
+ */
+async function writeOver(character: Character): Promise<void> {
+  const { id } = character;
+  pending.delete(id);
+  failing.delete(id);
+  removed.add(id);
+  publishWriteError();
+  try {
+    await flush();
+    await db.putCharacter(character);
+  } finally {
+    // Cleared either way, as in `remove`: a put that failed must not block
+    // every later write of that id for the life of the tab.
+    removed.delete(id);
+  }
+}
+
+/**
+ * Throw the unwritten work away, for the one caller allowed to: the reset.
+ *
+ * Twice, on purpose. The first `drop` empties `pending` and `failing` now, so a
+ * flush that starts after this has nothing to write. The second runs behind
+ * the batch that may already be in flight, because `writeBatch` re-queues its
+ * failures *after* its awaits - a copy dropped only once would be put back by
+ * the batch that was mid-air when the reset began. The returned promise is the
+ * second drop, so `clearAll` empties the stores strictly after that batch has
+ * either landed or been thrown away.
+ */
+function abandon(): Promise<void> {
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  const drop = (): void => {
+    pending.clear();
+    failing.clear();
+    publishWriteError();
+  };
+  drop();
+  queue = queue.then(drop, drop);
+  return queue;
+}
+
+db.beforeClearAll(abandon);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
@@ -595,6 +662,8 @@ export const useApp = create<AppState>((set, get) => ({
     );
     const here = get().characters.filter((c) => !written.has(c.id));
 
+    /** The first failure that was not this build's own refusal, rethrown after the loop. */
+    let failed: unknown;
     for (const { normalized, local, decision } of prepared) {
 
       if (decision === 'keep-local') {
@@ -629,7 +698,27 @@ export const useApp = create<AppState>((set, get) => ({
       }
 
       const wasEmpty = get().characters.length === 0;
-      await db.putCharacter(character);
+      /*
+       * Caught per character, so one refusal cannot take the rest of the file
+       * with it. This loop used to await the write bare: a `.dhbackup` holding
+       * A, B and C, with B on the device last saved by a newer build, wrote A,
+       * rejected on B, never reached C, and threw the report away - the caller
+       * learned nothing about the two that did or did not land. A schema
+       * refusal is deliberate and already says why in its own words, so it
+       * becomes a warning and the loop goes on. Anything else - a full disk, a
+       * closed connection - is not a decision this build took, so it is
+       * carried past the loop and thrown once everything writable has landed.
+       */
+      try {
+        await writeOver(character);
+      } catch (error) {
+        if (named(error, 'StaleBuildError') && error instanceof Error) {
+          report.warnings.push(error.message);
+          continue;
+        }
+        failed ??= error;
+        continue;
+      }
       set((s) => ({
         characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
         activeId: character.id,
@@ -640,6 +729,7 @@ export const useApp = create<AppState>((set, get) => ({
       (decision === 'import' ? report.imported : report.replaced).push(character);
     }
 
+    if (failed !== undefined) throw failed;
     return report;
   },
 
@@ -652,7 +742,7 @@ export const useApp = create<AppState>((set, get) => ({
         ? normalizeIncoming(duplicateFor(conflict.incoming, characters), dataset, index)
         : conflict.incoming;
 
-    await db.putCharacter(character);
+    await writeOver(character);
     set((s) => ({
       characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
       activeId: character.id,

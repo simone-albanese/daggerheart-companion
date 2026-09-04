@@ -81,7 +81,7 @@ import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaign
 import { publishCampaignSource, type CampaignSnapshot } from '../../store/campaignSource.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
 import { CAMPAIGN_NAMES, freeName } from '../../store/names.ts';
-import type { QuarantinedRecord } from '../../store/db.ts';
+import { beforeClearAll, type QuarantinedRecord } from '../../store/db.ts';
 import { publishCampaignAlert, type CampaignRetry } from '../shell/campaignAlert.ts';
 import {
   tracksFromSheet,
@@ -694,6 +694,38 @@ function scheduleAside(id: string): void {
   aside.add(id);
   armFlush();
 }
+
+/**
+ * Throw the unwritten board away, for the one caller allowed to: the reset.
+ *
+ * `dirty` and `aside` are left standing on every failure above so the next
+ * `pagehide` tries again, and About's "Erase everything" reloads the page -
+ * which fires `pagehide`. Until this existed that flush found the `campaigns`
+ * store empty, succeeded, and put the campaign back on the device the GM had
+ * just wiped. Dropped twice for the reason `state.ts` gives: once now, and
+ * once behind the batch that may be in flight, since `writeActive` leaves
+ * `dirty` true *after* its await fails. The sentence goes with the work: what
+ * it warned about is no longer unwritten, it is gone, and a read failure
+ * (`'read'`) is not this function's to clear.
+ */
+function abandon(): Promise<void> {
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  const drop = (): void => {
+    dirty = false;
+    aside.clear();
+    if (useGm.getState().writeRetry === 'write') {
+      useGm.setState({ writeError: null, writeRetry: null });
+    }
+  };
+  drop();
+  queue = queue.then(drop, drop);
+  return queue;
+}
+
+beforeClearAll(abandon);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {

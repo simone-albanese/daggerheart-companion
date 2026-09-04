@@ -229,6 +229,12 @@ zeroes a *player's* HP.
 - [x] ~~**A pending debounced write can resurrect a just-deleted character.**~~
       — **done**, and before the database delete rather than after.
       `remove()` (`state.ts:221`) does not `pending.delete(id)`. *(trivial)*
+- [x] ~~**The same retry copy overwrites an import the user chose.**~~
+      — **done** (B2-1). `resolveImport`'s TAKE THEIRS and `importCharacters` in
+      replace mode wrote straight to `db.putCharacter`, so after a refused write of
+      the local copy the next flush put that copy back over the record the user had
+      just chosen. Both doors now go through `writeOver`, which is `remove()`'s two
+      steps for a put; `tests/store/importRefused.test.ts` pins both doors.
 - [x] ~~**One malformed record makes the whole library unreadable — usually.**~~
       — **done**, by reading database records through the same hardened reader the file path uses.
       What cannot be read is quarantined by name; what can be repaired is repaired, so a missing

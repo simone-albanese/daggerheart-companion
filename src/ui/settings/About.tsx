@@ -167,7 +167,10 @@ export function About({
   /**
    * Erase everything, and mean everything.
    *
-   * `clearAll` empties IndexedDB and nothing else, so the seven localStorage
+   * `clearAll` empties IndexedDB - and, first, makes the two debounced writers
+   * drop the retry copies they were holding, or the reload's own `pagehide`
+   * would write a failed character or campaign straight back into the stores
+   * it had just emptied. It touches nothing else, so the seven localStorage
    * keys have to go by hand: `dhc.prefs.v1` (store/prefs.ts),
    * `dhc.conditions.v1` (ui/player/conditionsStore.ts), `dhc.dice.v1`
    * (ui/player/heldDice.ts), `dhc.backup.v1` (store/backup.ts),

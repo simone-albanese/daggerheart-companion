@@ -502,6 +502,33 @@ describe('a link row, which still never leaves the app', () => {
     const item = target({ ref: 'the-witherwild' });
     expect(item.kind === 'link' && item.target.ref).toBe('the-witherwild');
   });
+
+  it('still remembers what it called itself after the reading is saved and read again', () => {
+    /*
+     * The case above pins the first read. What `readCampaignRecord` returns is
+     * what `gmStore` writes back 400 ms later and what `serializeCampaign`
+     * puts in a `.dhcampaign`, so every launch and every import reads the
+     * *reading* - `{kind: 'unknown', named: 'campaignFrame'}` - and the name
+     * has to survive that hop too, or the row tells the GM it points at "a
+     * unknown" from the second launch on.
+     */
+    const once = target({ kind: 'campaignFrame', ref: 'the-witherwild' });
+    const twice = target(once.kind === 'link' ? once.target : null);
+    expect(
+      twice.kind === 'link' && twice.target.kind === 'unknown' && twice.target.named,
+      'the kind name was lost on the second read',
+    ).toBe('campaignFrame');
+    expect(twice.kind === 'link' && twice.target.ref).toBe('the-witherwild');
+  });
+
+  it('reads a row an older build kept as unknown as the kind this one knows', () => {
+    // "A later version may recognise it" is the sentence on the screen. This
+    // build stands in for that later version: a row saved by a build that did
+    // not know `adversary` has to open as an adversary link here.
+    const item = target({ kind: 'unknown', named: 'adversary', ref: 'r' });
+    expect(item.kind === 'link' && item.target.kind).toBe('adversary');
+    expect(item.kind === 'link' && item.target.ref).toBe('r');
+  });
 });
 
 describe('countdowns, which live in the session list', () => {

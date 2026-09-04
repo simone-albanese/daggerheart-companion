@@ -47,9 +47,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newCampaign } from '../../shared/campaigns.ts';
+import { SCHEMA_VERSION, type Character } from '../../shared/types.ts';
 import { putCampaign } from '../../src/store/campaigns.ts';
 import { clearAll, db } from '../../src/store/db.ts';
-import { useApp } from '../../src/store/state.ts';
+import { flushPending, useApp } from '../../src/store/state.ts';
 import { About } from '../../src/ui/settings/About.tsx';
 import { dataset, index, playedCharacter } from './fixture.ts';
 
@@ -491,5 +492,57 @@ describe('the sweep the button actually performs', () => {
     ).toBe('someone else’s');
 
     localStorage.clear();
+  });
+
+  it('does not let the retry copy of a failed write come back after the erase', async () => {
+    /*
+     * The other half of "everything": what the writers were still holding.
+     *
+     * A refused `putCharacter` leaves its copy in `state.ts`'s `pending` so
+     * that the next `pagehide` can try it again - and `reset()` ends in
+     * `location.reload()`, which fires `pagehide`. So the flush ran against
+     * the store the reset had just emptied, succeeded, and the character was
+     * back on a device the user had been told was clean. `clearAll` now makes
+     * both writers abandon that work before it clears a store, and
+     * `tests/store/erase.test.ts` dispatches the real event against both;
+     * this case is the same proof through the button.
+     *
+     * The wait is on the store emptying rather than on the localStorage
+     * signal the case above uses, because this case keeps the `MemoryStorage`
+     * shim, and `Object.keys` of the shim is its methods.
+     */
+    const c = playedCharacter();
+    const database = await db();
+    await database.put('characters', { ...c, schemaVersion: SCHEMA_VERSION + 1 } as unknown as Character);
+    useApp.setState({ characters: [c], activeId: c.id });
+    useApp.getState().update((x) => ({ ...x, name: 'Renamed before the reset' }));
+    await flushPending();
+    expect(useApp.getState().writeError?.kind, 'the precondition is a refused write').toBe('stale');
+
+    await renderAbout();
+    await arm();
+    const field = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Type ERASE to confirm"]',
+    )!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setter?.call(field, 'ERASE');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      button('Erase everything').click();
+    });
+    for (let turn = 0; turn < 200 && (await database.count('characters')) !== 0; turn += 1) {
+      await settle();
+    }
+    expect(await database.count('characters'), 'the reset never ran').toBe(0);
+
+    // What the reload's `pagehide` listener does, byte for byte.
+    await flushPending();
+
+    expect(
+      await database.count('characters'),
+      'the retry copy of the failed write was written back after the erase',
+    ).toBe(0);
   });
 });
