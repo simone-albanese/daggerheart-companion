@@ -159,6 +159,7 @@ import { Onboarding } from '../../src/ui/onboarding/Onboarding.tsx';
 import { AnswerRow } from '../../src/ui/onboarding/parts.tsx';
 import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
+import { FeatureText } from '../../src/ui/shared/FeatureText.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { NameRefusal } from '../../src/ui/shared/NameRefusal.tsx';
@@ -918,6 +919,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'shared/CompatibleMark.tsx::CompatibleIcon': () => <CompatibleIcon />,
   'shared/CompatibleMark.tsx::Attribution': () => <Attribution />,
   'shared/DomainCardView.tsx::CardText': () => <CardText text="Mark a Stress to do a thing." />,
+  'shared/FeatureText.tsx::FeatureText': () => (
+    <FeatureText text={'You know these poisons:\n- Ghost Petal: Vulnerable.\n- Grave Spore: a Stress.'} />
+  ),
   'shared/DomainCardView.tsx::DomainCardView': () => <DomainCardView card={card()} />,
   'shared/DomainCardView.tsx::CardReader': () => <CardReader card={card()} onClose={noop} />,
   'shared/DomainMark.tsx::DomainMark': () => <DomainMark domain="blade" />,

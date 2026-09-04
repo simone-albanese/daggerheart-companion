@@ -133,7 +133,7 @@ describe('what the builder says the bump does', () => {
 
   it('says the derived line instead when the bump is off', () => {
     render(createElement(Encounter, { phone: false }));
-    expect(text()).toContain('DERIVED FROM THE ROSTER');
+    expect(text()).toContain('THE ROUND ONES COME FROM THE ROSTER');
     expect(text()).not.toContain(BUMP!.toUpperCase());
   });
 });
