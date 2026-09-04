@@ -848,7 +848,8 @@ function StancesSection({
    * and that half is the one that matters, because a hard gate on the subclass
    * would make those refs invisible AND UNDROPPABLE. A sheet that arrived from
    * another device, or one whose subclass was chosen differently, would keep
-   * writing `stanceRefs` to storage with no screen willing to show them. That
+   * writing `stanceRefs` to storage with no screen willing to show them - the
+   * printed sheet lists them, and a page is not somewhere to drop one. That
    * is the same rule the unresolved-ref rows below are built on: nothing this
    * app cannot use is hidden, because hidden is how a thing becomes impossible
    * to remove.

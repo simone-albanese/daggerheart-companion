@@ -32,6 +32,8 @@ import { TRAITS, TRAIT_LABELS, TRAIT_VERBS,
 import {
   BASE_HOPE,
   deriveStats,
+  drawsFavor,
+  drawsFocus,
   MAX_HP,
   MAX_LEVEL,
   MAX_STRESS,
@@ -40,13 +42,14 @@ import {
   type DerivedStats,
 } from '../../engine/character.ts';
 import { companionDamage, companionUpgradeAllowance } from '../../engine/companion.ts';
+import { poolsFor } from '../../engine/dicePools.ts';
 import { characterFeatures } from '../../engine/features.ts';
 import { SEVERITY_HP, SEVERITY_LABEL, type Severity } from '../../engine/damage.ts';
 import { formatGold, MAX_CHESTS, PER_STEP } from '../../engine/gold.ts';
 import { tierAchievementFor } from '../../engine/levelUp.ts';
 import { resolveCards } from '../../engine/loadout.ts';
 import { companionUpgrades } from '../shared/srdReference.ts';
-import type { TrackKind } from '../shared/Track.tsx';
+import type { PrintTrackKind } from './marks.tsx';
 
 export interface SheetTrait {
   trait: Trait;
@@ -68,7 +71,8 @@ export interface SheetTrait {
 }
 
 export interface SheetTrack {
-  kind: TrackKind;
+  /** The screen's four kinds plus the paper-only Focus and Favor. */
+  kind: PrintTrackKind;
   label: string;
   /** How many boxes to draw solid. Zero means the character has no track. */
   boxes: number;
@@ -117,6 +121,42 @@ export interface SheetFeature {
   text: string;
 }
 
+/**
+ * A pool of dice a feature grants, reduced to the two things paper needs.
+ *
+ * `poolsFor` works out the size - a Patron Die is a d6 and a d8 from level 5,
+ * a Rally Die the same, a Wordsmith's a d10 - and that size is exactly the kind
+ * of number this page exists to take off the player: a Warlock re-deriving
+ * their die from the Patron's Pact prose at the table is the arithmetic the
+ * sheet was printed to spare them. It sits beside Proficiency because both are
+ * a die-shaped fact the weapons block already reads.
+ */
+export interface SheetPool {
+  /** As the book names it: `Patron Die`, `Rally Die`. */
+  name: string;
+  /** `d8`, as it will be rolled. */
+  die: string;
+  /** Who granted it, in the sheet's own words: `Warlock`. */
+  source: string;
+}
+
+/**
+ * A martial stance the character knows, as the Martial Stances sheet lists it.
+ *
+ * Name, tier and the stance's own sentence - the shape `Stance` already has,
+ * minus the source page. Known, not active: folio 13's sheet marks a circle
+ * beside every stance known and lets the player "also track which stance you
+ * have active", and the app models the first and deliberately not the second
+ * (`Character.stanceRefs` says why). So the page prints the known ones and
+ * gives each a box, which is where the pencil records the state the app does
+ * not.
+ */
+export interface SheetStance {
+  name: string;
+  tier: number;
+  text: string;
+}
+
 export interface SheetGold {
   handfuls: number;
   bags: number;
@@ -145,8 +185,16 @@ export interface PrintSheet {
   /** Whether the level is already in the thresholds, or a hand-set override. */
   thresholdNote: string;
   proficiency: number;
+  /** The dice pools this character's features grant, sized. Empty for most. */
+  pools: SheetPool[];
   /** Minor/Major/Severe, and Massive when the table has turned it on. */
   ladder: Array<{ label: string; from: string; hp: number }>;
+  /**
+   * HP, Stress, Hope and Armor for everyone, then Focus and Favor for the
+   * sheets that draw them - the same two predicates the row under Vitals on
+   * Play asks, `drawsFocus` and `drawsFavor`, so paper and glass cannot
+   * disagree about who has the track.
+   */
   tracks: SheetTrack[];
   /** What the dashed boxes on the HP and Stress tracks mean. */
   growthNote: string;
@@ -175,6 +223,8 @@ export interface PrintSheet {
   gold: SheetGold;
   inventory: InventoryEntry[];
   features: SheetFeature[];
+  /** The stances known, for the one subclass that knows any. Empty otherwise. */
+  stances: SheetStance[];
   /** The Ranger Companion sheet, for the one subclass that has one. */
   companion: SheetCompanion | null;
 }
@@ -379,6 +429,37 @@ export function buildSheet(
     : undefined;
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
 
+  /*
+   * The class tracks, on the same two questions Play asks. `drawsFocus` and
+   * `drawsFavor` each have a third arm - a sheet already holding the resource,
+   * whoever they are - and paper inherits it for the reason the screen gives:
+   * a sheet that arrived carrying Favor is shown Favor.
+   *
+   * The boxes are the sheet's own `max`, which `COUNTER_CEILINGS` holds at the
+   * book's six ("You can hold a maximum of 6 Focus", folio 13; "The maximum
+   * Favor you can hold at one time is 6", folio 26), and neither grows or
+   * scars: no advancement adds a seventh box and no death move crosses one
+   * out.
+   */
+  const classTracks: SheetTrack[] = [];
+  if (drawsFocus(character)) {
+    classTracks.push({ kind: 'focus', label: 'Focus', boxes: character.focus.max, growth: 0, crossed: 0 });
+  }
+  if (drawsFavor(character, index)) {
+    classTracks.push({ kind: 'favor', label: 'Favor', boxes: character.favor.max, growth: 0, crossed: 0 });
+  }
+
+  /*
+   * Known stances, through the exact lookup for the reason `stanceRefs` gives
+   * at length: the bare-slug map resolves a shared slug to somebody else's
+   * record. A ref that does not resolve goes to `missing` below, with the
+   * cards, the gear and the transformation - the rule that list states.
+   */
+  const stances: SheetStance[] = character.stanceRefs
+    .map((r) => index.collections.stances.get(r))
+    .filter((s): s is NonNullable<typeof s> => s !== undefined)
+    .map((s) => ({ name: s.name, tier: s.tier, text: s.text }));
+
   return {
     name: character.name.trim() === '' ? 'Unnamed' : character.name,
     pronouns: character.pronouns,
@@ -401,6 +482,14 @@ export function buildSheet(
     thresholds: stats.thresholds,
     thresholdNote,
     proficiency: stats.proficiency,
+    // Built off `resting` like every other number here: a pool's size is a
+    // fact about the level and the features held, and a Beastform changes
+    // neither, but one set of stats for one printout is the rule.
+    pools: poolsFor(resting, index, stats).map((p) => ({
+      name: p.name,
+      die: `d${String(p.sides)}`,
+      source: p.source,
+    })),
     ladder,
     /*
      * Only HP and Stress grow. Hope's ceiling is fixed at six and can only ever
@@ -408,6 +497,7 @@ export function buildSheet(
      * the player room the rules never give them back. Armor Score is a property
      * of the armor you are wearing, not a track you level into, so the same
      * applies: its boxes are the slots this armor has and there is no more.
+     * Focus and Favor, appended last, are six for everyone who has them.
      */
     tracks: [
       {
@@ -432,6 +522,7 @@ export function buildSheet(
         crossed: Math.min(scars, BASE_HOPE),
       },
       { kind: 'armor', label: 'Armor', boxes: stats.armorScore, growth: 0, crossed: 0 },
+      ...classTracks,
     ],
     growthNote:
       `Dashed boxes are the slots advancements can still add: ` +
@@ -461,6 +552,11 @@ export function buildSheet(
      * transformation was never read at all. The printed page then showed one
      * weapon where the player has two, with nothing saying so.
      *
+     * A transformation that RESOLVES is not this list's business and was, for
+     * one round after this list learned to name a lost one, nobody's: its two
+     * features reach the page through `characterFeatures`, whose
+     * `transformation` site says what that silence cost.
+     *
      * That is the same silence the screens were fixed for this wave, on the
      * one surface a player takes to the table and cannot tap to investigate.
      * It stopped being hypothetical when SRD 2.0 dropped nine weapons: 186 of
@@ -479,6 +575,7 @@ export function buildSheet(
       !index.collections.transformations.has(character.transformationRef)
         ? [character.transformationRef]
         : []),
+      ...character.stanceRefs.filter((r) => !index.collections.stances.has(r)),
     ],
 
     experiences: character.experiences,
@@ -494,6 +591,7 @@ export function buildSheet(
     // over whole: `HeldFeature` also carries a `site` and a `ref`, which the
     // Play screen groups by and a sheet of paper has no use for.
     features: held.features.map((f) => ({ source: f.source, name: f.name, text: f.text })),
+    stances,
     companion: printedCompanion(character, dataset, index, stats),
   };
 }

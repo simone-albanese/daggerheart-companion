@@ -16,7 +16,11 @@
  * with the two tracks a hit costs, the class's Hope feature under the Hope
  * diamonds it is about, weapons and armor under their own headings, and the
  * inventory beside the weapons a pack can hold. None of the artwork, framing or
- * lettering is reproduced - only which facts belong next to which.
+ * lettering is reproduced - only which facts belong next to which. The two
+ * things the official sheet keeps on separate paper - the Martial Stances sheet
+ * and the class's own Focus or Favor track - are sections here, after the
+ * Hope track and after the features, for the reason the companion is: a
+ * second page for one subclass is a page most printouts would waste.
  *
  * Nothing here computes anything. It is handed a `PrintSheet` and sets it.
  */
@@ -64,6 +68,7 @@ export function CharacterSheet({
   const track = (kind: SheetTrack['kind']): SheetTrack | undefined =>
     sheet.tracks.find((t) => t.kind === kind);
   const armorTrack = track('armor');
+  const classTracks = sheet.tracks.filter((t) => t.kind === 'focus' || t.kind === 'favor');
 
   return (
     <div className="dhc-sheet">
@@ -181,12 +186,50 @@ export function CharacterSheet({
         )}
       </section>
 
+      {classTracks.length > 0 && (
+        /*
+         * Focus and Favor, for the sheets that draw them.
+         *
+         * A section of their own under Hope rather than two more rows in the
+         * Damage & health grid, which is the shape Play chose for the same two
+         * tracks and for the same reason: the four every character has are a
+         * fixed grid, and these belong to one subclass and one class. Drawn
+         * at all only when `sheet.tracks` carries one, so a Bard's page does
+         * not spend six millimetres saying they have no Focus.
+         */
+        <section className="dhc-sec dhc-keep">
+          <h2 className="dhc-h">{classTracks.map((t) => t.label).join(' & ')}</h2>
+          <div className="dhc-tracks">
+            {classTracks.map((t) => (
+              <TrackLine key={t.kind} track={t} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="dhc-sec">
         <h2 className="dhc-h">Active weapons</h2>
         <div className="dhc-prof">
           <span className="dhc-cell-label">Proficiency</span>
           <span className="dhc-prof-value">{sheet.proficiency}</span>
           <span className="dhc-meta">already multiplied into the damage below</span>
+          {sheet.pools.length > 0 && (
+            /*
+             * The dice a feature grants, sized: `Patron Die d8`. Beside
+             * Proficiency because the two are the same kind of fact - a die
+             * the engine worked out that the weapons under them roll with -
+             * and at the far end of the row so the note about Proficiency is
+             * not read as being about the pool.
+             */
+            <span className="dhc-pools">
+              {sheet.pools.map((p) => (
+                <span className="dhc-pool" key={`${p.source}-${p.name}`}>
+                  <span className="dhc-cell-label">{p.name}</span>
+                  <span className="dhc-prof-value">{p.die}</span>
+                </span>
+              ))}
+            </span>
+          )}
         </div>
         {sheet.weapons.length === 0 ? (
           <p className="dhc-text dhc-empty">Nothing wielded.</p>
@@ -344,8 +387,10 @@ export function CharacterSheet({
           </div>
         )}
         {sheet.missing.length > 0 && (
+          /* Cards, gear, a transformation or a stance: `missing` names every
+             ref of every kind, so the sentence does not say "card". */
           <p className="dhc-meta">
-            {sheet.missing.length} card reference(s) this device could not resolve:{' '}
+            {sheet.missing.length} reference(s) this device could not resolve:{' '}
             {sheet.missing.join(', ')}
           </p>
         )}
@@ -467,6 +512,41 @@ export function CharacterSheet({
           </div>
         )}
       </section>
+
+      {sheet.stances.length > 0 && (
+        /*
+         * The Martial Stances sheet, folded into this one.
+         *
+         * Folio 13 prints it as a sheet of its own with a circle beside every
+         * stance, and says the player can "also track which stance you have
+         * active". The list here is the stances KNOWN - the circles the app
+         * models as `stanceRefs` - so the box beside each is not that circle;
+         * it is where the pencil marks the one you have shifted into, which is
+         * the state the app deliberately does not hold. After the features,
+         * because Stance Fighter among them is the feature that hands the
+         * sheet over.
+         */
+        <section className="dhc-sec">
+          <h2 className="dhc-h">
+            Martial stances — {sheet.stances.length} known
+            <span className="dhc-meta"> · the box is for the one you are in</span>
+          </h2>
+          <div className="dhc-two">
+            {sheet.stances.map((s) => (
+              <div className="dhc-block" key={s.name}>
+                <div className="dhc-block-head">
+                  <span className="dhc-block-name">
+                    <span className="dhc-tick" />
+                    {s.name}
+                  </span>
+                  <span className="dhc-meta">Tier {s.tier}</span>
+                </div>
+                <div className="dhc-text">{s.text}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <footer className="dhc-foot">
         {ATTRIBUTION.map((line) => (
