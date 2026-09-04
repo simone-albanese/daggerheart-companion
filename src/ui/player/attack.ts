@@ -40,11 +40,14 @@ import type {
   Weapon,
 } from '../../../shared/types.ts';
 import { beastformDamage } from '../../engine/beastform.ts';
+import { BRAWLERS_STRIKE, brawlersStrike } from '../../engine/brawler.ts';
 import { companionDamage, companionIsAway } from '../../engine/companion.ts';
-import type { DerivedStats } from '../../engine/character.ts';
+import type { DatasetIndex, DerivedStats } from '../../engine/character.ts';
 import { weaponDamage } from '../../engine/character.ts';
 import {
+  diceOf,
   formatDamage,
+  highestDamage,
   type DamageDice,
   type DamageResult,
   type RollOutcome,
@@ -63,6 +66,8 @@ export type AttackSource =
       damageType: 'phy' | 'mag';
     }
   | { kind: 'unarmed'; damage: DamageDice }
+  /** The Brawler's own primary weapon (SRD 2 p12), which is a rule and not an item. */
+  | { kind: 'brawler'; name: string; damage: DamageDice }
   | {
       kind: 'spellcast';
       /** Which trait the count came from, so the panel can name it. */
@@ -103,6 +108,11 @@ export type AttackSource =
  * `unarmed` carries nothing at all, because there is nothing to carry: the pool
  * is the character's own Proficiency and the trait is the GM's to pick.
  *
+ * `brawler` carries nothing for the same reason, and one more: the strike is
+ * equipped "while you have no other Active Weapons", so a weapon taken up in
+ * Build takes the offer away on the next render rather than leaving a fist
+ * armed beside a sword.
+ *
  * `companion` carries nothing for the same reason as `beastform`: there is one
  * companion on a sheet, their die is on their own sheet, and a Proficiency that
  * moves at a level-up must move the pool with it.
@@ -123,6 +133,7 @@ export type AttackSource =
 export type Declaration =
   | { kind: 'weapon'; ref: string }
   | { kind: 'unarmed' }
+  | { kind: 'brawler' }
   | { kind: 'spellcast'; sides: number }
   | { kind: 'beastform' }
   | { kind: 'companion' };
@@ -216,7 +227,14 @@ export function sourceFromWeapon(weapon: Weapon, stats: DerivedStats): AttackSou
     ref: weapon.id,
     name: weapon.name,
     trait: weapon.trait,
-    damage: { count: scaled.count, sides: scaled.sides, modifier: scaled.modifier },
+    damage: {
+      count: scaled.count,
+      sides: scaled.sides,
+      modifier: scaled.modifier,
+      // Carried by name, so a layer that prints a two-die weapon does not lose
+      // its second die here after `parseDamage` kept it.
+      ...(scaled.also === undefined ? {} : { also: scaled.also }),
+    },
     /*
      * An either-kind weapon deals the physical half, and that is a DEFAULT
      * rather than a reading.
@@ -255,6 +273,26 @@ export function unarmedSource(stats: DerivedStats): AttackSource {
     kind: 'unarmed',
     damage: { count: Math.max(1, stats.proficiency), sides: 4, modifier: 0 },
   };
+}
+
+/**
+ * *"You have a primary weapon called Brawler's Strike equipped while you have
+ * no other Active Weapons. It uses a trait of your choice, has Melee range,
+ * and deals d8+d6 physical damage using your Proficiency."* SRD 2 p12.
+ *
+ * Null for every sheet that is not a barehanded Brawler, so the row is not
+ * drawn; `brawlersStrike` in the engine is the gate and the arithmetic, and
+ * this is only the shape the offer takes. The trait is not decided here for
+ * the same reason `unarmedSource` does not decide it: "of your choice" is the
+ * player's, and the chip they pick completes the declaration.
+ */
+export function brawlerSource(
+  character: Character,
+  stats: DerivedStats,
+  ix: DatasetIndex,
+): AttackSource | null {
+  const damage = brawlersStrike(character, stats, ix);
+  return damage === null ? null : { kind: 'brawler', name: BRAWLERS_STRIKE, damage };
 }
 
 /**
@@ -449,8 +487,10 @@ export function experiencesFor(
 }
 
 /** A damage pool that can actually be rolled. */
-export const isRollableDamage = (d: DamageDice): boolean =>
-  d.count >= 1 && d.sides >= 2 && Number.isFinite(d.modifier);
+export const isRollableDamage = (d: DamageDice): boolean => {
+  const dice = diceOf(d);
+  return dice.length >= 1 && dice.every((sides) => sides >= 2) && Number.isFinite(d.modifier);
+};
 
 export interface DamageOffer {
   /** Whether a damage control is put in front of the player at all. */
@@ -492,7 +532,7 @@ export function damageOffer(attack: ArmedAttack): DamageOffer {
     // after Proficiency: 2d8+1 at Proficiency 3 is 6d8+1, so the critical adds
     // 48 and not 16. Printing the unscaled bonus would be a wrong number that
     // looks entirely plausible.
-    const bonus = attack.source.damage.count * attack.source.damage.sides;
+    const bonus = highestDamage(attack.source.damage);
     return {
       show: true,
       tone: 'hit',

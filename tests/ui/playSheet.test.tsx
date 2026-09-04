@@ -4081,6 +4081,62 @@ describe('what the attack is made with', () => {
     expect(weaponRow('Unarmed').textContent).toContain('d4');
   });
 
+  /*
+   * SRD 2 p55, Damage Type: "Weapons that deal magic damage can only be
+   * wielded by characters with a Spellcast trait." Arming a Hallowed Axe on a
+   * sheet with no subclass Spellcast trait used to arm Strength and say
+   * nothing; the sentence is now on the row, the way the Build slot says it.
+   */
+  it('says a magic weapon needs a Spellcast trait, on a sheet that has none (p55)', () => {
+    // No subclass, so no Spellcast trait - the Warrior's and the Guardian's case.
+    play(seed({ subclassRefs: [], activePrimaryWeapon: 'hallowed-axe', activeSecondaryWeapon: null }));
+    expect(weaponRow('Hallowed Axe').textContent).toContain('MAGIC WEAPONS NEED A SPELLCAST TRAIT');
+    // The fixture's bard has one, and the sentence goes with it.
+    play(seed({ activePrimaryWeapon: 'hallowed-axe', activeSecondaryWeapon: null }));
+    expect(weaponRow('Hallowed Axe').textContent).not.toContain('SPELLCAST TRAIT');
+    // A physical weapon on the traitless sheet says nothing either.
+    play(seed({ subclassRefs: [], activeSecondaryWeapon: null }));
+    expect(fold('Weapons & armour').textContent).not.toContain('SPELLCAST TRAIT');
+  });
+
+  /*
+   * The Brawler's own weapon. SRD 2 p12, "I Am the Weapon": "You have a
+   * primary weapon called Brawler's Strike equipped while you have no other
+   * Active Weapons. It uses a trait of your choice, has Melee range, and deals
+   * d8+d6 physical damage using your Proficiency." The only barehanded attack
+   * this screen offered a Brawler was the Unarmed row's [Proficiency]d4.
+   */
+  it('carries the Brawler’s Strike row for a barehanded Brawler, both dice scaled (p12)', () => {
+    play(seed({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    const row = weaponRow('Brawler’s Strike');
+    // Proficiency 2 at level 3: 2d8+2d6, and the trait is the player's to pick.
+    expect(row.textContent).toContain('2d8+2d6');
+    expect(row.textContent).toContain('A TRAIT OF YOUR CHOICE');
+    // The Unarmed row stays: p50's [Proficiency]d4 is everyone's.
+    expect(weaponRow('Unarmed').textContent).toContain('2d4');
+  });
+
+  it('does not draw it for a Brawler holding a weapon, nor for any other class', () => {
+    play(seed({ classRef: 'brawler', activeSecondaryWeapon: null }));
+    expect(() => weaponRow('Brawler’s Strike')).toThrow();
+    play(seed({ activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    expect(() => weaponRow('Brawler’s Strike')).toThrow();
+  });
+
+  it('leaves it standing under whichever trait the player picks, and moves no chip itself', () => {
+    play(seed({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    click(weaponRow('Brawler’s Strike'));
+    expect(weaponRow('Brawler’s Strike').getAttribute('aria-pressed')).toBe('true');
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · BRAWLER’S STRIKE');
+    expect(weaponRow('Brawler’s Strike').textContent).toContain('ARMED · A TRAIT OF YOUR CHOICE');
+    // "a trait of your choice": arming moved nothing, and Knowledge completes
+    // the declaration rather than withdrawing it.
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    click(traitChip('KNO'));
+    expect(traitChip('KNO').getAttribute('aria-pressed')).toBe('true');
+    expect(weaponRow('Brawler’s Strike').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('does not pick the trait for the GM when it is armed', () => {
     play(seed());
     click(weaponRow('Unarmed'));

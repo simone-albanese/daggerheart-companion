@@ -16,8 +16,8 @@ import type { Beastform as Form } from '../../../shared/types.ts';
 import { TRAIT_LABELS } from '../../../shared/types.ts';
 import type { BeastformInPlay, DerivedStats } from '../../engine/character.ts';
 import {
-  BEASTFORM_STRESS_COST,
   EVOLUTION_HOPE_COST,
+  beastformCost,
   beastformOptions,
   enterBeastform,
   evolutionFeature,
@@ -365,22 +365,45 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
   // option only exists when the dataset says they own it.
   const evolution = evolutionFeature(character, index);
   const canEvolve = evolution !== null && character.hope.marked >= EVOLUTION_HOPE_COST;
-  const paying: Cost = cost === 'evolution' && !canEvolve ? 'stress' : cost;
+  /*
+   * SRD 2 p50: "A character can't use a move that requires them to mark
+   * Stress if all of their Stress is marked." The Stress chip is that move, so
+   * at a full track it is disabled and says why, and the price falls through
+   * to Evolution when the Hope is there. `beastformCost` refuses per form as
+   * well - a Hybrid's surcharge is Stress on the Evolution path too - so the
+   * rows below carry their own price and their own refusal.
+   */
+  const stressOpen = character.stress.marked < character.stress.max;
+  const paying: Cost =
+    cost === 'evolution' ? (canEvolve ? 'evolution' : 'stress') : stressOpen || !canEvolve ? 'stress' : 'evolution';
   const worn = stats.beastform;
 
   const take = (form: Form): void => {
-    const out = enterBeastform(character, form.id, paying);
+    const out = enterBeastform(character, form.id, paying, index);
+    if (out.refused) return;
     update(() => out.character);
+    const stress = `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`;
     pushLog({
       kind: 'note',
       label: `Beastform: ${form.name}`,
       detail:
         paying === 'evolution'
-          ? `Spent ${out.hopeSpent} Hope · ${evolution?.name ?? 'Hope Feature'}`
-          : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
+          ? `Spent ${out.hopeSpent} Hope · ${evolution?.name ?? 'Hope Feature'}${out.stressMarked + out.hpMarked > 0 ? ` · ${stress}` : ''}`
+          : stress,
     });
     onClose();
   };
+
+  /**
+   * A form's price in words, for its row: "1 STRESS", "2 STRESS", "3 HOPE",
+   * "3 HOPE + 2 STRESS". SRD 2 p18 prices the two Hybrid forms above the
+   * Druid feature's own Stress, so the number is the form's and not the chip's.
+   */
+  const priceOf = (c: ReturnType<typeof beastformCost>): string =>
+    [
+      ...(c.hopeCost > 0 ? [`${c.hopeCost} HOPE`] : []),
+      ...(c.stressCost > 0 ? [`${c.stressCost} STRESS`] : []),
+    ].join(' + ') || 'FREE';
 
   return (
     <div
@@ -425,7 +448,12 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
             </span>
             {(
               [
-                ['stress', `MARK ${BEASTFORM_STRESS_COST} STRESS`, true],
+                [
+                  'stress',
+                  'MARK STRESS',
+                  stressOpen,
+                  'Every Stress is marked — the book refuses a move that requires marking Stress',
+                ],
                 ...(evolution === null
                   ? []
                   : [
@@ -433,17 +461,18 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
                         'evolution',
                         `${evolution.name.toUpperCase()} · ${EVOLUTION_HOPE_COST} HOPE`,
                         canEvolve,
-                      ] as [Cost, string, boolean],
+                        `Not enough Hope: you have ${character.hope.marked}`,
+                      ] as [Cost, string, boolean, string],
                     ]),
-              ] as Array<[Cost, string, boolean]>
-            ).map(([id, text, enabled]) => (
+              ] as Array<[Cost, string, boolean, string]>
+            ).map(([id, text, enabled, why]) => (
               <button
                 key={id}
                 type="button"
                 className="chip"
                 aria-pressed={paying === id}
                 disabled={!enabled}
-                title={enabled ? undefined : `Not enough Hope: you have ${character.hope.marked}`}
+                title={enabled ? undefined : why}
                 onClick={() => setCost(id)}
                 style={{
                   minHeight: 44,
@@ -475,12 +504,16 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
         >
           {forms.map((form) => {
             const active = worn?.form.id === form.id;
+            const price = beastformCost(character, form.id, paying, index);
+            const priceWord = priceOf(price);
+            const refusal = price.allowed ? null : 'NO STRESS LEFT';
             return (
               <button
                 key={form.id}
                 type="button"
                 onClick={() => take(form)}
-                aria-label={`${form.name}, tier ${form.tier}, Evasion ${signed(form.evasionBonus)}, ${form.attack.damage} ${form.attack.range}`}
+                disabled={!price.allowed}
+                aria-label={`${form.name}, tier ${form.tier}, Evasion ${signed(form.evasionBonus)}, ${form.attack.damage} ${form.attack.range}, ${priceWord.toLowerCase()}${refusal === null ? '' : ' - every Stress is marked'}`}
                 className="stack"
                 style={{
                   flex: 'none',
@@ -489,6 +522,7 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
                   borderRadius: 'var(--r3)',
                   background: active ? WASH : 'var(--app)',
                   border: `1px solid ${active ? SAGE : 'var(--line-soft)'}`,
+                  opacity: price.allowed ? 1 : 0.45,
                 }}
               >
                 <span className="spread" style={{ alignItems: 'baseline' }}>
@@ -496,6 +530,20 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
                   <span className="t-meta" style={{ color: active ? SAGE : 'var(--dim)' }}>
                     {active ? 'WORN' : `TIER ${form.tier}`}
                   </span>
+                </span>
+                {/*
+                 * The price, per form. SRD 2 p18: a Legendary Hybrid is "mark
+                 * an additional Stress" and a Mythic Hybrid "mark 2 additional
+                 * Stress" on top of the feature's own, so the row says 2 or 3
+                 * where the chip above can only say which currency. The one
+                 * Hit Point a shortfall costs (p50) is said before the tap,
+                 * the way the recall's MARK 1 HP? is.
+                 */}
+                <span
+                  className="t-meta"
+                  style={{ display: 'block', marginTop: 5, color: refusal === null ? SAGE : 'var(--damage)' }}
+                >
+                  {refusal ?? `${priceWord}${price.hpCost > 0 ? ` · ${price.hpCost} HP FOR THE STRESS THAT WILL NOT FIT` : ''}`}
                 </span>
 
                 <span className="row" style={{ marginTop: 7, gap: 10, flexWrap: 'wrap' }}>

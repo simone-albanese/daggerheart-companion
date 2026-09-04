@@ -1,5 +1,5 @@
 /**
- * The dice a player is holding, and nothing at all about where they came from.
+ * The dice a player is holding, and one bit about where they came from.
  *
  * A Rally Die, a Prayer Die, a Slayer Die, an Unstoppable Die, the d6 an ally
  * hands you for Help an Ally: a dozen features grant a die, in sizes and
@@ -8,6 +8,15 @@
  * app shows and the player applies - so this is a tray, not an inventory. The
  * player puts a die in when they are given one and takes it out when it is
  * spent, and the app only ever rolls what is in the tray.
+ *
+ * ONE DISTINCTION IT DOES KEEP, because the arithmetic needs it and nothing
+ * else can supply it: whether a die is a Help an Ally die. SRD 2 p49 adds a
+ * Rally or Patron die to the total on its own, but of the advantage dice on a
+ * roll - the roller's own and every Help die - *"adds only the highest result
+ * ... and ignores the rest"*. A tray that stored only sizes made every held
+ * d6 a summed bonus die, and the book's own worked example came out 23 where
+ * the page says 18. So `help` is the one thing the tray knows about a die's
+ * origin, and it knows it because the player said so when they picked it.
  *
  * ONE OF THEM COSTS SOMETHING, and the tray still does not know what. A
  * Warlock spends a Favor to roll their Patron Die into an action roll, so that
@@ -33,6 +42,8 @@ export { DIE_SIZES, type DieSize };
 export interface HeldDie {
   id: string;
   sides: DieSize;
+  /** A Help an Ally advantage die: pooled with the roller's own, highest counts (p49). */
+  help?: true;
 }
 
 /**
@@ -43,7 +54,7 @@ export const MAX_HELD = 12;
 
 interface HeldDiceState {
   byCharacter: Record<string, HeldDie[]>;
-  add: (characterId: string, sides: DieSize) => void;
+  add: (characterId: string, sides: DieSize, help?: boolean) => void;
   /**
    * Put a die in the tray that costs something to put there, and pay for it in
    * the same call. True when both halves happened, false when neither did.
@@ -76,7 +87,7 @@ function load(): Record<string, HeldDie[]> {
       const clean = (dice as HeldDie[])
         .filter((d) => d !== null && typeof d?.id === 'string' && isSize(d.sides))
         .slice(0, MAX_HELD)
-        .map((d) => ({ id: d.id, sides: d.sides }));
+        .map((d) => ({ id: d.id, sides: d.sides, ...(d.help === true ? { help: true as const } : {}) }));
       if (clean.length > 0) out[id] = clean;
     }
     return out;
@@ -103,12 +114,15 @@ export const useHeldDice = create<HeldDiceState>((set, get) => {
   return {
     byCharacter: load(),
 
-    add(characterId, sides) {
+    add(characterId, sides, help = false) {
       const held = get().byCharacter[characterId] ?? NONE;
       if (held.length >= MAX_HELD) return;
       commit({
         ...get().byCharacter,
-        [characterId]: [...held, { id: crypto.randomUUID(), sides }],
+        [characterId]: [
+          ...held,
+          { id: crypto.randomUUID(), sides, ...(help ? { help: true as const } : {}) },
+        ],
       });
     },
 

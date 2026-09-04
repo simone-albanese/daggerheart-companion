@@ -517,7 +517,9 @@ describe('counter maxima', () => {
   const overflowing: Array<[string, Partial<Character>, number]> = [
     ['HP', { hp: { marked: 2, max: enormous } }, 12],
     ['Stress', { stress: { marked: 3, max: enormous } }, 12],
-    ['Hope', { hope: { marked: 4, max: enormous } }, 6],
+    // Seven, not six: Light in the Dark (SRD 2 p22) adds the one Hope slot
+    // the rules add, so the ceiling is one past `BASE_HOPE`.
+    ['Hope', { hope: { marked: 4, max: enormous } }, 7],
     ['Armor Slot', { armorSlots: { marked: 1, max: enormous } }, 12],
   ];
 
@@ -574,7 +576,9 @@ describe('counter maxima', () => {
   it('refuses one past the ceiling, so the bound is exactly where the rules put it', async () => {
     for (const [patch, sentence] of [
       [{ hp: { marked: 0, max: 13 } }, /HP track has a maximum of 13, and 12 is the most/],
-      [{ hope: { marked: 0, max: 7 } }, /Hope track has a maximum of 7, and 6 is the most/],
+      // Seven is legal: Light in the Dark (SRD 2 p22) adds the one slot the
+      // rules add to Hope, so the ceiling is one past `BASE_HOPE`.
+      [{ hope: { marked: 0, max: 8 } }, /Hope track has a maximum of 8, and 7 is the most/],
     ] as const) {
       const payload = await encodeCharacter(wizard(patch), testRegistry);
       await expect(decodeCharacter(payload, testRegistry)).rejects.toThrow(sentence);

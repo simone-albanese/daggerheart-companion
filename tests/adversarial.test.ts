@@ -1139,11 +1139,13 @@ describe('a sixth card asked into a five-card loadout', () => {
     expect(canAddToLoadout(makeCharacter({ vault: ['x'] }), card('x')).allowed).toBe(true);
   });
 
-  it('lets an unaffordable recall through, and charges the shortfall in Hit Points', () => {
+  it('lets an unaffordable recall through, and charges one Hit Point for the shortfall', () => {
     // UNGUARDED, and deliberately so: `affordable` is advice, not a refusal. The
     // app proposes a cost and the player confirms it. Asserted here because a
     // reader who saw `affordable: false` would reasonably assume it blocked, and
-    // because the price of being wrong is three Hit Points nobody agreed to.
+    // because the price of being wrong is a Hit Point nobody agreed to. ONE Hit
+    // Point for a cost of 3, because SRD 2 p50 says "mark 1 HP instead" of the
+    // Stress that cannot be marked - not one per point.
     const spent = makeCharacter({
       vault: ['expensive'],
       stress: { marked: 6, max: 6 },
@@ -1156,8 +1158,8 @@ describe('a sixth card asked into a five-card loadout', () => {
     const paid = recallCard(spent, card('expensive', 3));
     expect(paid.character.loadout).toEqual(['expensive']);
     expect(paid.stressMarked).toBe(0);
-    expect(paid.hpMarked).toBe(3);
-    expect(paid.character.hp.marked).toBe(3);
+    expect(paid.hpMarked).toBe(1);
+    expect(paid.character.hp.marked).toBe(1);
   });
 });
 

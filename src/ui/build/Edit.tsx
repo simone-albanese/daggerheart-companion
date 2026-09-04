@@ -233,6 +233,7 @@ export function Edit({
                     primary,
                     level: character.level,
                     ignoresBurden: ignoring,
+                    spellcastTrait: stats.spellcastTrait,
                   })}
                   empty={`Search ${dataset.weapons.length} weapons`}
                   unresolved={
@@ -266,6 +267,7 @@ export function Edit({
                     primary,
                     level: character.level,
                     ignoresBurden: ignoring,
+                    spellcastTrait: stats.spellcastTrait,
                   })}
                   empty="Optional"
                   unresolved={

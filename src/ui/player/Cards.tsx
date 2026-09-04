@@ -236,13 +236,16 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
       if (!check.allowed) return;
       /*
        * P1-2. `canAddToLoadout` has always answered `affordable`, and until now
-       * nothing read it: with the Stress track full, `markStress` marks Hit
-       * Points instead, so a tap on RECALL at 6/6 Stress and 5/6 HP took the
+       * nothing read it: with the Stress track full, `markStress` marks a Hit
+       * Point instead, so a tap on RECALL at 6/6 Stress and 5/6 HP took the
        * sixth Hit Point and offered a death move. It is still allowed - whether
        * a recall is a "move" under the Stress rule is a table ruling, and the
        * Recall Cost text is not in the shipped rules layer, so the app cannot
        * cite the rule it would be enforcing - but it costs a second, informed
        * tap, and the button says the number of Hit Points before the first one.
+       * That number is 1 whatever the Recall Cost: the shipped `stress` rule
+       * (SRD 2 p50) says *"mark 1 HP instead"* of the Stress that cannot be
+       * marked, and `hpCost` is priced by that sentence.
        */
       if (!check.affordable && armed !== cardId) {
         setArmed(cardId);
@@ -283,7 +286,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    *
    * ## Why the prompt is not on the button that is about to act
    *
-   * `armed` puts its question ON the control - the label becomes MARK 2 HP? -
+   * `armed` puts its question ON the control - the label becomes MARK 1 HP? -
    * and it can, because that control is `flex: none` at the LEFT edge of a
    * `space-between` strip: its own left edge cannot move. The ✕ is at the right
    * edge and this footer is a fixed-height band with no room for a second line,
@@ -839,7 +842,7 @@ function CardAction({
         minHeight: 'var(--control)',
         /*
          * A floor, not a width. Every label this renders - IN LOADOUT, RECALL,
-         * TAKE, MARK 2 HP? - is far wider than it and is unmoved; the one child
+         * TAKE, MARK 1 HP? - is far wider than it and is unmoved; the one child
          * it binds is the ✕, which is a single glyph and would otherwise be a
          * 29px target inside a 44px strip. `--control` is the token that
          * already answers "how wide is a control here" for every chip on this

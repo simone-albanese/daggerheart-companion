@@ -1429,6 +1429,7 @@ export function StepEquipment({
               primary,
               level: sheet.level,
               ignoresBurden: ignoring,
+              spellcastTrait: stats.spellcastTrait,
             })}
             empty={`Search ${dataset.weapons.length} weapons`}
             onOpen={() => setOpen('primary')}
@@ -1465,6 +1466,7 @@ export function StepEquipment({
               primary,
               level: sheet.level,
               ignoresBurden: ignoring,
+              spellcastTrait: stats.spellcastTrait,
             })}
             empty="Optional"
             onOpen={() => setOpen('secondary')}

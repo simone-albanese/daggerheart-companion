@@ -373,28 +373,46 @@ describe('markStress', () => {
     expect(r.character.stress.marked).toBe(1);
   });
 
-  it('converts to HP once every Stress slot is full', () => {
+  /*
+   * SRD 2 p50, Stress: "When a character must mark 1 or more Stress but can't,
+   * they mark 1 HP instead." One Hit Point stands in for the WHOLE unpayable
+   * obligation, not for each point of it. This used to loop per point, so a
+   * cost of 2 at a full track marked 2 HP and a cost of 3 at 5/6 marked
+   * 1 Stress and 2 HP - a harsher rule than the sentence states, and one no
+   * docblock had chosen on purpose.
+   */
+  it('marks exactly one HP for an obligation it cannot pay at all (p50)', () => {
     const c = makeCharacter({
       stress: { marked: 6, max: 6 },
       hp: { marked: 0, max: 6 },
     });
     const r = markStress(c, 2);
     expect(r.stressMarked).toBe(0);
-    expect(r.hpMarked).toBe(2);
-    expect(r.character.hp.marked).toBe(2);
+    expect(r.hpMarked).toBe(1);
+    expect(r.character.hp.marked).toBe(1);
     expect(r.character.stress.marked).toBe(6);
   });
 
-  it('fills the Stress track first and spills the rest into HP', () => {
+  it('marks the Stress it can and then one HP for the remainder, whatever its size (p50)', () => {
     const c = makeCharacter({
       stress: { marked: 5, max: 6 },
       hp: { marked: 0, max: 6 },
     });
     const r = markStress(c, 3);
     expect(r.stressMarked).toBe(1);
-    expect(r.hpMarked).toBe(2);
+    expect(r.hpMarked).toBe(1);
     expect(r.character.stress.marked).toBe(6);
-    expect(r.character.hp.marked).toBe(2);
+    expect(r.character.hp.marked).toBe(1);
+  });
+
+  it('marks no HP at all when the whole cost fits in Stress', () => {
+    const c = makeCharacter({
+      stress: { marked: 3, max: 6 },
+      hp: { marked: 0, max: 6 },
+    });
+    const r = markStress(c, 3);
+    expect(r.stressMarked).toBe(3);
+    expect(r.hpMarked).toBe(0);
   });
 
   it('stops at the last Hit Point rather than going past it', () => {

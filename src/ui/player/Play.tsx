@@ -52,6 +52,7 @@ import {
   type Ref,
   type Trait,
   damageKindLong,
+  dealsMagic,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatDamage } from '../../engine/dice.ts';
@@ -83,6 +84,7 @@ import {
   sourceName,
   spellcastDamage,
   spellcastSource,
+  brawlerSource,
   unarmedSource,
   type Arming,
   type AttackSource,
@@ -176,6 +178,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   const source = useMemo<AttackSource | null>(() => {
     if (declared === null) return null;
     if (declared.kind === 'unarmed') return unarmedSource(stats);
+    // Re-derived every render like the rest: a weapon picked up in Build takes
+    // the strike away, because it is equipped only "while you have no other
+    // Active Weapons" (SRD 2 p12).
+    if (declared.kind === 'brawler') return character === null ? null : brawlerSource(character, stats, index);
     // A spell's count comes off the trait every render for the same reason: a
     // Beastform or a level-up that moves the Spellcast trait moves the number
     // of dice, and at +0 `spellcastSource` returns null and the offer goes.
@@ -270,7 +276,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const arm = (declaration: Declaration | null): void => {
     setDeclared(declaration);
-    if (declaration === null || declaration.kind === 'unarmed') return;
+    // Nor for Brawler's Strike, whose trait is "of your choice" (SRD 2 p12):
+    // the chip stays where the player put it, and picking one completes the
+    // declaration the way Strength or Finesse completes an unarmed one.
+    if (declaration === null || declaration.kind === 'unarmed' || declaration.kind === 'brawler') return;
     // Not through `chooseTrait`: that one is the route for picking a trait *by
     // hand*, and it withdraws the declaration that specified one. A spell sent
     // through it would be put down by the same tap that armed it.
@@ -339,7 +348,13 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
      * that does not cover it.
      */
     setDeclared((d) =>
-      d?.kind === 'unarmed' && (t === 'strength' || t === 'finesse') ? d : null,
+      d?.kind === 'unarmed' && (t === 'strength' || t === 'finesse')
+        ? d
+        : // Brawler's Strike "uses a trait of your choice" (SRD 2 p12): any of
+          // the six completes it; Spellcast is not a trait and puts it down.
+          d?.kind === 'brawler' && t !== 'spellcast'
+          ? d
+          : null,
     );
   };
 
@@ -1956,6 +1971,8 @@ function Equipped({
    */
   const missing = unresolvedWeapons(character, index);
   const unarmed = arming.declared?.kind === 'unarmed';
+  const strike = brawlerSource(character, stats, index);
+  const armedStrike = arming.declared?.kind === 'brawler';
   const worn = stats.beastform;
   const beast = beastformSource(stats);
   const armedBeast = arming.declared?.kind === 'beastform';
@@ -2070,6 +2087,24 @@ function Equipped({
               {reach} · {damageKindLong(w.damageType).toUpperCase()}
             </span>
             {/*
+             * SRD 2 p55: "Weapons that deal magic damage can only be wielded
+             * by characters with a Spellcast trait." Said here, where the
+             * weapon is armed, because arming one on a sheet with no such
+             * trait used to roll at +0 under a bare SPELLCAST chip for the four
+             * spellcast-trait weapons and arm a named trait for the other 136
+             * with nothing on screen disagreeing. The same sentence
+             * `weaponNote` prints in the Build slot; see `magicNote` in
+             * `build/gear.ts` for why it is said and not refused.
+             */}
+            {dealsMagic(w.damageType) && stats.spellcastTrait === null && (
+              <span
+                className="t-meta"
+                style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em', color: 'var(--text-2)' }}
+              >
+                MAGIC WEAPONS NEED A SPELLCAST TRAIT — THIS SHEET HAS NONE
+              </span>
+            )}
+            {/*
              * THE WEAPON'S OWN FEATURE, WHICH THIS ROW HAS NEVER DRAWN.
              *
              * A Greatsword said `2d10+3` and nothing else, so *"Massive: -1 to
@@ -2095,6 +2130,42 @@ function Equipped({
           </button>
         );
       })}
+      {/*
+       * The Brawler's own weapon, drawn only while both hands are empty.
+       *
+       * SRD 2 p12, *I Am the Weapon*: "You have a primary weapon called
+       * Brawler's Strike equipped while you have no other Active Weapons. It
+       * uses a trait of your choice, has Melee range, and deals d8+d6 physical
+       * damage using your Proficiency." It is not in the dataset because it is
+       * not an item, so `brawlerSource` answers null for every other sheet and
+       * for a Brawler holding anything. The Unarmed row below stays: p50's
+       * [Proficiency]d4 is everyone's, and this is the class's.
+       */}
+      {strike !== null && (
+        <button
+          type="button"
+          aria-pressed={armedStrike}
+          onClick={() => arming.arm(armedStrike ? null : { kind: 'brawler' })}
+          className="panel"
+          style={{
+            borderLeft: `3px solid ${armedStrike ? 'var(--hope)' : 'var(--edge)'}`,
+            background: armedStrike ? 'var(--hope-wash)' : undefined,
+            padding: '10px 11px',
+            textAlign: 'left',
+            minHeight: 'var(--tap)',
+          }}
+        >
+          <span className="spread">
+            <span style={{ font: '700 14px/1.15 var(--sans)' }}>{sourceName(strike)}</span>
+            <span className="t-num" style={{ color: 'var(--hope)' }}>
+              {formatDamage(strike.damage)}
+            </span>
+          </span>
+          <span className="t-meta" style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}>
+            {armedStrike ? 'ARMED · ' : ''}A TRAIT OF YOUR CHOICE · MELEE · PHYSICAL
+          </span>
+        </button>
+      )}
       {/*
        * Empty-handed, as a row you can declare.
        *
@@ -2808,7 +2879,7 @@ function RecallButton({
       className="stack"
       style={{
         flex: 'none',
-        // Wider once it is armed: "MARK 2 HP" and "TAP AGAIN" both have to be
+        // Wider once it is armed: "MARK 1 HP" and "TAP AGAIN" both have to be
         // readable in one line each, and a target that grows under the thumb
         // grows away from its neighbour rather than over it.
         minWidth: armed ? 104 : 72,

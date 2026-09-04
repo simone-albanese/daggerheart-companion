@@ -39,7 +39,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { Dataset, DomainId, Ref } from '../../shared/types.ts';
 import {
   BASE_HOPE,
+  LIGHT_IN_THE_DARK,
   MAX_ARMOR_SCORE,
+  MAX_HOPE,
   MAX_HP,
   MAX_LOADOUT,
   MAX_STRESS,
@@ -825,7 +827,12 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
       const wrong: string[] = [];
       for (const row of rows) {
         const c = row.character;
-        const expected = Math.max(0, BASE_HOPE - c.scars.length);
+        // Plus one for a companion's Light in the Dark (SRD 2 p22, "an
+        // additional Hope slot your character can mark"), which the matrix's
+        // Beastbound rows do take - `sampleCharacters` marks the first one to
+        // four options, and it is the second.
+        const lit = c.companion?.upgrades.includes(LIGHT_IN_THE_DARK) === true ? 1 : 0;
+        const expected = Math.max(0, BASE_HOPE + lit - c.scars.length);
         if (row.stats.maxHope !== expected) {
           wrong.push(
             `${row.label}: maxHope ${row.stats.maxHope} with ${c.scars.length} scars, expected ${expected}`,
@@ -850,11 +857,20 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
       // slot and ends the journey; the floor itself is proved just below.
       expect([...scars.keys()].map(Number).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5]);
       expect(Math.min(...rows.map((r) => r.stats.maxHope))).toBe(1);
-      expect(Math.max(...rows.map((r) => r.stats.maxHope))).toBe(BASE_HOPE);
+      // Seven and not six: a Beastbound with Light in the Dark has the one
+      // extra slot the rules grant, and the matrix holds such a sheet.
+      expect(Math.max(...rows.map((r) => r.stats.maxHope))).toBe(MAX_HOPE);
     });
 
     it('takes the last Hope slot at the sixth scar and never goes below zero', () => {
-      const unscarred = rows.filter((r) => r.level === 10 && r.character.scars.length === 0);
+      // A sheet with six slots, so the sixth scar is the last one: a Beastbound
+      // holding Light in the Dark would start at seven and is skipped here.
+      const unscarred = rows.filter(
+        (r) =>
+          r.level === 10 &&
+          r.character.scars.length === 0 &&
+          r.character.companion?.upgrades.includes(LIGHT_IN_THE_DARK) !== true,
+      );
       expect(unscarred.length).toBeGreaterThan(0);
       const row = unscarred[0]!;
       let c = row.character;
