@@ -39,7 +39,7 @@ import {
   type Tier,
   type Trait,
 } from '../../../shared/types.ts';
-import { MAX_LEVEL, deriveStats, tierOf, type DerivedStats } from '../../engine/character.ts';
+import { MAX_LEVEL, MAX_LOADOUT, deriveStats, tierOf, type DerivedStats } from '../../engine/character.ts';
 import {
   applyLevelUp,
   availableOptions,
@@ -49,6 +49,7 @@ import {
   tierAchievementFor,
   validatePlan,
   type AdvancementOption,
+  type CardPlacement,
   type LevelUpPlan,
   type SubclassCard,
 } from '../../engine/levelUp.ts';
@@ -93,6 +94,15 @@ export function LevelUp({
   const [exchangeFrom, setExchangeFrom] = useState<Ref | null>(null);
   const [exchangeTo, setExchangeTo] = useState<Ref | null>(null);
   const [experienceName, setExperienceName] = useState('');
+  /*
+   * Where the level's cards go, defaulting to the free move folio 8 grants:
+   * the loadout while it has room, the vault once it is full. A choice, not a
+   * rule - folio 54 says "loadout or vault" - so it is state the player can
+   * flip, read off the sheet as it is when the screen opens.
+   */
+  const [placement, setPlacement] = useState<CardPlacement>(() =>
+    (character?.loadout.length ?? MAX_LOADOUT) < MAX_LOADOUT ? 'loadout' : 'vault',
+  );
 
   if (!character) return null;
 
@@ -230,6 +240,7 @@ export function LevelUp({
       return { ...p, detail };
     }),
     newCardRef,
+    placement,
   };
 
   // Every "after" number on this screen is the engine's answer for the sheet
@@ -277,7 +288,7 @@ export function LevelUp({
    * Cards already spoken for elsewhere in this plan.
    *
    * Step four, the "additional domain card" advancement and a subclass
-   * feature's granted card are separate pickers writing into one vault, and
+   * feature's granted card are separate pickers writing into one sheet, and
    * without this each is happy to take the card another took - `applyLevelUp`
    * then pushes the same ref twice and the character owns two copies of it.
    *
@@ -557,6 +568,11 @@ export function LevelUp({
 
           {/* Step four, both of its sentences. */}
           <Section label="A new domain card" hint="NOT AN ADVANCEMENT — IT COMES WITH THE LEVEL">
+            <PlacementRow
+              placement={placement}
+              room={Math.max(0, MAX_LOADOUT - character.loadout.length)}
+              onChange={setPlacement}
+            />
             <CardPicker
               stats={after}
               value={newCardRef}
@@ -1276,6 +1292,103 @@ function CardExchangeRow({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Where the level's cards go
+// ---------------------------------------------------------------------------
+
+/**
+ * Loadout or vault, for every card this level takes.
+ *
+ * *"...and add it to your loadout or vault. If your loadout is already full,
+ * you can't add the new card to it until you move another into your vault."*
+ * Folio 54. *"When you gain a new domain card at level-up, you can immediately
+ * move it into your loadout for free."* Folio 8. This screen used to offer
+ * neither half: every card went to the vault, and the only free way out of it
+ * was the Rest screen - a player who levelled mid-session paid the card's
+ * Recall Cost in Stress to use what the level had just handed them.
+ *
+ * ## Why it sits above the list and not beside each card
+ *
+ * One choice for the level, for the reason `LevelUpPlan.placement` gives, and
+ * it is read before the card is chosen because it changes what choosing means:
+ * a card into a full loadout is a card into the vault, and the pill says so
+ * with its count before the thumb reaches the list. The overflow, when a level
+ * takes more cards than the loadout has room for, is a warning `validatePlan`
+ * writes into the callout below rather than a refusal - the level is legal,
+ * and the book's own remedy is to move a card out afterwards.
+ *
+ * ## The measurements
+ *
+ * Two targets, each `--tap` (44px) tall and half the row wide - on a 360px
+ * phone that is about 160px each, with a 6px gutter between them, so a thumb
+ * choosing between the two has the same gap every other pair on this screen
+ * gives it. The row is at the top of step four's section, inside the scrolling
+ * region, well above the bottom thumb arc the pinned Cancel/Apply bar owns.
+ * The count on the LOADOUT pill is the read half: it is what tells a player
+ * whether the free move applies before they tap.
+ *
+ * Disabled, with the reason on it, when the loadout is full: the book says the
+ * card cannot go there, and a pill that could be pressed to no effect would be
+ * this screen saying otherwise.
+ */
+function PlacementRow({
+  placement,
+  room,
+  onChange,
+}: {
+  placement: CardPlacement;
+  /** Free loadout slots on the sheet as it is now. */
+  room: number;
+  onChange: (placement: CardPlacement) => void;
+}): React.JSX.Element {
+  const pill = (value: CardPlacement, label: string, disabled: boolean, reason?: string) => {
+    const on = placement === value;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(value)}
+        disabled={disabled}
+        aria-pressed={on}
+        title={reason}
+        className="row"
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          gap: 8,
+          minHeight: 'var(--tap)',
+          padding: '0 10px',
+          borderRadius: 'var(--r2)',
+          border: `1px solid ${on ? 'var(--line)' : 'var(--line-soft)'}`,
+          background: on ? 'var(--raised)' : 'var(--panel)',
+          opacity: disabled ? 0.4 : 1,
+        }}
+      >
+        <Mark on={on} size={14} />
+        <span className="t-meta" style={{ letterSpacing: '0.12em' }}>
+          {label}
+        </span>
+      </button>
+    );
+  };
+  return (
+    <div className="stack" style={{ gap: 7 }}>
+      <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        Add it to your loadout or vault. Moving it into the loadout now is free; from the vault later it
+        costs the card's Recall Cost.
+      </span>
+      <div className="row" style={{ gap: 6 }}>
+        {pill(
+          'loadout',
+          `LOADOUT · ${room} FREE`,
+          room === 0,
+          room === 0 ? `Loadout is full (${MAX_LOADOUT}) - move a card to the vault first` : undefined,
+        )}
+        {pill('vault', 'VAULT', false)}
+      </div>
     </div>
   );
 }

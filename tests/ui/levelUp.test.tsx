@@ -299,7 +299,7 @@ describe('the card School of Knowledge hands over at level up', () => {
     expect(text()).toContain('Brilliant gives you an additional domain card');
   });
 
-  it('puts the card in the vault, and stops warning once it has been taken', () => {
+  it('banks the card with the level\'s others, and stops warning once it has been taken', () => {
     mount(wizard('school-of-knowledge'));
     press('upgraded-subclass row', upgradeRow());
     press('School of Knowledge', namedChoice('School of Knowledge'));
@@ -320,13 +320,16 @@ describe('the card School of Knowledge hands over at level up', () => {
 
     const after = stored();
     expect(after.level).toBe(6);
-    expect(after.vault, 'the level applied and the granted card never reached the vault').toHaveLength(1);
+    // The loadout, because it had room and the screen's default is folio 8's
+    // free move; `PlacementRow` has its own describe below.
+    expect(after.loadout, 'the level applied and the granted card never reached the sheet').toHaveLength(1);
+    expect(after.vault).toEqual([]);
 
     // The record says why it is there, so a sheet cannot carry a history of a
     // card it does not hold or a card it cannot explain.
     const taking = after.levelUpHistory.find((h) => h.kind === 'subclass')!;
-    expect(taking.detail['grantCardRef']).toBe(after.vault[0]);
-    expect(name).toContain(dataset.domainCards.find((c) => c.id === after.vault[0])!.name);
+    expect(taking.detail['grantCardRef']).toBe(after.loadout[0]);
+    expect(name).toContain(dataset.domainCards.find((c) => c.id === after.loadout[0])!.name);
   });
 
   it('drops the card again when the advancement moves to a subclass that owes none', () => {
@@ -352,13 +355,13 @@ describe('the card School of Knowledge hands over at level up', () => {
     press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
 
     expect(
-      stored().vault,
+      [...stored().loadout, ...stored().vault],
       'a card was banked for a feature this character does not have',
     ).toEqual([]);
   });
 
   it('takes the granted card off step four, so no card is taken twice', () => {
-    // Three pickers now write into one vault, and `applyLevelUp` appends
+    // Three pickers now write into one sheet, and `applyLevelUp` appends
     // whatever each hands it. Left to itself step four would happily offer the
     // card Accomplished just bought, and the character would own two copies.
     mount(wizard('school-of-knowledge'));
@@ -526,6 +529,74 @@ describe('the trait picker at a level whose achievement clears the marks', () =>
     expect(trait('Agility').disabled).toBe(true);
     expect(trait('Agility').textContent).toContain('MARKED');
     expect(trait('Finesse').disabled).toBe(false);
+  });
+});
+
+describe('where the level\'s cards go', () => {
+  /**
+   * "Acquire a new domain card ... and add it to your loadout or vault. If your
+   * loadout is already full, you can't add the new card to it until you move
+   * another into your vault." Folio 54. "When you gain a new domain card at
+   * level-up, you can immediately move it into your loadout for free." Folio
+   * 8. The screen used to send every card to the vault and offer no choice, so
+   * the free move was only reachable through the Rest screen and a player who
+   * levelled mid-session paid Recall Cost for the card the level gave them.
+   */
+  const pill = (label: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').startsWith(label));
+  const twoPicks = (): void => {
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('the Stress row', buttons().find((b) => (b.textContent ?? '').includes('Permanently gain one Stress')));
+  };
+  /** Step four's list is the only picker open when no advancement wants a card. */
+  const stepFourCard = (): HTMLButtonElement => cardRows(container)[0]!;
+
+  it('offers the loadout by default when it has room, and the card lands there', () => {
+    mount(wizard('school-of-war'));
+    expect(pill('LOADOUT · 5 FREE')!.getAttribute('aria-pressed')).toBe('true');
+    expect(text()).toContain('Moving it into the loadout now is free');
+    twoPicks();
+    press('a card at step four', stepFourCard());
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.loadout, 'the card the level granted went to the vault').toHaveLength(1);
+    expect(after.vault).toEqual([]);
+  });
+
+  it('sends it to the vault when the player says so', () => {
+    mount(wizard('school-of-war'));
+    press('the VAULT pill', pill('VAULT'));
+    expect(pill('VAULT')!.getAttribute('aria-pressed')).toBe('true');
+    twoPicks();
+    press('a card at step four', stepFourCard());
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+    const after = stored();
+    expect(after.loadout).toEqual([]);
+    expect(after.vault).toHaveLength(1);
+  });
+
+  it('defaults to the vault, and locks the loadout pill, when the loadout is full', () => {
+    mount(wizard('school-of-war', { loadout: ['x1', 'x2', 'x3', 'x4', 'x5'] }));
+    const loadout = pill('LOADOUT · 0 FREE')!;
+    expect(loadout.disabled).toBe(true);
+    expect(loadout.title).toBe('Loadout is full (5) - move a card to the vault first');
+    expect(pill('VAULT')!.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('says how many cards will overflow when the level takes more than the room', () => {
+    mount(wizard('school-of-war', { loadout: ['x1', 'x2', 'x3', 'x4'] }));
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press(
+      'the additional domain card row',
+      buttons().find((b) => (b.textContent ?? '').includes('Choose an additional domain card')),
+    );
+    // Step four's card and the advancement's: two into one free slot. Each
+    // picker is inside its own `Section`, and the rows are told apart by it.
+    const section = (label: string): HTMLElement =>
+      [...container.querySelectorAll('section')].find((el) => el.querySelector('h3')?.textContent === label)!;
+    press('a card at step four', cardRows(section('A new domain card'))[0]);
+    press('a card for the advancement', cardRows(section('Two advancements'))[0]);
+    expect(text()).toContain('Your loadout has room for 1 more card, so 1 of the 2 this level takes go to the vault.');
   });
 });
 

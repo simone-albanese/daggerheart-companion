@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Character, DomainCard, Tier } from '@shared/types.ts';
 import { deriveStats, tierOf } from '@engine/character.ts';
+import { canAddToLoadout } from '@engine/loadout.ts';
 import {
   applyLevelUp,
   availableOptions,
@@ -45,6 +46,9 @@ const plan = (toLevel: number, picks: LevelUpPlan['picks'], p: Partial<LevelUpPl
   // Explicit, because `LevelUpPlan.exchange` is required rather than optional:
   // a plan that can forget the field is a plan whose exchange goes unchecked.
   exchange: null,
+  // The vault, so the cases below about slots and history read the same sheet
+  // they always did; where a card lands has its own describe.
+  placement: 'vault',
   ...p,
 });
 
@@ -418,7 +422,7 @@ describe('applyLevelUp', () => {
     expect(next.experiences.find((e) => e.id === 'e2')?.bonus).toBe(2);
   });
 
-  it('puts an extra domain card in the vault', () => {
+  it('banks an extra domain card with the level\'s other cards', () => {
     const next = applyLevelUp(
       at(3),
       plan(3, [pick('domain-card', 2, { cardRef: 'valor-extra' }), pick('evasion', 2)]),
@@ -1139,5 +1143,68 @@ describe('the upgraded subclass card is the next card for THAT subclass', () => 
     expect(
       errorsOf(two(), plan(8, [pick('subclass', 3, { subclassRef: 'first' }), pick('evasion', 3)])),
     ).toMatch(/The next card for first is the specialization; say so on the pick/);
+  });
+});
+
+describe('where the cards a level takes go', () => {
+  /**
+   * "Acquire a new domain card at your level or lower from one of your class's
+   * domains and add it to your loadout or vault. If your loadout is already
+   * full, you can't add the new card to it until you move another into your
+   * vault." Folio 54. "When you gain a new domain card at level-up, you can
+   * immediately move it into your loadout for free." Folio 8. Every card a
+   * level took used to land in the vault, and fetching it cost its Recall Cost.
+   *
+   * Three cards in one level, on purpose: step four's, the additional-card
+   * advancement's, and a grant. The engine banks a `grantCardRef` off any pick
+   * - which picks grant one is `cardAllowance.ts`'s question, not this file's.
+   */
+  const three = (placement: LevelUpPlan['placement']) =>
+    plan(
+      3,
+      [pick('domain-card', 2, { cardRef: 'valor-extra' }), pick('evasion', 2, { grantCardRef: 'sage-granted' })],
+      { placement },
+    );
+  const placementWarnings = (c: Character, pl: LevelUpPlan): string[] =>
+    validatePlan(c, pl).warnings.filter((w) => w.includes('loadout'));
+
+  it('puts them in the loadout while it has room, step four\'s card first, and the rest in the vault', () => {
+    const c = at(3, { loadout: ['a', 'b', 'c', 'd'], vault: [] });
+    const next = applyLevelUp(c, three('loadout'));
+    expect(next.loadout).toEqual(['a', 'b', 'c', 'd', 'blade-test-card']);
+    expect(next.vault).toEqual(['valor-extra', 'sage-granted']);
+    expect(placementWarnings(c, three('loadout'))).toEqual([
+      'Your loadout has room for 1 more card, so 2 of the 3 this level takes go to the vault.',
+    ]);
+  });
+
+  it('puts all of them in the loadout when it has the room, and says nothing', () => {
+    const next = applyLevelUp(at(3, { loadout: [], vault: [] }), three('loadout'));
+    expect(next.loadout).toEqual(['blade-test-card', 'valor-extra', 'sage-granted']);
+    expect(next.vault).toEqual([]);
+    expect(placementWarnings(at(3), three('loadout'))).toEqual([]);
+  });
+
+  it('never pushes the loadout past five, and says where the cards went instead', () => {
+    const c = at(3, { loadout: ['a', 'b', 'c', 'd', 'e'], vault: [] });
+    const next = applyLevelUp(c, three('loadout'));
+    expect(next.loadout).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(next.vault).toEqual(['blade-test-card', 'valor-extra', 'sage-granted']);
+    expect(placementWarnings(c, three('loadout'))).toEqual([
+      'Your loadout is full (5), so the 3 cards this level takes go to the vault - move one out first to make space.',
+    ]);
+  });
+
+  it('puts them in the vault when asked, and fetching one later costs its Recall Cost (folio 8)', () => {
+    const c = at(3, { loadout: [], vault: [] });
+    const next = applyLevelUp(c, three('vault'));
+    expect(next.loadout).toEqual([]);
+    expect(next.vault).toEqual(['blade-test-card', 'valor-extra', 'sage-granted']);
+    expect(placementWarnings(c, three('vault')), 'the vault was asked for; nothing to warn about').toEqual([]);
+    // The free move is the level-up's own; a card left in the vault is any
+    // other vaulted card afterwards.
+    const card = makeCard({ id: 'blade-test-card', recallCost: 2 });
+    expect(canAddToLoadout(next, card).stressCost).toBe(2);
+    expect(canAddToLoadout(next, card, { downtime: true }).stressCost).toBe(0);
   });
 });

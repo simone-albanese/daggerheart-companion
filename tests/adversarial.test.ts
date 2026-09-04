@@ -179,6 +179,7 @@ const planTo = (
   picks,
   newCardRef,
   exchange: null,
+  placement: 'vault',
 });
 
 /** A deterministic generator, so "random noise" is the same noise tomorrow. */
@@ -1055,16 +1056,25 @@ describe('a level-up plan that does not belong to this character', () => {
     ]);
   });
 
-  it('cannot push the loadout past five, because a level-up only ever writes to the vault', () => {
+  it('cannot push the loadout past five, even when the plan asks for the loadout', () => {
+    // A level-up may put its cards straight into the loadout now (folio 54:
+    // "add it to your loadout or vault"), and the same sentence's second half
+    // is what this proves: "If your loadout is already full, you can't add
+    // the new card to it until you move another into your vault."
     const cards = ['c1', 'c2', 'c3', 'c4', 'c5'];
     const full = makeCharacter({ level: 2, loadout: cards, vault: [] });
-    const after = applyLevelUp(
-      full,
-      planTo(3, [takes('domain-card', 2, { cardRef: 'c6' }), takes('hit-point', 2)], 'c7'),
-    );
+    const asks: LevelUpPlan = {
+      ...planTo(3, [takes('domain-card', 2, { cardRef: 'c6' }), takes('hit-point', 2)], 'c7'),
+      placement: 'loadout',
+    };
+    const after = applyLevelUp(full, asks);
     expect(after.loadout).toEqual(cards);
     expect(after.loadout.length).toBe(MAX_LOADOUT);
-    expect(after.vault).toEqual(['c6', 'c7']);
+    // Step four's card is banked first, then the advancement's.
+    expect(after.vault).toEqual(['c7', 'c6']);
+    expect(validatePlan(full, asks).warnings).toContain(
+      'Your loadout is full (5), so the 2 cards this level takes go to the vault - move one out first to make space.',
+    );
   });
 
   it('is the only thing standing between a forged plan and the sheet', () => {

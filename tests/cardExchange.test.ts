@@ -94,6 +94,7 @@ const plan = (p: Partial<LevelUpPlan> = {}): LevelUpPlan => ({
   ],
   newCardRef: null,
   exchange: null,
+  placement: 'vault',
   ...p,
 });
 

@@ -24,7 +24,7 @@ import type {
   Tier,
   Trait,
 } from '../../shared/types.ts';
-import { MAX_HP, MAX_LEVEL, MAX_STRESS, TIER_LEVELS, tierOf } from './character.ts';
+import { MAX_HP, MAX_LEVEL, MAX_LOADOUT, MAX_STRESS, TIER_LEVELS, tierOf } from './character.ts';
 import { COMPANION_START } from './companion.ts';
 
 export interface AdvancementOption {
@@ -271,7 +271,36 @@ export interface LevelUpPlan {
    * because only this one has a rule attached that something has to enforce.
    */
   exchange: CardExchange | null;
+  /**
+   * Where the cards this level takes outright go: step four's, an
+   * additional-domain-card advancement's, a subclass feature's grant.
+   *
+   * *"Acquire a new domain card at your level or lower from one of your class's
+   * domains and add it to your loadout or vault. If your loadout is already
+   * full, you can't add the new card to it until you move another into your
+   * vault."* Folio 54. And folio 8: *"When you gain a new domain card at
+   * level-up, you can immediately move it into your loadout for free."*
+   *
+   * Every one of those cards used to land in the vault, and nothing on the
+   * level-up screen offered the loadout - so a player who levelled mid-session
+   * and wanted the card the level had just given them paid its Recall Cost in
+   * Stress to fetch it, where the book says the move is free at that moment.
+   *
+   * `loadout` means into the loadout while it has room and into the vault once
+   * it is full, which is the second sentence enforced rather than a sixth card
+   * squeezed in; `vault` means the vault. One choice for the whole level rather
+   * than one per card, because a level takes one card in nearly every case and
+   * three at most, and three toggles is a form. A card put in the vault here
+   * is fetched later at its Recall Cost like any other, as folio 8 says.
+   *
+   * Required rather than optional for the reason `exchange` is: a plan that
+   * can forget the field is a plan whose cards go somewhere nobody chose.
+   */
+  placement: CardPlacement;
 }
+
+/** Where a level's new cards go. See `LevelUpPlan.placement`. */
+export type CardPlacement = 'loadout' | 'vault';
 
 /** One card given up for one card taken, at step four. */
 export interface CardExchange {
@@ -571,6 +600,22 @@ export function validatePlan(
     warnings.push('Step four: take a new domain card at your level or lower.');
   }
 
+  // "If your loadout is already full, you can't add the new card to it until
+  // you move another into your vault." Said, because `applyLevelUp` puts the
+  // overflow in the vault rather than refusing the level, and a card that
+  // quietly went somewhere else is the thing this field exists to stop.
+  if (plan.placement === 'loadout') {
+    const taking = acquiredRefs(plan).length;
+    const room = Math.max(0, MAX_LOADOUT - c.loadout.length);
+    if (taking > room) {
+      warnings.push(
+        room === 0
+          ? `Your loadout is full (${MAX_LOADOUT}), so the ${taking === 1 ? 'card' : `${taking} cards`} this level takes ${taking === 1 ? 'goes' : 'go'} to the vault - move one out first to make space.`
+          : `Your loadout has room for ${room} more card${room === 1 ? '' : 's'}, so ${taking - room} of the ${taking} this level takes go to the vault.`,
+      );
+    }
+  }
+
   errors.push(...acquiredCardErrors(c, plan, context));
   errors.push(...exchangeErrors(c, plan, context));
 
@@ -606,14 +651,7 @@ function acquiredCardErrors(
   context?: PlanContext,
 ): string[] {
   const errors: string[] = [];
-  const taken: Ref[] = [];
-  if (plan.newCardRef !== null && plan.newCardRef !== '') taken.push(plan.newCardRef);
-  for (const pick of plan.picks) {
-    for (const key of ['cardRef', 'grantCardRef'] as const) {
-      const ref = pick.detail[key];
-      if (typeof ref === 'string' && ref !== '') taken.push(ref);
-    }
-  }
+  const taken = acquiredRefs(plan);
 
   const owned = new Set<Ref>([...c.loadout, ...c.vault]);
   const seen = new Set<Ref>();
@@ -639,6 +677,36 @@ function acquiredCardErrors(
     }
   }
   return errors;
+}
+
+/**
+ * Every card a plan takes outright, in the order `applyLevelUp` banks them:
+ * step four's card, then each pick's additional card and granted card.
+ * The exchange's right-hand side is not one - it replaces a card in place.
+ */
+function acquiredRefs(plan: LevelUpPlan): Ref[] {
+  const taken: Ref[] = [];
+  if (plan.newCardRef !== null && plan.newCardRef !== '') taken.push(plan.newCardRef);
+  for (const pick of plan.picks) {
+    for (const key of ['cardRef', 'grantCardRef'] as const) {
+      const ref = pick.detail[key];
+      if (typeof ref === 'string' && ref !== '') taken.push(ref);
+    }
+  }
+  return taken;
+}
+
+/**
+ * Put a card the level takes where the plan says, with the loadout's limit
+ * kept: into the loadout while `placement` asks for it and there is room, into
+ * the vault otherwise. The only way a card enters a sheet at level up, so the
+ * three offers cannot disagree about where they land.
+ */
+function bank(next: Character, plan: LevelUpPlan, ref: Ref): Character {
+  if (plan.placement === 'loadout' && next.loadout.length < MAX_LOADOUT) {
+    return { ...next, loadout: [...next.loadout, ref] };
+  }
+  return { ...next, vault: [...next.vault, ref] };
 }
 
 /**
@@ -739,6 +807,11 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
   const achievement = tierAchievementFor(plan.toLevel);
   if (achievement?.clearTraitMarks === true) next = { ...next, traitMarks: {} };
 
+  // Step four's card first, before the advancements' cards: it is the one the
+  // level grants outright, so when the loadout has room for one card it is the
+  // one that gets it.
+  if (plan.newCardRef) next = bank(next, plan, plan.newCardRef);
+
   plan.picks.forEach((pick, i) => {
     const option = availableOptions(plan.tier).find(
       (o) => o.id === pick.optionId && o.tier === pick.optionTier,
@@ -764,15 +837,13 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
      * decides whether a card is owed and the plan carries the ref.
      *
      * It is banked here, in the same pass that writes the history entry
-     * carrying it, so the record and the vault cannot disagree. Doing it in the
+     * carrying it, so the record and the sheet cannot disagree. Doing it in the
      * screen instead would have written a history saying the card was taken and
      * left `applyLevelUp`'s other two callers - the simulator and the sample
      * builder - producing sheets that say so and do not hold it.
      */
     const granted = pick.detail['grantCardRef'];
-    if (typeof granted === 'string' && granted !== '') {
-      next = { ...next, vault: [...next.vault, granted] };
-    }
+    if (typeof granted === 'string' && granted !== '') next = bank(next, plan, granted);
 
     switch (option.kind) {
       case 'trait': {
@@ -804,7 +875,7 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
       }
       case 'domainCard': {
         const ref = pick.detail['cardRef'] as string | undefined;
-        if (ref) next = { ...next, vault: [...next.vault, ref] };
+        if (ref) next = bank(next, plan, ref);
         break;
       }
       case 'subclass': {
@@ -878,8 +949,6 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
     }
   }
 
-  if (plan.newCardRef) next = { ...next, vault: [...next.vault, plan.newCardRef] };
-
   /*
    * The exchange, last, and IN PLACE.
    *
@@ -887,9 +956,9 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
    * was, so applying it before the level's own grants would be checking one
    * sheet and changing another.
    *
-   * In place - loadout for loadout, vault for vault - rather than always into
-   * the vault the way `newCardRef` goes. Two reasons, and the first is the
-   * rules': `MAX_LOADOUT` is five, and a swap that took a card OUT of the
+   * In place - loadout for loadout, vault for vault - rather than through
+   * `bank` the way the cards taken outright go. Two reasons, and the first is
+   * the rules': `MAX_LOADOUT` is five, and a swap that took a card OUT of the
    * loadout and put its replacement in the vault would leave a player one card
    * down for a step the book describes as an exchange. The count is invariant
    * this way, so no overflow is possible and none has to be handled. The second

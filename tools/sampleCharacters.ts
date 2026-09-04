@@ -393,6 +393,9 @@ function planFor(c: Character, outer: PlanContext): LevelUpPlan {
       // Step four: the card the level itself brings. A player takes one of the
       // best on offer, whatever they might spend an advancement reaching for.
       newCardRef: nextCard(c, ctx, taken.cards, BEST_ON_OFFER),
+      // Into the loadout while it has room, as folio 8 lets a player do for
+      // free at level-up; the vault takes the overflow.
+      placement: 'loadout',
     };
     return validatePlan(c, plan).ok ? plan : null;
   };

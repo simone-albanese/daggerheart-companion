@@ -508,6 +508,10 @@ function planFor(c: Character, toLevel: number, ds: Dataset, ix: DatasetIndex, c
     exchange: null,
     picks,
     newCardRef: stepFour?.id ?? null,
+    // Folio 54 offers "your loadout or vault"; some players take the free move
+    // into the loadout at once, some bank the card and fill up at the next
+    // rest, so both routes get walked.
+    placement: ch.cycle(2) === 0 ? 'loadout' : 'vault',
   };
 }
 
