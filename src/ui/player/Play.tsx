@@ -4009,10 +4009,13 @@ function PlayPhone({
        * nothing and is chosen rather than discovered.
        *
        * FULL WIDTH, AND IT IS THE REASON THERE ARE TWO PAIRS AND NOT THREE.
-       * Its worst summary - `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` - is
-       * 257.41px against a 181.5px half cell. There is no arrangement of a
-       * shared row that does not cut it, and cutting it is the one failure
-       * `Disclosure` exists to prevent.
+       * Its worst summary - `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` - was
+       * 257.41px at the 10px it was measured at, against a 181.5px half cell,
+       * and no shared row held it. At the role's 12 it is 300, which a
+       * stacked half cell would take as two wrapped lines under the name - a
+       * three-line header beside a two-line partner. Full width it sits
+       * whole on the line under CARRIED, 300 in the header's 365, which is
+       * `Disclosure`'s own measurement.
        */}
       <Disclosure
         id="carried"
@@ -4020,20 +4023,14 @@ function PlayPhone({
         label="Carried"
         summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
         /*
-         * The one fold held at 11px while the others take the `.t-meta` role,
-         * 12 on a phone since the readability ramp: at 11 this summary
-         * measures ~283 against 257.41 at the 10 it was, and it ellipsises at
-         * full width.
-         *
-         * The reason is one subtraction and it is done in exactly one place.
-         * This comment used to do it here as well, and did it wrong - it set
-         * the ~283 against `390`, an offset from the left of the glass, in "a
-         * 369px column", a width. `Disclosure`'s `tightSummary` paragraph now
-         * says in terms why those two are not comparable and what the number
-         * actually is. **Read it there.** A measurement copied to a second site
-         * is a measurement that will disagree with itself.
+         * No size of its own any more. This was the one fold held under the
+         * `.t-meta` role - at 10 and then 11 - so that its line, the longest
+         * summary on the sheet, would fit in one; since the readability ramp
+         * the summary wraps instead, at the role, and `Disclosure`'s own
+         * docblock carries the measurement and the subtraction that went
+         * wrong twice while a size was the fix. A measurement copied to a
+         * second site is a measurement that will disagree with itself.
          */
-        tightSummary
       >
         <Items bare />
       </Disclosure>

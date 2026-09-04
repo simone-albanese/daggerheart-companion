@@ -593,59 +593,57 @@ describe('the whole sheet, at 393x852', () => {
   });
 
   /*
-   * THE FOLD SUMMARIES, RAISED BY A PIXEL, AND THE ONE THAT COULD NOT TAKE IT.
+   * THE FOLD SUMMARIES, AT THE ROLE, AND THE ONE THAT USED TO BE HELD UNDER IT.
    *
    * The reflow's brief was legibility, and these lines were the smallest type on
    * the sheet at `.t-meta`'s 10px - sitting inside a 44px touch floor with 34px
-   * of headroom doing nothing. So they are 11, and it costs the column zero.
+   * of headroom doing nothing. The reflow raised them to 11 inline; the
+   * readability ramp took the role itself to 12 on a phone and the inline size
+   * went, so the OS text setting reaches them.
    *
-   * `Carried` is the exception and it is measured rather than guessed: its worst
-   * summary is 257.41px at 10 in a row that wants 350.61 of the button's 365px
-   * content box, so 14.39px of slack - not the 4.39 this and `Disclosure` both
-   * said, which took a right edge counted from the left of the glass off the
-   * column's own width and so paid for the 12px of page padding and the 2px of
-   * button padding twice. At 11 the line is 283.14, wants 376.34, and
-   * ellipsises - the gold being the half that goes. That is the failure
-   * `Disclosure` exists to prevent, so `Carried` passes `tightSummary` and
-   * kept its 10.
-   *
-   * SINCE THE READABILITY RAMP THE SPLIT IS THE OTHER WAY UP. `.t-meta` is 12px
-   * on a phone now, past the 11 the raise reached, so the inline 11 went and
-   * every ordinary fold takes the role; `Carried` is the one held down, at 11
-   * in rem, because at 12 the line it was measured against would be wider
-   * still. What is asserted is still the split and not the size, because a
-   * size applied to all six would pass any assertion that only counted one.
+   * `Carried` was the exception, held at 10 and then at 11 in rem, because its
+   * worst summary - `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS`, 257.41px at 10
+   * and 283.14 at 11 - was measured against the room after `CARRIED` and did
+   * not fit it at 11: ellipsised by 5px at 393. A size that scales with the
+   * root can never be the thing that fits a line inside a column that does
+   * not, so since the ramp there is no held fold: the summary takes the role
+   * and the header wraps it under the name, whole, inside the headroom. What
+   * is asserted is that no summary sets a size, and that every one is allowed
+   * to wrap - the floor the ramp states is that nothing glanced on this sheet
+   * is under 12px on a phone, and a per-fold size is how that floor would be
+   * quietly lowered again.
    */
-  it('lets every fold summary take the 12px role, and holds Carried at 11', () => {
+  it('draws every fold summary at the role, 12px on a phone, and lets it wrap', () => {
     play(seed());
-    const sized = buttons()
+    const summaries = buttons()
       // A fold header, and not merely something that expands. `Disclosure`
       // draws `<section class="stack">` with the header as its first child;
       // ROLL's own MODS control also answers `aria-expanded` and also holds a
-      // `.t-meta` span, and it is not a summary and not this raise's business.
+      // `.t-meta` span, and it is not a summary and not this rule's business.
       .filter((b) => b.parentElement?.tagName === 'SECTION')
       .flatMap((header) =>
         [...header.querySelectorAll<HTMLElement>('span.t-meta')].map((span) => ({
-          fold: (header.textContent ?? '').trim(),
+          fold: (header.textContent ?? '').trim().slice(0, 24),
           size: span.style.fontSize,
+          wrap: span.style.whiteSpace,
         })),
       );
+    expect(summaries.length, 'no fold summary was drawn at all').toBeGreaterThanOrEqual(4);
 
-    const held = sized.filter((s) => s.size !== '').map((s) => `${s.fold.slice(0, 24)} ${s.size}`);
+    const held = summaries.filter((s) => s.size !== '').map((s) => `${s.fold} ${s.size}`);
     expect(
       held,
-      'a fold other than Carried is overriding the `.t-meta` role, or Carried is not held at ' +
-        '11px in rem. The role is 12 on a phone since the readability ramp; exactly one fold ' +
-        'declines it, and only because its line was measured against the column and does ' +
-        'not fit at 11, let alone 12.',
-    ).toEqual([expect.stringMatching(/^Carried.* 0\.6875rem$/)]);
+      'a fold summary is setting a size of its own again. The role is 12px on a phone since ' +
+        'the readability ramp and nothing glanced on the sheet is under it; a line that does ' +
+        'not fit its row wraps under the name, it is not shrunk',
+    ).toEqual([]);
 
-    const role = sized.filter((s) => s.size === '').map((s) => s.fold);
+    const clipped = summaries.filter((s) => s.wrap !== 'normal').map((s) => `${s.fold} ${s.wrap}`);
     expect(
-      role.length,
-      'the summaries are setting a size of their own again, so the OS text size no longer ' +
-        'reaches them and the role that was raised for them is not the one they draw',
-    ).toBeGreaterThanOrEqual(3);
+      clipped,
+      'a fold summary cannot wrap, so a line longer than its row is cut or ellipsised ' +
+        'instead of taking the second line the 44px floor has room for',
+    ).toEqual([]);
   });
 
   /*
@@ -670,6 +668,11 @@ describe('the whole sheet, at 393x852', () => {
    *      subtraction pays for the column's 12px of padding and the button's 2px
    *      twice. The row wants 350.61 of a 365px content box: 14.39.
    *
+   * The second drift has a sequel since the readability ramp: the summary is
+   * 300 at the role's 12px, and no size holds it in one line beside `CARRIED`
+   * - so it wraps under the name and the docblock has to carry the room the
+   * row actually has, 269.55 of the same 365, derived below from the parts.
+   *
    * Source-text assertions, with precedent in `domainCardView.test.ts` and in
    * this file's own «does not put a fade back on the column». jsdom measures no
    * text, so the arithmetic is derived here from constants read off the two
@@ -677,14 +680,6 @@ describe('the whole sheet, at 393x852', () => {
    */
   describe('the prose on Disclosure', () => {
     const source = (): string => readFileSync('src/ui/shared/Disclosure.tsx', 'utf8');
-
-    /** The docblock immediately above a named prop, without its `*` gutter. */
-    const propDoc = (src: string, prop: string): string => {
-      const at = src.indexOf(`${prop}?: `);
-      expect(at, `there is no \`${prop}\` prop any more`).toBeGreaterThan(-1);
-      const opened = src.lastIndexOf('/**', at);
-      return src.slice(opened, at).replace(/^\s*\*+ ?/gm, '');
-    };
 
     it('does not tell the reader that every fold header is the column whole', () => {
       const play = readFileSync('src/ui/player/Play.tsx', 'utf8');
@@ -718,14 +713,15 @@ describe('the whole sheet, at 393x852', () => {
       expect(rule).toContain(String(column));
     });
 
-    it('says how much room Carried actually has, not the column minus an offset', () => {
+    it('says how much room Carried actually has, and that its line wraps under the name', () => {
       const src = source();
-      // The parts of the shut header, at `.t-meta`'s 10px, measured in Chrome.
+      // The parts of the shut header at 393, measured in Chrome since the
+      // readability ramp: `.t-label` is 11px and `.t-meta` 12.
       const MARKER = 8;
       const GAP = 8;
-      const LABEL = 53.2; // `CARRIED`, .t-label, 7 chars of mono + 0.16em
+      const LABEL = 55.45; // `CARRIED`, .t-label, 7 chars of mono + 0.12em
       const SPACER_MIN = 8;
-      const SUMMARY = 257.41; // `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS`
+      const SUMMARY = 300; // `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` at 12px
       const PAGE_PAD = 12;
 
       // `padding: '0 2px'` on the header button, read off the component.
@@ -733,35 +729,28 @@ describe('the whole sheet, at 393x852', () => {
       expect(btnPad, "the header button's own padding has moved").toBe(2);
 
       const content = 369 - 2 * btnPad;
-      const needed = MARKER + GAP + LABEL + GAP + SPACER_MIN + GAP + SUMMARY;
-      const slack = Number((content - needed).toFixed(2));
-      expect([content, Number(needed.toFixed(2)), slack]).toEqual([365, 350.61, 14.39]);
+      const room = content - (MARKER + GAP + LABEL + GAP + SPACER_MIN + GAP);
+      expect([content, Number(room.toFixed(2))]).toEqual([365, 269.55]);
+      // No size in the ramp fits the line in that room - 283.14 at 11 did not
+      // either - so it goes under the name, whole, and the right edge it lands
+      // on is the column's: 393 less the page padding and the button's own.
+      expect(SUMMARY).toBeGreaterThan(room);
+      expect(SUMMARY).toBeLessThan(content);
+      expect(393 - PAGE_PAD - btnPad).toBe(379);
 
-      // The wrong answer, kept here so the test says what it is guarding
-      // against: it is 369 - 364.61, and 364.61 is an offset from the left of
-      // the glass that already contains PAGE_PAD and btnPad.
-      const wrong = Number((369 - (PAGE_PAD + btnPad + needed)).toFixed(2));
-      expect(wrong).toBe(4.39);
+      const rule = /SAID WHOLE, ON A SECOND LINE[\s\S]*?\n \*\n/.exec(src)?.[0] ?? '';
+      expect(rule, 'the paragraph about the summary wrapping has gone').not.toBe('');
+      for (const figure of [String(room.toFixed(2)), String(SUMMARY), String(content), '379']) {
+        expect(rule, `the docblock no longer carries ${figure}`).toContain(figure);
+      }
 
-      const doc = propDoc(src, 'tightSummary');
+      // The per-fold size is gone with the prop that carried it: a summary
+      // that is held under the role is the lowered floor this rule is about.
+      expect(src, 'the `tightSummary` prop is back').not.toContain('tightSummary');
       expect(
-        doc,
-        `\`tightSummary\` still reports ${String(wrong)}px of slack. That is the column's ` +
-          'width less a right edge counted from the left of the glass, which pays for the ' +
-          `${String(PAGE_PAD)}px of page padding and the ${String(btnPad)}px of button ` +
-          `padding twice; the row wants ${String(needed.toFixed(2))} of ${String(content)}`,
-      ).toContain(String(slack));
-      expect(
-        // 14.39 contains 4.39, so the guard has to be anchored.
-        /(?<![\d.])4\.39/.test(doc),
-        'the four-pixel figure is back in the `tightSummary` docblock',
-      ).toBe(false);
-      // Where the edge really is once the span is `0 1 auto` against a spacer
-      // that grows: flush at the column, not at the 364.61 it had while the
-      // span could not shrink.
-      expect(doc, 'the docblock does not say where the right edge actually lands').toContain(
-        String(393 - PAGE_PAD - btnPad),
-      );
+        readFileSync('src/ui/player/Play.tsx', 'utf8'),
+        'Play is passing a per-fold summary size again',
+      ).not.toContain('tightSummary');
     });
   });
 
@@ -3710,13 +3699,17 @@ describe('the tendina', () => {
    * measured in Chrome with a purse spanning all three denominations,
    * `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` has a viewport-invariant right
    * edge of 364.61, so 4.61px was gone at 360, 20.61 at 344 and 44.61 at 320,
-   * with no ellipsis and no gesture that reveals it.
+   * with no ellipsis and no gesture that reveals it. The ellipsis that replaced
+   * the cut has gone in its turn: since the readability ramp the summary is
+   * 300px at the role's 12 and the header wraps it under the name, whole, at
+   * the same right edge - measured on the rig at 393, 360 and 320 with nothing
+   * ellipsised and nothing past the column at any of them.
    *
    * jsdom measures nothing, so what is asserted is the contract that makes the
    * cut impossible rather than the cut: the label cannot shrink, the summary
-   * can, and the summary says so when it does.
+   * can wrap, and the row lets it take a second line.
    */
-  it('lets the summary lose its tail to an ellipsis, and never the section name', () => {
+  it('lets the summary take a second line under the name, and never cuts either', () => {
     play(seed());
     const header = fold('Carried');
     const spans = [...header.querySelectorAll('span')];
@@ -3732,16 +3725,24 @@ describe('the tendina', () => {
     expect(
       summary.style.flex,
       'the summary cannot shrink, so a header wider than the column is cut off the glass by ' +
-        'the phone column\'s overflow-x: hidden rather than truncated',
+        'the phone column\'s overflow-x: hidden rather than wrapped',
     ).toBe('0 1 auto');
     expect(summary.style.minWidth, 'flex-shrink alone does nothing without this').toBe('0px');
-    expect(summary.style.overflow).toBe('hidden');
     expect(
-      summary.style.textOverflow,
-      'the summary shrinks and then cuts a character in half with no ellipsis, which is the ' +
-        'header claiming a number it is not showing',
-    ).toBe('ellipsis');
-    expect(summary.style.whiteSpace).toBe('nowrap');
+      summary.style.whiteSpace,
+      'the summary cannot wrap, so a line longer than its row is cut or ellipsised instead ' +
+        'of taking the second line the 44px floor has room for',
+    ).toBe('normal');
+    expect(summary.style.textOverflow, 'an ellipsis is back on a line that wraps').toBe('');
+    expect(
+      header.style.flexWrap,
+      'the header row cannot wrap, so the summary is squeezed beside the name instead of ' +
+        'going under it whole',
+    ).toBe('wrap');
+    expect(
+      summary.style.marginLeft,
+      'a summary on its own line sits under the marker instead of at the right edge',
+    ).toBe('auto');
   });
 
   /*
