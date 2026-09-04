@@ -75,7 +75,8 @@
  * On a 1024px tablet the same text is two lines, ~48px - that one is still an
  * estimate and nobody has measured it. There is no typographic
  * trick that beats this; 9px would fit it in 70px and this project's own type
- * ramp says Archivo never runs at 400 below 11.5px. Every pixel of it is now
+ * ramp says Archivo never runs at 400 below 13px (11.5 before the readability
+ * ramp). Every pixel of it is now
  * below the last thing anybody scrolls for.
  *
  * ## It looks like content now, because it is content
@@ -181,7 +182,7 @@ export function LicenceFooter({
       <span style={{ flex: 'none', paddingTop: 1 }}>
         <CompatibleIcon size={14} />
       </span>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: 760 }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: 760 }}>
         {ATTRIBUTION.join(' ')}
       </p>
     </footer>

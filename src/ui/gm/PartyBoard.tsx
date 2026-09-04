@@ -148,7 +148,7 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
         // rotating disc under CLOSE CAMERA reads as the camera failing.
         <Suspense
           fallback={
-            <p className="t-dense" style={{ flex: 'none', margin: 0 }}>
+            <p className="t-hint" style={{ flex: 'none', margin: 0 }}>
               Opening the camera…
             </p>
           }
@@ -176,7 +176,7 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
         >
           <p
             role="status"
-            className="t-dense"
+            className="t-hint"
             style={{ flex: 1, minWidth: 0, margin: 0, color: 'var(--text-2)' }}
           >
             {message.text}
@@ -701,7 +701,7 @@ function Experiences({ sheet }: { sheet: Character }): React.JSX.Element {
   return (
     <span className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
       {sheet.experiences.map((e) => (
-        <span key={e.id} className="chip" style={{ color: 'var(--text-3)', fontSize: 10.5 }}>
+        <span key={e.id} className="chip chip-name" style={{ color: 'var(--text-3)' }}>
           {e.name || 'Unnamed'} <span style={{ color: 'var(--hope)' }}>{signed(e.bonus)}</span>
         </span>
       ))}
@@ -803,25 +803,27 @@ function FallenPrompt({ member }: { member: PartyMember }): React.JSX.Element {
         background: 'var(--app)',
       }}
     >
-      <span className="t-label" style={{ color: 'var(--damage)' }}>
+      {/* A sentence, so `.t-hint` and not `.t-label`: a label is a word in
+          caps, and this is the one line on the board that has to be read. */}
+      <span className="t-hint" style={{ color: 'var(--damage)', fontWeight: 600 }}>
         Their last Hit Point is marked
       </span>
       {lead !== null && (
-        <p className="t-dense" style={{ margin: 0, maxWidth: '68ch' }}>
+        <p className="t-read" style={{ margin: 0, maxWidth: '68ch' }}>
           {lead}
         </p>
       )}
       {moves.length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {moves.map((name) => (
-            <span key={name} className="chip" style={{ color: 'var(--text-2)' }}>
+            <span key={name} className="chip chip-name" style={{ color: 'var(--text-2)' }}>
               {name}
             </span>
           ))}
         </div>
       )}
       {worsens !== null && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '68ch' }}>
+        <p className="t-read" style={{ margin: 0, color: 'var(--muted)', maxWidth: '68ch' }}>
           “{worsens}”
         </p>
       )}
@@ -895,7 +897,7 @@ function Drawer({
         borderTop: '1px solid var(--line-soft)',
       }}
     >
-      <p className="t-dense" style={{ margin: 0, maxWidth: '68ch' }}>
+      <p className="t-hint" style={{ margin: 0, maxWidth: '68ch' }}>
         Imported from {member.source === 'file' ? 'a file' : 'a code'}{' '}
         {describeAge(member.importedAt, now)}
         {lineage === '' ? '.' : ` · ${lineage}.`} Nothing has arrived since. The four tracks below
@@ -904,7 +906,7 @@ function Drawer({
 
       {(gaps.evasion || gaps.thresholds) && (
         <p
-          className="t-dense"
+          className="t-hint"
           style={{ margin: 0, color: 'var(--stress)', maxWidth: '68ch' }}
         >
           {gaps.evasion &&

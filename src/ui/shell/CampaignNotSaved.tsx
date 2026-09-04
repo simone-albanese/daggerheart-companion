@@ -100,7 +100,7 @@ export function CampaignNotSaved({ alert }: { alert: CampaignAlert }): React.JSX
       <span className="t-label" style={{ color: 'var(--text)' }}>
         THE GM TOOLS CANNOT USE THIS DEVICE’S STORAGE
       </span>
-      <span className="t-dense" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
         {alert.message}
       </span>
       {/*

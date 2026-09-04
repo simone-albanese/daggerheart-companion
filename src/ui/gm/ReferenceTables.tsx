@@ -166,7 +166,7 @@ export function TierBenchmarks(): React.JSX.Element {
         <BenchmarkGrid key={table.title} table={table} partyTier={partyTier} />
       ))}
       {marked && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The marked column is the tier this campaign is set to. That is this app noting where you
           already are — the tables are the SRD&rsquo;s, unchanged, all four tiers of them.
         </p>
@@ -379,7 +379,7 @@ export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.El
                     {scene.spend}
                   </span>
                 </div>
-                <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+                <span className="t-read" style={{ color: 'var(--text-3)' }}>
                   {scene.examples}
                 </span>
               </article>
@@ -628,8 +628,10 @@ export function CountdownChart({ countdown }: { countdown: Countdown | null }): 
  *
  * The column is 393 - 24 of region padding = 369px, and inside a card's 10px
  * padding 349. The longest bullet in the shipped section is 258 characters at
- * `.t-read` - 13px/1.45, about 6.3px a character - so 56 to a line, five lines,
- * 94px; with the label row and the metric line a card is about 150px and the
+ * `.t-read` - 13px/1.45 when this was estimated, about 6.3px a character; 16px/1.5
+ * on a phone since the readability ramp, so a line holds fewer and stands 24,
+ * and the card and section sums here are the 13px ones - so 56 to a line, five
+ * lines, 94px; with the label row and the metric line a card is about 150px and the
  * six come to 940. `≈ 1.5-3 m · COMPUTED BY THIS APP` is 32 characters at
  * `.t-meta` (10px mono at 0.06em, about 6.6px each) = 211px, one line inside
  * 349 at every width this app draws.
@@ -669,7 +671,7 @@ export function RangeReference(): React.JSX.Element {
         <span className="t-label" style={{ color: 'var(--hope)' }}>
           THE METRES ARE THIS APP&rsquo;S ARITHMETIC
         </span>
-        <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+        <span className="t-hint" style={{ color: 'var(--text-3)' }}>
           The rules are written in feet and carry no metric figure at all. Where one of the range
           lines below gives a distance in feet, this app multiplies it by 0.3048 — the
           international foot — and rounds to the nearest half metre below ten and the nearest whole
@@ -761,8 +763,9 @@ function RangeParts({ parts }: { parts: RangePart[] }): React.JSX.Element {
  * ## Ergonomics, 393 x 852
  *
  * The column is 369px, 349 inside a panel. A trait chip is three characters at
- * `.t-label` (10px mono at 0.16em, about 7.6px a character) plus 24 of padding
- * = about 47, so `minWidth: var(--tap)` is a floor these clear rather than the
+ * `.t-label` (11px mono at 0.12em since the readability ramp, about 7.9px a
+ * character by the same arithmetic; 7.6 at the 10px this was summed at) plus
+ * 24 of padding = about 48, 47 then, so `minWidth: var(--tap)` is a floor these clear rather than the
  * width they take; six of them at 4px gaps are 6x47 + 5x4 = 302 in a 369px
  * column: one row, no wrap.
  * The verb row is ALL plus three chips read off the table's own header; the
@@ -771,7 +774,9 @@ function RangeParts({ parts }: { parts: RangePart[] }): React.JSX.Element {
  * one row again. Both rows wrap rather than scroll if a layer writes longer
  * verbs.
  *
- * A cell is about 69 characters at `.t-read` (13px/1.45, about 6.3px each), so
+ * A cell is about 69 characters at `.t-read` (13px/1.45 when this was estimated,
+ * about 6.3px each; 16px/1.5 on a phone since the readability ramp, and the
+ * block sums below are not re-derived), so
  * 55 to a line, two lines, 38px; with its verb label a block is 51px and a roll
  * panel with all three is about 190. Six of them is 1,150px, two flicks in a
  * region that already scrolls - and 470px, one screen, with a single verb
@@ -991,7 +996,9 @@ export function GmMoves(): React.JSX.Element {
  *
  * ## Ergonomics, 393 x 852
  *
- * Chips wrap in a 369px column at `.t-dense` (11.5px, about 5.5px a character)
+ * Chips wrap in a 369px column at 11.5px, about 5.5px a character (so this
+ * estimate said; the chip is `.chip`, 9.5px then and 11px on a phone since the
+ * readability ramp, and the rows below are not re-derived)
  * with 8px of padding either side: the longest, `Magical Knowledge`, is 17
  * characters = 110px, and the median is about 60. Eighteen of them come to
  * roughly four rows of 28px plus 6px gaps = 130px, so the whole topic including
@@ -1024,7 +1031,7 @@ export function AdversaryExperiences(): React.JSX.Element {
         {examples.items.map((item) => (
           <span
             key={item}
-            className="t-dense"
+            className="t-hint"
             style={{
               flex: 'none',
               padding: '5px 8px',

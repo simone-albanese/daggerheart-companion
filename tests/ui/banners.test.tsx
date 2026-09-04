@@ -114,7 +114,7 @@ const banner = (): HTMLElement => {
 };
 
 const message = (): HTMLElement => {
-  const el = banner().querySelector<HTMLElement>('span.t-dense');
+  const el = banner().querySelector<HTMLElement>('span.t-hint');
   if (el === null) throw new Error('the banner drew no message');
   return el;
 };

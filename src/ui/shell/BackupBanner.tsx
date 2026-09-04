@@ -38,9 +38,12 @@
  *
  * ## What the two sentences cost, which is nothing until the third line
  *
- * A `.t-dense` line is 15.87px, so two are 31.74 and fit inside the 44px the
- * two controls already hold the row open at; three are 47.61 and push the
- * banner from 58 to 61.58. Which happens where, measured with the app running:
+ * Measured when the message was `.t-dense`: a line 15.87px, so two 31.74 and
+ * inside the 44px the two controls already hold the row open at; three 47.61,
+ * pushing the banner from 58 to 61.58. It is `.t-hint` since the readability
+ * ramp, 13px/1.4 - 18.2 a line by declaration, two still inside the 44 - and
+ * the widths at which each sentence takes its third line are not re-measured.
+ * Which happened where, measured with the app running then:
  *
  *   - `No backup yet · …` (299.17px) is two lines from 344 up and three at 320;
  *   - `Last backup: N days ago · …` (354.83px) is two lines from 375 up and

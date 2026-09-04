@@ -20,8 +20,11 @@
  * already filtered by, in display type, across the top third of the one panel
  * where the answer to "what does this do" was supposed to go. So the reading
  * card has no banner. The domain becomes a mark and a word on one line, the
- * rules text moves up to `.t-read` and takes everything that is left, and the
- * card grows to fit its text instead of ellipsising it after three lines.
+ * rules text takes everything that is left, and the card grows to fit its
+ * text instead of ellipsising it after three lines. (Both variants set the
+ * text in `.t-read` since the readability ramp; before it the showcase card
+ * was `.t-dense`, and "moves up to `.t-read`" was the whole of the
+ * difference in type.)
  *
  * The third state is the reader: the full text, never clamped, scrolling when
  * the card is longer than the screen. (That last clause read "no scrolling"
@@ -32,7 +35,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { DomainCard } from '../../../shared/types.ts';
-import { DOMAIN_MARKS, DomainMark, domainColor } from './DomainMark.tsx';
+import { DOMAIN_MARKS, DomainMark, domainColor, domainInk } from './DomainMark.tsx';
 import { useDialog } from './useDialog.ts';
 
 /**
@@ -87,7 +90,7 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
 }
 
 /**
- * The footer's height, shared so the overlay button can stop short of it.
+ * The footer's floor.
  *
  * 34px on a mouse, and the touch floor wherever there is a finger. The footer
  * is where the card's one action lives - TAKE, RECALL, TO VAULT - and a 44px
@@ -96,6 +99,19 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
  * ordinary control here", and it resolves to 34 on a fine pointer and to
  * `--tap` at 1179px and below or under `pointer: coarse`, so the mouse layout
  * is unchanged to the pixel and every touchscreen gains ten.
+ *
+ * A FLOOR AND NOT A HEIGHT, since the readability ramp. The footer holds rem
+ * text - `.t-meta` readouts, `.chip` words - and a `height` would clip it at
+ * a root the OS has turned up: the cockpit's TO VAULT / COST pair is two
+ * 13.75px lines and a 3px gap, 30.5 inside 34 at the 16px root and 37.375
+ * at 125%, where the rig read COST 2 running past the tile's bottom edge
+ * with the `height` and flush with it on the floor. The Cards browser hands
+ * a phone tile a two-row footer for the same reason, in its own file.
+ * What a taller footer costs is the text box above it, which is `flex: 1`
+ * with `minHeight: 0` and gives the lines up first. The overlay that opens
+ * the card is positioned from the body and not from this constant, so it
+ * ends where the footer begins whatever the footer's height, and the strip
+ * stays the one place on the card that does not open the reader.
  */
 const FOOTER_HEIGHT = 'max(34px, var(--control))';
 
@@ -113,7 +129,8 @@ export type CardVariant = 'showcase' | 'reading';
  * Counted in lines rather than pixels because the thing that decides whether a
  * card fits is its measure, not its height, and the measure is set by whatever
  * grid the card lands in. Measured against the real SRD - 189 cards, median
- * 275 characters, longest 655 - at 13px Archivo:
+ * 275 characters, longest 655 - at 13px Archivo, which was `--read-size` when
+ * the count was chosen:
  *
  *   text column                | 10 lines |  12  |  14  |  16
  *   -------------------------- | -------- | ---- | ---- | ----
@@ -123,11 +140,20 @@ export type CardVariant = 'showcase' | 'reading';
  *
  * (share of the 27 level 1 cards - the ones creation actually offers - shown
  * whole.) Fourteen is where a one-column phone shows every candidate entire
- * and a three-column desktop shows all but one, and it costs about 264px of
- * text: roughly the height the card already occupied, spent on the card
- * instead of on its banner. Two of the 189 - the two longest Grimoires - still
- * run over at any measure a card grid can give them, which is why the reader
- * stays and why the "there is more" line is not dead code.
+ * and a three-column desktop shows all but one. Two of the 189 - the two
+ * longest Grimoires - still run over at any measure a card grid can give
+ * them, which is why the reader stays and why the "there is more" line is not
+ * dead code.
+ *
+ * THE TABLE IS AT 13PX AND THE ROLE IS 16PX NOW (15 from 720px). The
+ * readability ramp raised `--read-size` from 13px to 1rem and `--read-lh`
+ * from 1.45 to 1.5, and the line count was kept rather than re-derived: a
+ * line at 16px holds about four fifths of the characters a line at 13px held,
+ * so the shares in the table are upper bounds and the "there is more" line
+ * fires on more cards than it did. The budget is a length in the tokens, so it
+ * grew with them - fourteen lines is 336px at 16px against 264 at 13 - and
+ * what it buys is the same fourteen lines the count was chosen for, at the
+ * size the person choosing can read.
  */
 export const READING_LINES = 14;
 
@@ -161,6 +187,9 @@ interface HeadProps {
 function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
+  // The wordmark and the type line are words: they take the domain's text ink,
+  // which is the same hue lifted where the hue itself fails AA on the panel.
+  const ink = domainInk(card.domain);
 
   // The head gives way before the rules text does. A card in a short grid row
   // still has to say what it *does*; a bigger domain wordmark is worth nothing
@@ -198,7 +227,7 @@ function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
             display: 'block',
             font: `900 ${Math.round(height * 0.26)}px/0.88 var(--sans)`,
             letterSpacing: '-0.025em',
-            color,
+            color: ink,
             textTransform: 'uppercase',
           }}
         >
@@ -206,7 +235,7 @@ function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
         </span>
         <span
           className="t-meta"
-          style={{ display: 'block', marginTop: 6, letterSpacing: '0.2em', color, opacity: 0.75 }}
+          style={{ display: 'block', marginTop: 6, letterSpacing: '0.2em', color: ink }}
         >
           {card.type}
         </span>
@@ -256,6 +285,7 @@ export function DomainCardView({
 }: Props): React.JSX.Element {
   const reading = variant === 'reading';
   const color = domainColor(card.domain);
+  const ink = domainInk(card.domain);
 
   /*
    * Whether the rules text ran past its budget. Only a browser knows - it
@@ -331,20 +361,6 @@ export function DomainCardView({
         opacity: dimmed ? 0.42 : 1,
       }}
     >
-      {onOpen !== undefined && (
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={`${card.name} — ${card.domain} level ${card.level} ${card.type}`}
-          style={{
-            position: 'absolute',
-            inset: `0 0 ${FOOTER_HEIGHT} 0`,
-            zIndex: 1,
-            width: '100%',
-            cursor: 'pointer',
-          }}
-        />
-      )}
       {!reading && <CardHead card={card} shapes={shapes} height={headHeight} />}
 
       <div
@@ -354,8 +370,39 @@ export function DomainCardView({
           padding: reading ? 'var(--s4) var(--s4) 0' : '10px 11px 0',
           display: 'flex',
           flexDirection: 'column',
+          // The containing block of the overlay below, so that the overlay
+          // ends where this box does - which is where the footer begins.
+          position: 'relative',
         }}
       >
+        {/*
+          The overlay that opens the card: the head and the body, and not a
+          pixel of the footer. It is positioned from this box rather than from
+          the card because the footer is a floor since the readability ramp,
+          and `inset: 0 0 FOOTER_HEIGHT 0` on the card was the footer's top
+          edge only while the footer was that tall: the rig at 393x852 read the
+          overlay running 21px into the phone's 66px two-row footer, over its
+          buttons - 14 overlaps across the two Cards cases. From here it ends
+          at the body's bottom whatever the footer's height, and reaches up
+          over the head by the head's declared height, so the head still
+          opens the card. (Where `CardHead`'s 34% cap binds, on a card shorter
+          than any in the app, the top would overshoot the card and the card's
+          own `overflow: hidden` keeps it.)
+        */}
+        {onOpen !== undefined && (
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label={`${card.name} — ${card.domain} level ${card.level} ${card.type}`}
+            style={{
+              position: 'absolute',
+              inset: reading ? 0 : `-${String(headHeight)}px 0 0 0`,
+              zIndex: 1,
+              width: '100%',
+              cursor: 'pointer',
+            }}
+          />
+        )}
         {reading ? (
           // The whole banner, on one line. The mark is the same shape-coded
           // silhouette the loadout and the filters use, so the domain is
@@ -373,7 +420,7 @@ export function DomainCardView({
               className="chip"
               style={{
                 background: `color-mix(in srgb, ${color} 16%, transparent)`,
-                color,
+                color: ink,
                 fontWeight: 700,
               }}
             >
@@ -431,7 +478,7 @@ export function DomainCardView({
           >
             <div
               ref={clamp === undefined ? undefined : textRef}
-              className="t-dense"
+              className="t-read"
               style={
                 clamp === undefined
                   ? undefined
@@ -506,10 +553,16 @@ export function DomainCardView({
           position: 'relative',
           zIndex: 2,
           flex: 'none',
-          height: FOOTER_HEIGHT,
+          minHeight: FOOTER_HEIGHT,
           // Lined up with whichever body sits above it.
           padding: reading ? '0 var(--s4)' : '0 11px',
           alignItems: 'center',
+          // A part that does not fit the row takes a second one rather than
+          // the tile's `overflow: hidden`: at a 125% root a 768 tablet's tile
+          // puts IN LOADOUT, COST 2 and the ✕ at 233.1 in 210.66, and the rig
+          // read the ✕ painted 33.55 of 44 before this. On one line it changes
+          // nothing - every call site's footer fits its row at the 16px root.
+          flexWrap: 'wrap',
           borderTop: '1px solid var(--line-soft)',
         }}
       >
@@ -566,6 +619,7 @@ export function CardReader({
 }): React.JSX.Element {
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
+  const ink = domainInk(card.domain);
   const dialog = useDialog(card.name, onClose);
 
   return (
@@ -617,7 +671,7 @@ export function CardReader({
               borderRadius: shapes ? mark.radius : '8px',
             }}
           />
-          <div className="t-meta" style={{ position: 'relative', letterSpacing: '0.18em', color }}>
+          <div className="t-meta" style={{ position: 'relative', letterSpacing: '0.18em', color: ink }}>
             {card.domain.toUpperCase()} · LV{card.level} · {card.type.toUpperCase()}
           </div>
           <div
@@ -638,7 +692,7 @@ export function CardReader({
           </div>
           {card.flavorText !== undefined && (
             <p
-              className="t-dense"
+              className="t-hint"
               style={{ marginTop: 14, fontStyle: 'italic', color: 'var(--muted)' }}
             >
               {card.flavorText}

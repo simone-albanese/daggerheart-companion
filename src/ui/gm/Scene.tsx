@@ -239,7 +239,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         `flex: 'none'` with `gridAutoRows: 'max-content'` and is sized by its
         cards and by nothing else.
 
-        NEVER `.t-dense`: the cost line below is the only `p.t-dense` in this
+        NEVER `.t-hint`: the cost line below is the only `p.t-hint` in this
         whole tree, and two tests assert exactly one.
 
         NOTHING TICKS. Not on a park, not on a resume, not on END SCENE, not on
@@ -311,9 +311,10 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         SPOTLIGHT chip, every remove ✕.
 
         The size of that jump is the sentence's own height plus this stack's
-        10px gap. `.t-dense` is `400 11.5px/1.38 var(--sans)`
-        (`tokens.css:540`), so one line box is 15.87px: with the gap, the jump
-        is 25.87px at one line, 41.74 at two and 57.61 at three.
+        10px gap. `.t-hint` is `400 13px/1.4 var(--sans)` since the readability
+        ramp, so one line box is 18.2px by declaration: with the gap, the jump
+        is 28.2px at one line, 46.4 at two and 64.6 at three (25.87, 41.74 and
+        57.61 at the 11.5px/1.38 the role was when this was measured).
 
         "Both are at or over the 44px coarse floor the END SCENE button
         declares in the row immediately above" stood here, and 41.74 is not at
@@ -367,9 +368,13 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         spend zero horizontally, which is the only axis this paragraph is
         about; the vertical price is in `GmSheet.tsx`.)
 
-        11.5px Archivo at 400 averages about 5.6px a character -
-        `RuleTableView.tsx:72` puts `.t-read`, 13px of the same face at 400, at
-        about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
+        (The budget below is at the 11.5px the line was when it was measured;
+        it is 13px since the readability ramp, about 6.3px a character, so a
+        line holds about 58 and the 118-character string is still inside two
+        lines - and the permanent cost is 36.4 and 46.4 with the gap, by the
+        declaration above.) 11.5px Archivo at 400 averages about 5.6px a
+        character - `RuleTableView.tsx` puts `.t-read`, 13px of the same face
+        at 400, at about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
         characters, and 63 even at a pessimistic 5.75 (367/5.75 = 63.8; it read
         64 while the column read 369). The longest string this can build over
         the shipped book is 118: a three-digit count and `Burning Heart of the
@@ -421,7 +426,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         would go stale again.
       */}
       <p
-        className="t-dense"
+        className="t-hint"
         style={{
           flex: 'none',
           margin: 0,
@@ -631,7 +636,8 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * single exchange, between seeing the thresholds and the HP counter and seeing
  * the field that writes to it - the two halves of one action, on one card, that
  * could not be looked at together. Under the panel that stops being a choice,
- * and that is what the 471.00 buys rather than tidiness.
+ * and that is what the shut card - 476.00 by declaration - buys rather than
+ * tidiness.
  *
  * THUMB ARC, and it is an argument rather than a rect. `Gm.tsx` reasons off a
  * right thumb covering roughly y 560-820 at 393x852, and with a countdown
@@ -673,11 +679,18 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * silence. So the sum below is still stated as a sum, and the browser has
  * simply agreed with it.
  *
- * **The shut card is 471.00 by declaration**: 2 of `.panel` border + 22 of the
+ * **The shut card is 476.00 by declaration**: 2 of `.panel` border + 22 of the
  * card's own `padding: 11` + 50 of its five `gap: 10` + 44 of header row + 188
- * of counters + 31 of threshold band + 44 of damage row + 46 of attack row + 44
- * of shut fold. 471.00 against the 498 the panel scrolls, which is the goal
- * this lane was given, with 27.00 left over.
+ * of counters + 31 of threshold band + 44 of damage row + 51 of attack row + 44
+ * of shut fold. 476.00 against the 498 the panel scrolls, which is the goal
+ * this lane was given, with 22.00 left over.
+ *
+ * (471.00 was the sum, and Chrome's figure, before the readability ramp: the
+ * one term the ramp moved is the attack row, whose `.t-meta` range line went
+ * from a 10px line box to 15 - 12px at line-height 1.25 on a phone - so the
+ * sum is 476 by the same derivation, and `gmGeometryProse.test` re-adds it
+ * from the declarations. The three-for-three measurement below is the OLD
+ * card's; the new sum has been derived and not yet put in front of Chrome.)
  *
  * The composite terms, so a reader can check them rather than take them - and
  * written without a count, because the count of a list is not a thing this repo
@@ -685,8 +698,8 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  *
  *   - 44 of header row is the SPOTLIGHT chip's and the ✕'s `minHeight:
  *     'var(--control)'`, which is `var(--tap)` under `(pointer: coarse)`. The
- *     name stack beside them is shorter - a 15px name, a 5px gap and a 10px
- *     meta line - so the floor is the row;
+ *     name stack beside them is shorter - a 15px name, a 5px gap and a 15px
+ *     meta line, 35 - so the floor is the row;
  *   - 188 of counters, and NOT 90: the grid is `repeat(auto-fit, minmax(170px,
  *     1fr))` with `gap: 8` in a 341px column, and two 170px tracks plus that
  *     gap want 348. So `auto-fit` drops to one column and the two counters
@@ -701,9 +714,10 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  *     is the Minion group's, and it is the one exception below;
  *   - 44 of damage row is APPLY's `minHeight: 'var(--tap)'`, the flat coarse
  *     floor it declares inline;
- *   - 46 of attack row is its `borderTop` of 1, its `paddingTop: 9`, the 17px
- *     attack bonus, its `gap: 9` taken as the wrap gap, and the 10px `.t-meta`
- *     range line that `width: '100%'` puts on a second line;
+  *   - 51 of attack row is its `borderTop` of 1, its `paddingTop: 9`, the 17px
+ *     attack bonus, its `gap: 9` taken as the wrap gap, and the 15px `.t-meta`
+ *     range line - 12px at line-height 1.25 on a phone - that `width: '100%'`
+ *     puts on a second line;
  *   - 44 of shut fold is `Fold`'s own header, `minHeight: 'var(--tap)'`, with
  *     `gap: 0` while it is shut.
  *
@@ -717,10 +731,11 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * AND THE TWO CARDS ARE NOW THE SAME HEIGHT, which is the same fact from the
  * other end. Their "23.50" of difference was entirely the feature chips - the
  * Burrower's four wrap to two rows where the Bear's three fit one, and a row of
- * chips is `.chip`'s 9.5px line plus its `padding: 4px 6px`, 17.50, plus the
- * 6px row gap. Both adversaries' motives are two lines at 341px. Every term
- * that varied between the two is now inside the fold, so shut, every adversary
- * in the book draws the same 471.00 - with one exception.
+ * chips was `.chip`'s 9.5px line plus its `padding: 4px 6px`, 17.50, plus the
+ * 6px row gap (the chip is 11px on a phone since the readability ramp, so a
+ * row is 19 now). Both adversaries' motives were two lines at 341px. Every
+ * term that varied between the two is now inside the fold, so shut, every
+ * adversary in the book draws the same 476.00 - with one exception.
  *
  * ## THE EXCEPTION, WHICH USED TO BE A SECOND DEFECT AND IS NOW A SECOND ARM
  *
@@ -741,13 +756,14 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * A Minion group's band is the other arm: `padding: '0 10px'` around the flat
  * 44 its `−` and `+` declare, where an ordinary card's is 8 + 15 + 8. So the
  * band grows by 13 and nothing else on the card moves: **a Minion group's shut
- * card is 484.00 by the same declarations, 14.00 inside the panel.**
+ * card is 489.00 by the same declarations, 9.00 inside the panel.**
  *
- * On 2026-08-26 Chrome said 484.00 as well, on all four cards of a seeded group of
- * Giant Rats, beside the 471.00 of the three that are not Minions. It was a sum
- * when this lane wrote it and it is a measurement now; the derivation stays,
- * because it is what tells the next person which term to look at when one of
- * these moves.
+ * On 2026-08-26 Chrome said 484.00, on all four cards of a seeded group of
+ * Giant Rats, beside the 471.00 of the three that are not Minions - both
+ * before the readability ramp put 5 more into every card's attack row. It was
+ * a sum when this lane wrote it and it was a measurement then; the derivation
+ * stays, because it is what tells the next person which term to look at when
+ * one of these moves, and it is the derivation that carries the 5.
  *
  * The row that went was not free of prose: what stood beside the old stepper,
  * and what the band no longer prints on a Minion card, is listed in the band's
@@ -755,10 +771,10 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * and both are still on the card behind one tap.
  *
  * TWO CARDS ON ONE SCREEN IS STILL NO. `PROGETTO-GM §7` item 3 wanted two
- * readable at once; 2 x 471.00 plus the grid's 10px gap is 952.00 against 498.
+ * readable at once; 2 x 476.00 plus the grid's 10px gap is 962.00 against 498.
  * What the fold bought is the answer moving from "not even one" to "one, with
- * 27px to spare". The gate's own question has not been answered yes, and this
- * paragraph is here so nobody reads the 471.00 as though it had been.
+ * 22px to spare". The gate's own question has not been answered yes, and this
+ * paragraph is here so nobody reads the 476.00 as though it had been.
  */
 function CombatantCard({
   sceneId,
@@ -966,7 +982,9 @@ function CombatantCard({
        * the two 15px numbers beside it are centred in that by `.row`'s own
        * `align-items: center`. A card with no Minion group never reaches this
        * arm and its band is still 8 + 15 + 8 = 31, which is what keeps the
-       * ordinary card at the 471.00 that was measured in Chrome.
+       * ordinary card at the 471.00 that was measured in Chrome before the
+       * readability ramp, and at the 476.00 the same declarations add up to
+       * since.
        *
        * FLAT 44 AND NOT `var(--control)`, which is `Stepper`'s own choice and
        * is deliberately not copied. END SCENE at the top of this file already
@@ -1058,7 +1076,10 @@ function CombatantCard({
           word itself is **66.00 x 10.00**, ten `.t-meta` characters, against
           the 11 the divider and its gap gave back, inside a 341px band. 471.00
           is the number the fold was measured at, so this changes no term of
-          the nine-term derivation above.
+          the nine-term derivation above. (All of that is before the
+          readability ramp, which made `.t-meta` 12px at line-height 1.25 on a
+          phone: the word is wider and taller now, and it has not been
+          re-measured in this band.)
         */}
         {vulnerable ? (
           <span className="t-meta" style={{ color: 'var(--damage)' }}>
@@ -1227,7 +1248,7 @@ function CombatantCard({
           <span style={{ font: '800 17px/1 var(--sans)', fontVariantNumeric: 'tabular-nums' }}>
             {signed(adversary.attackBonus)}
           </span>
-          <span style={{ font: '600 13px/1.15 var(--sans)', color: 'var(--text-2)' }}>
+          <span style={{ font: '600 0.8125rem/1.15 var(--sans)', color: 'var(--text-2)' }}>
             {adversary.attack.name}
           </span>
           <span className="t-num" style={{ marginLeft: 'auto', color: 'var(--damage)' }}>
@@ -1338,8 +1359,9 @@ function CombatantCard({
             direction that matters: 261 is over three quarters of 341 before the
             label, and for the stack to fall under half the label would have to
             measure 90.5px - ten pixels a character across nine characters of a
-            9.5px font. What SPOTLIGHT's `600 9.5px/1 var(--mono)` at 0.06em
-            (`base.css`, `.chip`) actually measures is the one term here that is
+            9.5px font (11 on a phone since the readability ramp). What
+            SPOTLIGHT's `.chip` - `600 11px/1 var(--mono)` at 0.06em there,
+            9.5 when this was written - actually measures is the one term here that is
             not a declaration, and it has not been in a browser; do not read a
             figure for the stack itself out of this paragraph, because there
             isn't one.
@@ -1379,9 +1401,11 @@ function CombatantCard({
 
             The label plus the motives measures 37 characters at its shortest,
             58 at the median and 92 at its longest over all 129 adversaries in
-            the book, every one of which carries motives. `.t-meta` is 10px IBM
-            Plex Mono at 0.06em, which is a 0.6 advance plus the tracking -
-            ~6.6px a character, the figure `GearPicker.tsx` derives and
+            the book, every one of which carries motives. `.t-meta` was 10px IBM
+            Plex Mono at 0.06em when this was measured (12px at 0.04em on a
+            phone since the readability ramp, 7.68 a character by the same
+            arithmetic; the counts below are the 10px ones), which is a 0.6
+            advance plus the tracking - ~6.6px a character, the figure `GearPicker.tsx` derives and
             `ReferenceTables.tsx` uses for this class - so 341 holds 51
             characters a line, which is exactly what 343 held: 51 characters
             want 336.6px and 52 want 343.2, and both columns fall in that gap.

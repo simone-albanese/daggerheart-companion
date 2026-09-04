@@ -7,7 +7,8 @@
  * same `8px 20px 0` margin (a flat gutter then; it reads its left and right off
  * `gutter.ts` now, so the blocks inside `<main>` line up with the header under a
  * display cutout), the same `.spread` row, the same `6px 6px 6px 12px`
- * padding, the same 1px border, the same `.t-dense` message, the same
+ * padding, the same 1px border, the same `.t-hint` message (`.t-dense` before
+ * the readability ramp), the same
  * chip-and-dismiss pair - which is not the same thing as being one shape. Two
  * declarations that agree today drift tomorrow, and they had already drifted in
  * four places: the actions gap (4 against 6), the dismiss glyph and class, a
@@ -26,10 +27,13 @@
  * **58px on a phone or tablet and 48px on the cockpit** - measured at 320, 344,
  * 360, 375, 393, 402, 430 and 1180 with the app running, and 58 again at 1180
  * when the pointer is coarse, because a touchscreen laptop reads the same
- * `--control`. The text does not set the height until it needs a third line: a
- * `.t-dense` line is 15.87px, two are 31.74 and fit inside the 44 with room,
- * three are 47.61 and push the banner to **61.58**, four are 63.48 and make it
- * **77.44**. Which sentence needs how many lines at which width is the banner's
+ * `--control`. The text does not set the height until it needs a third line.
+ * Measured when the message was `.t-dense`: a line 15.87px, two 31.74 inside
+ * the 44 with room, three 47.61 pushing the banner to **61.58**, four 63.48
+ * making it **77.44**. The message is `.t-hint` since the readability ramp,
+ * 13px/1.4, so by declaration a line is 18.2, two are 36.4 and still fit
+ * inside the 44, and three are 54.6 - a third line costs about 7px more than
+ * it did, and which sentence needs one at which width is not re-measured. Which sentence needs how many lines at which width is the banner's
  * own business and is written down in each of them.
  *
  * ## What a banner costs the screen under it is 66, and 58 is the wrong number
@@ -123,7 +127,8 @@
  * cannot be got back - the nag returns on the next launch, the update on the
  * next cold start.
  *
- * **Read before touch.** The message is `.t-dense` at 11.5px on `--text-2`,
+ * **Read before touch.** The message is `.t-hint` at 13px on `--text-2`
+ * (`.t-dense` at 11.5 before the readability ramp),
  * sized to be read at a glance and given every pixel the row has left after the
  * two controls have taken their floor.
  */
@@ -175,7 +180,7 @@ export function ShellBanner({
         border: `1px solid ${urgent ? 'var(--hope)' : 'var(--line-soft)'}`,
       }}
     >
-      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)' }}>
         {children}
       </span>
       <span className="row" style={{ flex: 'none', gap: 6 }}>

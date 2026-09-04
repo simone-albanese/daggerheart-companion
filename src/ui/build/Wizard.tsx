@@ -427,7 +427,7 @@ export function Wizard({
             appears only when something is actually being withheld: the rest of
             the time that vertical space belongs to the choices. */}
         {phone && reason !== null && (
-          <span className="t-dense" role="status" style={{ color: 'var(--stress)' }}>
+          <span className="t-hint" role="status" style={{ color: 'var(--stress)' }}>
             {reason}
           </span>
         )}
@@ -463,7 +463,7 @@ export function Wizard({
                 {last ? 'READY TO CREATE' : `NEXT — ${(STEPS[step + 1]?.title ?? '').toUpperCase()}`}
               </span>
             ) : (
-              <span className="t-dense" role="status" style={{ flex: 1, color: 'var(--stress)' }}>
+              <span className="t-hint" role="status" style={{ flex: 1, color: 'var(--stress)' }}>
                 {reason}
               </span>
             ))}
@@ -703,7 +703,9 @@ function WizardHeader({
                 style={{
                   gap: 7,
                   justifyContent: 'center',
-                  height: 'var(--control)',
+                  // A floor since the readability ramp: the digit is rem now,
+                  // and a control's box must grow with its word, not clip it.
+                  minHeight: 'var(--control)',
                   minWidth: 'var(--control)',
                   padding: '0 11px',
                   borderRadius: 'var(--r2)',
@@ -714,7 +716,7 @@ function WizardHeader({
               >
                 <span
                   className="t-num"
-                  style={{ fontSize: 11, color: here ? 'var(--text)' : 'var(--dim)' }}
+                  style={{ fontSize: '0.6875rem', color: here ? 'var(--text)' : 'var(--dim)' }}
                 >
                   {i + 1}
                 </span>
@@ -1153,7 +1155,7 @@ function StepTraits({
             );
           })}
         </div>
-        <p className="t-dense" style={{ margin: 0 }}>
+        <p className="t-hint" style={{ margin: 0 }}>
           The SRD gives every character the same six modifiers — +2, +1, +1, +0, +0, −1 — to
           distribute in any order. Tap a value to place it; tap it again to take it back.
         </p>
@@ -1539,7 +1541,7 @@ function StepBackground({
       label="Background questions"
       hint={klass ? klass.name.toUpperCase() : undefined}
     >
-      <p className="t-dense" style={{ margin: 0 }}>
+      <p className="t-hint" style={{ margin: 0 }}>
         Your background has no mechanical effect, but it shapes the character you play and the prep
         the GM does. Modify or replace any question that does not fit.
       </p>
@@ -1567,7 +1569,7 @@ function StepConnections({
 }): React.JSX.Element {
   return (
     <Section label="Connection questions" hint={klass ? klass.name.toUpperCase() : undefined}>
-      <p className="t-dense" style={{ margin: 0 }}>
+      <p className="t-hint" style={{ margin: 0 }}>
         Connections are the relationships between the player characters. Ask another player these at
         the table — and it is fine to leave some blank; a party discovers most of this in play.
       </p>
@@ -1633,7 +1635,7 @@ export function StepExperiences({
       {srd.lead?.parts.map((part, i) => {
         if (part.kind === 'text') {
           return (
-            <p key={`t${String(i)}`} className="t-dense" style={{ margin: 0 }}>
+            <p key={`t${String(i)}`} className="t-read" style={{ margin: 0 }}>
               {part.text}
             </p>
           );
@@ -1652,7 +1654,7 @@ export function StepExperiences({
             style={{ gap: 5, margin: 0, paddingLeft: 18 }}
           >
             {part.items.map((item) => (
-              <li key={item} className="t-dense">
+              <li key={item} className="t-read">
                 {item}
               </li>
             ))}
@@ -1670,7 +1672,7 @@ export function StepExperiences({
           {srd.groups.map((group) => (
             <span key={group.label} className="stack" style={{ gap: 3 }}>
               <span className="t-meta">{group.label}</span>
-              <span className="t-dense">{group.text}</span>
+              <span className="t-read">{group.text}</span>
             </span>
           ))}
         </Fold>

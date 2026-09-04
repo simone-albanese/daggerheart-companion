@@ -169,9 +169,10 @@ describe('what the unsaved-work strip says it wrote', () => {
   });
 
   /**
-   * And it is set as prose. `.t-meta` is 10px mono at line-height 1 with no
-   * width at all - fine for the 53 characters this line used to carry, and on a
-   * 393px phone this sentence is ten line boxes of 13px glyphs stepping 10px,
+   * And it is set as prose. `.t-meta` is a mono metadata line with no width at
+   * all - fine for the 53 characters this line used to carry, and wrong for a
+   * sentence: when it was `500 10px/1`, before the readability ramp, this
+   * sentence on a 393px phone was ten line boxes of 13px glyphs stepping 10px,
    * three pixels of overlap per line, or 1232px of unbroken width on a desktop.
    */
   it('sets that sentence as prose rather than as a one-line label', async () => {
@@ -180,7 +181,7 @@ describe('what the unsaved-work strip says it wrote', () => {
       note.className,
       'a 400-character sentence in the 10px/1 mono metadata role overlaps its own lines',
     ).not.toContain('t-meta');
-    expect(note.className).toContain('t-dense');
+    expect(note.className).toContain('t-hint');
     expect(note.style.maxWidth, 'nothing caps the line, so it runs the width of the window').toBe(
       '420px',
     );

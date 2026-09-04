@@ -533,7 +533,7 @@ function TransformationSection({
                 {reading ? 'Hide the card’s text' : 'Read the card’s text'}
               </button>
               {reading && (
-                <p className="t-dense" style={{ margin: 0, whiteSpace: 'pre-line' }}>
+                <p className="t-read" style={{ margin: 0, whiteSpace: 'pre-line' }}>
                   {held.description}
                 </p>
               )}
@@ -555,7 +555,7 @@ function TransformationSection({
               {asking && (
                 <ul className="stack" style={{ gap: 6, margin: 0, paddingLeft: 18 }}>
                   {held.questions.map((q) => (
-                    <li key={q} className="t-dense">
+                    <li key={q} className="t-read">
                       {q}
                     </li>
                   ))}
@@ -761,7 +761,8 @@ function TransformationSection({
  * is beside it going sideways.
  *
  * How tall that line is has NOT been measured and is not claimed here - it is
- * a `.t-meta` at `500 10px/1` mono against a 369px column at 393x852, so on a
+ * a `.t-meta` at `500 12px/1.25` mono on a phone since the readability ramp
+ * (`500 10px/1` when this was written) against a 369px column at 393x852, so on a
  * phone it is one line or two depending on the stance's name, and every figure
  * in this docblock predates it. What IS structural, and is asserted in
  * `tests/stances.test.tsx` rather than reasoned about: the row draws two
@@ -1323,7 +1324,7 @@ function DeleteCharacter({
       </h3>
       {!armed ? (
         <div className="spread" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <p className="t-dense" style={{ margin: 0 }}>
+          <p className="t-hint" style={{ margin: 0 }}>
             Characters live only on this device. Nothing is synced, so a deletion cannot be undone
             from anywhere else.
           </p>
@@ -1342,7 +1343,7 @@ function DeleteCharacter({
             <span style={{ font: '700 15px/1.2 var(--sans)' }}>
               Delete {character.name || 'this unnamed character'}?
             </span>
-            <span className="t-dense">
+            <span className="t-hint">
               Level {character.level} {klassName ?? 'character'} · {cards} domain card
               {cards === 1 ? '' : 's'} · {character.experiences.length} Experience
               {character.experiences.length === 1 ? '' : 's'} · created {created}. This is permanent.

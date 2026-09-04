@@ -6,8 +6,8 @@
  * discard the rule that follows. That is not hypothetical - it happened here.
  * An edit left an orphaned block and one unbalanced brace, the `.chip` rule
  * after it was swallowed, and every chip in the app silently inherited 16px
- * Archivo instead of 9.5px mono. Nothing failed. It just looked wrong, and
- * only on screen.
+ * Archivo instead of the chip's own small mono (9.5px at the time; 10-11px
+ * in rem now). Nothing failed. It just looked wrong, and only on screen.
  *
  * So: balance, and the presence of the rules other files depend on by name.
  */
@@ -92,7 +92,8 @@ describe('stylesheets', () => {
       '.t-label',
       '.t-meta',
       '.t-body',
-      '.t-dense',
+      '.t-read',
+      '.t-hint',
       '.t-card',
       '.t-vital',
     ]) {
@@ -100,10 +101,88 @@ describe('stylesheets', () => {
     }
   });
 
-  it('keeps the chip a mono label rather than body text', () => {
+  it('keeps the chip a mono label rather than body text, sized by the pointer token', () => {
     const base = readFileSync(join(DIR, 'base.css'), 'utf8');
     const chip = /^\.chip\s*\{([^}]*)\}/m.exec(strip(base))?.[1] ?? '';
-    expect(chip, 'the chip lost its font').toMatch(/font:\s*\d+\s+9\.5px\/1\s+var\(--mono\)/);
+    expect(chip, 'the chip lost its font').toMatch(
+      /font:\s*\d+\s+var\(--chip-size\)\s*\/\s*1\s+var\(--mono\)/,
+    );
+    // 10px on a fine-pointer desktop and 11 wherever any pointer is coarse:
+    // a chip is glanced in the thumb arc, so the 44px target is the ergonomic
+    // term and the word only has to be legible at arm's length.
+    const tokens = readFileSync(join(DIR, 'tokens.css'), 'utf8');
+    expect(tokens).toMatch(/--chip-size:\s*0\.625rem/);
+    expect(tokens).toMatch(/@media[^{]*any-pointer:\s*coarse[\s\S]*?--chip-size:\s*0\.6875rem/);
+    // And a chip that carries a name - an Experience, a tag, a weapon - reads
+    // at 12px, because a name is read rather than recognised.
+    expect(base).toMatch(/^\.chip-name\s*\{[^}]*font-size:\s*0\.75rem/m);
+  });
+
+  /*
+   * The readability ramp, pinned as floors rather than as numbers.
+   *
+   * Measured before the ramp on the audit rig: 85.9% of visible characters
+   * under 12px and 71% of all characters in the 11.5px `.t-dense` role. The
+   * person this is for wears reading glasses and holds the phone at 35-45 cm,
+   * so the floors are: nothing that is read is under 13px, nothing that is
+   * prose is under 15px, and every text role is in rem so the OS text-size
+   * setting reaches it. Glanced numbers (`.t-num`, `.t-roll`, the counter)
+   * stay px on purpose - their cells are measured in px.
+   */
+  it('declares every text role in rem, with prose at 15px or more and hints at 13', () => {
+    const tokens = readFileSync(join(DIR, 'tokens.css'), 'utf8');
+    const base = readFileSync(join(DIR, 'base.css'), 'utf8');
+    const css = strip(tokens);
+    const role = (name: string): string => new RegExp(`^\\.${name}\\s*\\{([^}]*)\\}`, 'm').exec(css)?.[1] ?? '';
+    const rem = (value: string | undefined): number => Number(value ?? '0') * 16;
+
+    // The rem hook: 100%, so the browser's own text size is the root.
+    expect(strip(base)).toMatch(/^html\s*\{[^}]*font-size:\s*100%/m);
+
+    // Reading text: 16px/1.5 on a phone, 15px/1.5 from 720 - and both in rem.
+    expect(tokens).toMatch(/--read-size:\s*1rem/);
+    expect(tokens).toMatch(/--read-lh:\s*1\.5\b/);
+    expect(tokens).toMatch(/@media[^{]*min-width:\s*720px[\s\S]*?--read-size:\s*0\.9375rem/);
+    expect(role('t-read')).toMatch(/font:\s*400\s+var\(--read-size\)\s*\/\s*var\(--read-lh\)\s+var\(--sans\)/);
+    expect(role('t-read')).toContain('color: var(--text-2)');
+    expect(role('t-read')).toMatch(/hyphens:\s*auto/);
+    expect(role('t-read')).toMatch(/text-wrap:\s*pretty/);
+
+    // Long prose: 17px/1.55 on a phone, 16px/1.5 from 720, capped at 62ch.
+    expect(tokens).toMatch(/--body-size:\s*1\.0625rem/);
+    expect(tokens).toMatch(/@media[^{]*min-width:\s*720px[\s\S]*?--body-size:\s*1rem/);
+    expect(role('t-body')).toMatch(/font:\s*400\s+var\(--body-size\)\s*\/\s*var\(--body-lh\)/);
+    expect(role('t-body')).toMatch(/max-width:\s*62ch/);
+    expect(role('t-body')).toMatch(/hyphens:\s*auto/);
+    // Higher ink on dark, lower on light. (The dark value lives in the roles'
+    // own `:root` block at the foot of the file, not in the palette block
+    // `DARK` parses, so it is read from the text.)
+    expect(tokens).toMatch(/--body-ink:\s*var\(--text-2\)/);
+    expect(LIGHT_CHOSEN['--body-ink']).toBe('var(--text-3)');
+
+    // Hints: 13px, the bottom of the prose ramp.
+    const hint = /font:\s*400\s+([\d.]+)rem\s*\/\s*1\.4/.exec(role('t-hint'));
+    expect(hint, '.t-hint is not a rem size').not.toBeNull();
+    expect(rem(hint?.[1])).toBeGreaterThanOrEqual(13);
+
+    // Meta and labels: 12px meta on a phone or under a finger, 11 on a desk;
+    // 11px labels at 600 and caps everywhere. Both wrap, so neither is at 1.
+    expect(tokens).toMatch(/--meta-size:\s*0\.6875rem/);
+    expect(tokens).toMatch(/@media[^{]*(max-width:\s*719px|any-pointer:\s*coarse)[\s\S]*?--meta-size:\s*0\.75rem/);
+    expect(role('t-meta')).toMatch(/font:\s*500\s+var\(--meta-size\)\s*\/\s*1\.25/);
+    const label = /font:\s*600\s+([\d.]+)rem\s*\/\s*1\.2/.exec(role('t-label'));
+    expect(label, '.t-label is not a rem size').not.toBeNull();
+    expect(rem(label?.[1])).toBe(11);
+
+    // Controls: 14px.
+    // The rule with the font in it, not the shared transition list that also
+    // ends in `.btn {`.
+    const btn = /^\.btn\s*\{([^}]*font:[^}]*)\}/m.exec(strip(base))?.[1] ?? '';
+    expect(btn).toMatch(/font:\s*600\s+0\.875rem\s*\/\s*1/);
+
+    // And the glance size is gone: nothing reads at 11.5px any more.
+    expect(css).not.toMatch(/^\s*\.t-dense\b/m);
+    expect(css).not.toMatch(/11\.5px/);
   });
 
   it('lets the shell grid be narrower than its widest child, in both halves', () => {
@@ -280,6 +359,40 @@ describe('contrast, computed from the tokens themselves', () => {
     for (const token of ['--damage', '--stress', '--hope', '--armor']) {
       const ratio = contrast(palette[token]!, palette['--panel']!);
       if (ratio < 3) failures.push(`${token} on --panel = ${ratio.toFixed(2)}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  /*
+   * Domain colour used as text. The washes and marks keep the hue; the head
+   * wordmark, the reader's meta line and the LV chip take the `-ink` variant,
+   * which is the same colour wherever that already clears AA and a lifted one
+   * where it does not - Midnight (4.40:1) and Dread (2.29:1) on the dark panel.
+   */
+  it.each(palettes)('%s: every domain ink clears 4.5:1 on the panel and on the chip ground', (_name, palette) => {
+    const resolve = (value: string): string => {
+      const ref = /^var\((--[\w-]+)\)$/.exec(value);
+      return ref ? palette[ref[1]!]! : value;
+    };
+    const failures: string[] = [];
+    for (const domain of ['arcana', 'blade', 'bone', 'codex', 'grace', 'midnight', 'sage', 'splendor', 'valor', 'dread']) {
+      const ink = palette[`--${domain}-ink`];
+      expect(ink, `--${domain}-ink is not declared`).toBeDefined();
+      for (const surface of ['--panel', '--raised'] as const) {
+        const ratio = contrast(resolve(ink!), palette[surface]!);
+        if (ratio < 4.5) failures.push(`--${domain}-ink on ${surface} = ${ratio.toFixed(2)}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('light: the semantic inks a chip draws clear 4.5:1 on the chip ground', () => {
+    // A chip's ink sits on `--raised`, not on the white panel, and six of
+    // these were 3.23:1 to 4.38:1 there before the ramp.
+    const failures: string[] = [];
+    for (const token of ['--stress', '--codex', '--valor', '--splendor', '--bone', '--sage']) {
+      const ratio = contrast(LIGHT_CHOSEN[token]!, LIGHT_CHOSEN['--raised']!);
+      if (ratio < 4.5) failures.push(`${token} on --raised = ${ratio.toFixed(2)}`);
     }
     expect(failures).toEqual([]);
   });
@@ -536,9 +649,12 @@ describe('form controls on a touch screen', () => {
   const base = readFileSync(join(DIR, 'base.css'), 'utf8');
   const html = readFileSync('index.html', 'utf8');
 
-  it('floors form-control text at 16px where the pointer is coarse', () => {
-    const rule = /@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?font-size:\s*max\(16px[^;]*\)\s*!important/;
+  it('floors form-control text at 16px wherever any pointer is coarse', () => {
+    // `any-pointer`, not `pointer`: an iPad in a keyboard case reports a fine
+    // primary pointer and still zooms when a finger focuses a field.
+    const rule = /@media\s*\(any-pointer:\s*coarse\)\s*\{[\s\S]*?font-size:\s*max\(16px[^;]*\)\s*!important/;
     expect(base).toMatch(rule);
+    expect(base).not.toMatch(/@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?font-size:\s*max\(16px/);
   });
 
   it('does not buy that by disabling pinch-zoom', () => {

@@ -69,8 +69,9 @@
  * safe meanwhile: two `minmax(0, 1fr)` columns at a 10px gap are 179.5 each at
  * 369 and 171.5 at the panel's 353, narrower again inside the open block. The
  * widest first cell in the shipped dataset is 42 characters at `.t-read`
- * (13px/1.45, about 6.3px a character) = 265px, which is two lines in any column
- * down to 133. That is one cell, not every cell: `GoldAndLoot`
+ * (13px/1.45 when this was estimated, about 6.3px a character; 16px/1.5 on a
+ * phone since the readability ramp, about 7.7) = 265px then and about 326 now,
+ * which is two lines in any column down to 133 (163 now). That is one cell, not every cell: `GoldAndLoot`
  * (`ReferenceTables.tsx`) measured this same grid in Chrome at 393 x 852 - the
  * Average Costs table, whose `Meals for a party of adventurers per night` is the
  * 42 above - and found only five of its twelve left cells on two lines, a
@@ -150,7 +151,7 @@ export function RuleTableView({ table }: { table: RuleTable }): React.JSX.Elemen
                   {columns[c]}
                 </span>
               )}
-              <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+              <span className="t-hint" style={{ color: 'var(--text-3)' }}>
                 {cell}
               </span>
             </div>

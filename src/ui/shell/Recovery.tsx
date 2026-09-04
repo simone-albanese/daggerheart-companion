@@ -88,7 +88,7 @@ export function Recovery(): React.JSX.Element {
           there — iOS keeps an installed app&rsquo;s data separate from the browser&rsquo;s, so it
           did not come across on its own.
         </p>
-        <p className="t-dense" style={{ marginTop: 10, color: 'var(--muted)' }}>
+        <p className="t-hint" style={{ marginTop: 10, color: 'var(--muted)' }}>
           In Safari: <strong style={{ color: 'var(--text-2)' }}>Menu → Characters → Copy all
           characters</strong>. Then come back here and tap Paste.
         </p>
@@ -107,7 +107,7 @@ export function Recovery(): React.JSX.Element {
       </div>
 
       {status !== null && (
-        <p className="t-dense" role="status" style={{ maxWidth: 440, textAlign: 'center' }}>
+        <p className="t-hint" role="status" style={{ maxWidth: 440, textAlign: 'center' }}>
           {status}
         </p>
       )}

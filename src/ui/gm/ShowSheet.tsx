@@ -429,7 +429,8 @@ export function ShowSheet({
                 style={{
                   minHeight: 44,
                   padding: '0 4px',
-                  // Half the label role's 0.16em, and the whole of what buys
+                  // Half the 0.16em the label role had when this was measured
+                  // (0.12em since the readability ramp), and the whole of what buys
                   // a third column: fifteen characters at 1.6px is 24 of the
                   // widest label's 114.00, and 16.33 of it had to go.
                   letterSpacing: '0.08em',

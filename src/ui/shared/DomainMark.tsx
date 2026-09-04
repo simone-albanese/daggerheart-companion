@@ -58,6 +58,18 @@ export const DOMAIN_MARKS: Record<DomainId, Mark> = {
 
 export const domainColor = (domain: DomainId): string => `var(--${domain})`;
 
+/**
+ * The same domain, as an ink for TEXT.
+ *
+ * A wash and a silhouette can be any lightness - they are shapes - but a word
+ * set in the domain colour has to clear 4.5:1 on the panel it sits on, and two
+ * of the ten do not on dark: Midnight at 4.40:1 and Dread, dark and cold by
+ * design, at 2.29:1. `tokens.css` lifts those two for text only and aliases the
+ * other eight to their own colour, so a call site that draws a word asks for
+ * this and a call site that draws a shape keeps `domainColor`.
+ */
+export const domainInk = (domain: DomainId): string => `var(--${domain}-ink)`;
+
 interface Props {
   domain: DomainId;
   size?: number;

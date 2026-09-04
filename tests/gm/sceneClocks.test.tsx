@@ -180,11 +180,11 @@ describe('the runner draws the open scene’s clocks, and only those', () => {
     expect(useGm.getState().countdowns.find((c) => c.id === 'c1')!.value).toBe(before);
   });
 
-  it('keeps the cost line the only dense paragraph in the tree', () => {
-    // Two tests elsewhere assert exactly one `p.t-dense` in the whole of
+  it('keeps the cost line the only hint paragraph in the tree', () => {
+    // Two tests elsewhere assert exactly one `p.t-hint` in the whole of
     // `Scene`, so the clock block must never use it.
     show([scene('s1', 'The dungeon', 0), clock('c1', 'The ritual', 1, 's1')], 's1', 'scene');
-    expect(container.querySelectorAll('p.t-dense')).toHaveLength(1);
+    expect(container.querySelectorAll('p.t-hint')).toHaveLength(1);
   });
 
   it('gives every control on the block a 44px floor in both axes', () => {

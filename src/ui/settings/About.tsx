@@ -221,7 +221,7 @@ export function About({
         className="panel"
         style={{ padding: 14, borderLeft: '3px solid var(--hope)' }}
       >
-        <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)', lineHeight: 1.6 }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--text-2)', lineHeight: 1.6 }}>
           {/*
             One paragraph, from the one array. This used to be a second literal
             declared in this file, and About.tsx is on the P4 work list - so the
@@ -254,7 +254,7 @@ export function About({
           hint="Quote this if something is wrong. The commit is the one thing that says exactly which bytes you are looking at — the app can keep serving an old bundle from its cache long after a new one has been published."
           footer={
             <code
-              className="t-dense"
+              className="t-hint"
               title={`build ${BUILD_ID}`}
               style={{
                 display: 'block',
@@ -395,7 +395,9 @@ export function About({
           - 393x852: the button (130.8x44, `min-height: var(--tap)`) fits
             *beside* the hint, which leaves the hint a 194px column. 137 -> 152
             characters takes it from four lines to five, so the row goes 112.6
-            -> 128.5px: **+15.87px, one `.t-dense` line at 11.5px/1.38**. The
+            -> 128.5px: **+15.87px, one `.t-hint` line at the 11.5px/1.38 the role
+            was when this was measured** (13px/1.4 since the readability ramp,
+            an 18.2px line by declaration; these rows are not re-measured). The
             button keeps its 44px and moves 7.9px down inside its own row.
           - 375x667: the button has *already* wrapped below the hint - 130.8 +
             14 + 180 = 324.8 does not fit in a 321px row - so the hint has the
@@ -460,8 +462,10 @@ export function About({
               here is 313px at 393x852 and 295px at 375x667 - the viewport less
               24 (scroller padding, Settings.tsx `12px 12px 28px`), less 2 (Rows
               border), less 28 (this div's `padding: 14`), less 24 and 2 (Note's
-              `10px 12px` and its 1px border). Type is `.t-dense` 11.5px with
-              Note overriding line-height to 1.5, so 17.25px a line.
+              `10px 12px` and its 1px border). Type was `.t-hint` at 11.5px when this
+              was measured, with Note overriding line-height to 1.5, so 17.25px
+              a line; the role is 13px since the readability ramp (19.5 a line
+              at 1.5), and the rows below are not re-measured.
 
               The sentence goes 160 -> 173 characters and the Note stays three
               lines and 73.8px at both phone widths, two lines and 55px at
@@ -593,7 +597,7 @@ function LicenceTexts(): React.JSX.Element {
             background: 'var(--panel)',
             border: '1px solid var(--line-soft)',
             color: 'var(--text-2)',
-            font: '400 11px/1.5 var(--mono)',
+            font: '400 0.8125rem/1.5 var(--mono)',
             whiteSpace: 'pre',
             tabSize: 4,
           }}
@@ -619,7 +623,7 @@ function Boundary({
       <div className="t-label" style={{ color: tint }}>
         {title}
       </div>
-      <ul className="t-dense" style={{ margin: '8px 0 0', padding: 0, listStyle: 'none' }}>
+      <ul className="t-hint" style={{ margin: '8px 0 0', padding: 0, listStyle: 'none' }}>
         {items.map((item) => (
           <li key={item} className="row" style={{ alignItems: 'flex-start', gap: 8, marginTop: 6 }}>
             <span

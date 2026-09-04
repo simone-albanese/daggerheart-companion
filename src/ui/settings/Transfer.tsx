@@ -258,7 +258,7 @@ function Sender({ character }: { character: Character }): React.JSX.Element {
               : `FRAME ${frame + 1} OF ${matrices.length} · ${FRAME_RATE} PER SECOND · LOOPS FOREVER`}
           </span>
           {!advice.preferFile && (
-            <p className="t-dense" style={{ margin: 0, maxWidth: '58ch' }}>
+            <p className="t-hint" style={{ margin: 0, maxWidth: '58ch' }}>
               {advice.message}
             </p>
           )}
