@@ -286,14 +286,14 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * `armed` puts its question ON the control - the label becomes MARK 2 HP? -
    * and it can, because that control is `flex: none` at the LEFT edge of a
    * `space-between` strip: its own left edge cannot move. The ✕ is at the right
-   * edge and this footer is a fixed-height band with no room for a second line,
-   * so a question written into the ✕ would widen it and slide it left between
-   * the two presses. The second press would land where the first one did and
-   * hit something else.
+   * edge, so a question written into the ✕ would widen it and slide it left
+   * between the two presses. The second press would land where the first one
+   * did and hit something else.
    *
    * So the ✕ never changes size. It changes colour, and the question is written
-   * in the readout to its left - the one place in this strip whose width is
-   * already free to move, because `space-between` pins the last child to the
+   * in the readout - to its left on a desk, under it on a phone, where the
+   * strip is two rows since the readability ramp - the one place in this strip
+   * whose width is already free to move, because `space-between` pins the last child to the
    * padding edge and absorbs every width change in the gaps before it. Measured
    * the other way round on the Play screen's own arming strip: 17px of extra
    * label there reflowed the two touch targets apart between the presses.
@@ -356,9 +356,9 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * What that is worth, as the card area visible without scrolling - the
    * scrollport less the block and the grid's 12px gap, against a tile 268px
    * tall on a phone and 310 on a tablet, which is what the tile was when this
-   * was measured (it is 286 and 320 since the readability ramp - see the note
+   * was measured (it is 308 and 320 since the readability ramp - see the note
    * by `height` on the card below - so the right-hand column overstates by
-   * about 5% and is not re-derived here):
+   * about 15% on a phone and 3% above, and is not re-derived here):
    *
    *   window     port   was ->  now    of a card
    *   320x568     438   148 ->  364    55% -> 136%
@@ -649,6 +649,94 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           const needsHp = swap !== null && swap.allowed && !swap.affordable;
           const primed = armed === row.card.id;
           const primedRelease = releasing === row.card.id;
+          // The three parts of an eligible card's footer, built once so the
+          // one-row strip and the phone's two-row one draw the same controls
+          // with the same labels.
+          const action = (
+            <CardAction
+              tone={primed ? 'warn' : row.inLoadout ? 'held' : 'go'}
+              onClick={() => acquire(row.card.id)}
+              label={
+                primed
+                  ? `Confirm: recall ${row.card.name} and mark ${String(swap?.hpCost ?? 0)} HP`
+                  : needsHp
+                    ? `Recall ${row.card.name} - no Stress left, so it would mark ${String(swap?.hpCost ?? 0)} HP`
+                    : row.inLoadout
+                      ? `Move ${row.card.name} to the vault`
+                      : row.owned
+                        ? `Recall ${row.card.name} for ${row.card.recallCost} Stress`
+                        : `Take ${row.card.name} into the vault`
+              }
+            >
+              {primed
+                ? `MARK ${String(swap?.hpCost ?? 0)} HP?`
+                : row.inLoadout
+                  ? 'IN LOADOUT'
+                  : row.owned
+                    ? 'RECALL'
+                    : 'TAKE'}
+            </CardAction>
+          );
+          const readout = (
+            <span
+              className="t-meta"
+              style={{
+                flex: 'none',
+                color: primedRelease
+                  ? 'var(--damage)'
+                  : needsHp
+                    ? 'var(--damage)'
+                    : 'var(--dim)',
+                textAlign: 'right',
+              }}
+            >
+              {primedRelease
+                ? 'PRESS ✕ AGAIN'
+                : needsHp
+                  ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS`
+                  : `COST ${row.card.recallCost}`}
+            </span>
+          );
+          /*
+           * The way back out, and the only control on this card that reduces
+           * what the character owns.
+           *
+           * Last child of a `space-between` strip on purpose: that pins it to
+           * the padding edge, so the readout beside it can change from "COST
+           * 2" to "PRESS ✕ AGAIN" without moving the target the second press
+           * has to hit. Its own width never changes - one glyph, both states -
+           * and the arming shows as colour plus that readout, which is text a
+           * screen reader gets through the label below rather than through a
+           * colour it cannot see. On a phone the strip is two rows and the
+           * readout is the second, so there the ✕ shares its row with the verb
+           * alone and the readout changes width under it, not beside it - the
+           * same edge, the same pin.
+           *
+           * `minWidth: var(--control)` on `CardAction`, and the strip's own
+           * floor is `max(34px, var(--control))` - both resolve to 34 on a
+           * mouse and to `--tap` (44) under `any-pointer: coarse` or at 1179px
+           * and below. So it is a 44 x 44 target wherever there is a finger,
+           * the same floor as the TEXT button on every card row in
+           * `LevelUp.tsx`, and it sits in the same band as the action it
+           * undoes rather than in a menu two taps away.
+           *
+           * Only for a card the character owns. On an unowned card there is
+           * nothing to give back, and a ✕ that does nothing beside a TAKE that
+           * does something is a control a player has to learn by pressing.
+           */
+          const cross = (
+            <CardAction
+              tone={primedRelease ? 'warn' : 'held'}
+              onClick={() => release(row.card.id)}
+              label={
+                primedRelease
+                  ? `Confirm: give ${row.card.name} back, so it is no longer yours`
+                  : `Give ${row.card.name} back - it stops being one of your cards`
+              }
+            >
+              <span aria-hidden="true">✕</span>
+            </CardAction>
+          );
           return (
             <DomainCardView
               key={row.card.id}
@@ -656,22 +744,34 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
               shapes={shapes}
               onOpen={() => setOpenCard(row.card)}
               /*
-               * 286 and 320, from 268 and 310, because the reading line grew
-               * with the readability ramp: `.t-read` is 16px/1.5 on a phone -
-               * a 24px line, from 18.85 at the old 13px/1.45 - and 15px/1.5
-               * from 720, a 22.5px line. The text box is what the tile has
-               * left after its borders, the head, the chip row, the name and
-               * the footer, and by declaration that was 81.25 of the phone's
-               * 268 and 109.95 of the desktop's 310 (the 110 the `--control`
-               * note in `tokens.css` measured), which held four and five whole
-               * lines at the old size and three and four at the new. Eighteen
-               * and ten more pixels give the box 99.25 and 119.95 - 115.25 on
-               * a tablet, whose footer is 44 and not 34 - and the same four
-               * and five lines back, with at least 2.75px spare in each.
-               * Derived from the declarations, not yet measured on the rig;
-               * the table in the docblock above is still against 268 and 310.
+               * 308 and 320, and the text box is what the tile has left after
+               * its borders, the head, the chip row, the name and the footer.
+               *
+               * Before the readability ramp the tile was 268 and 310 and the
+               * rules text was `.t-dense`, 11.5px/1.38 - a 15.87px line - so
+               * the box, 81.25 on a phone and 109.95 on a desk by declaration
+               * (the 110 the `--control` note in `tokens.css` measured), held
+               * five and six whole lines. `.t-read` is 16px/1.5 on a phone, a
+               * 24px line, and 15px/1.5 from 720, 22.5: the same boxes held
+               * three and four. The desk tile gained ten for five lines: the
+               * rig reads its box at 120.84 at 1280x800, 8.34 over the 112.5
+               * five lines need. A tablet's footer is the 44 floor and not 34,
+               * plus the hairline the floor no longer swallows, so its box is
+               * 114.25 at 768x1024 and holds the same five with 1.75 spare.
+               * (An earlier revision of this comment set the old line at
+               * 18.85 from a 13px/1.45 that was never this tile's role, and so
+               * said the old boxes held four and five.)
+               *
+               * The phone tile is 308 and not the 286 that gave 99.25 and
+               * four whole lines on its own, because the phone footer below is
+               * two rows since the readability ramp - 44 of controls, a 2px
+               * gap, a 15px readout and 4 under it, 66 with the hairline,
+               * against the 44 it was - and the 22 is paid here so the box
+               * keeps its 99.25 and its four lines: measured 99.25 at
+               * 393x852, 3.25 over the 96 four lines need. The table in the
+               * docblock above is still against 268 and 310.
                */
-              height={phone ? 286 : 320}
+              height={phone ? 308 : 320}
               headHeight={phone ? 78 : 96}
               dimmed={!row.eligible && !row.owned}
               footer={
@@ -695,89 +795,57 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
                   >
                     {row.reason}
                   </span>
+                ) : phone ? (
+                  /*
+                   * TWO ROWS ON A PHONE, since the readability ramp: the
+                   * controls on the first, the readout under them.
+                   *
+                   * The strip is one row everywhere else and was one row here
+                   * too, and a 178.5px tile at 393 - 154.5 inside the footer's
+                   * 11px of padding either side - never had the room for all
+                   * three of its parts even at the old sizes: on main, at the
+                   * 9.5px chip and the 10px readout, the rig reads the ✕
+                   * painted 24.28 of 44 on an IN LOADOUT tile. At `.chip`'s
+                   * 11px on a coarse pointer IN LOADOUT is 96.81 wide and the
+                   * ✕ is its 44, which with the 8px gap is 156.8 before the
+                   * readout is drawn at all - so the readout had 0 of the
+                   * 46.09 that COST 2 takes at `.t-meta`'s 12, and the ✕ was
+                   * painted 7.59. No arrangement of one row holds a ten-letter
+                   * verb, a price and a 44px target in 154.5 at sizes a
+                   * reader at 40cm can read, so the row is two.
+                   *
+                   * The ✕ keeps the right edge, in a `space-between` row with
+                   * the verb; the readout goes under it, right-aligned, so
+                   * PRESS ✕ AGAIN sits under the ✕ it names. Where even the
+                   * verb and the ✕ do not share a line - a root at 125% puts
+                   * IN LOADOUT at 115.5 and the pair at 167.5 - the row wraps
+                   * and the ✕ takes a line of its own at the same edge, with
+                   * `marginLeft: auto` on its wrapper, rather than losing 13px
+                   * of the one target on this card that gives a card away.
+                   *
+                   * What it costs: 44 of controls, a 2px gap, the readout's
+                   * 15px line and 4 under it, 66 with the footer's hairline
+                   * against the 44 the one-row strip is - 22 more, paid by the
+                   * tile's `height` above so the rules text keeps its four
+                   * whole lines.
+                   */
+                  <div className="stack" style={{ flex: 1, minWidth: 0, gap: 2, paddingBottom: 4 }}>
+                    <div
+                      className="spread"
+                      style={{ alignItems: 'center', flexWrap: 'wrap', minHeight: 'var(--control)' }}
+                    >
+                      {action}
+                      {row.owned && (
+                        <span style={{ display: 'flex', marginLeft: 'auto' }}>{cross}</span>
+                      )}
+                    </div>
+                    {readout}
+                  </div>
                 ) : (
                   <>
-                    <CardAction
-                      tone={primed ? 'warn' : row.inLoadout ? 'held' : 'go'}
-                      onClick={() => acquire(row.card.id)}
-                      label={
-                        primed
-                          ? `Confirm: recall ${row.card.name} and mark ${String(swap?.hpCost ?? 0)} HP`
-                          : needsHp
-                            ? `Recall ${row.card.name} - no Stress left, so it would mark ${String(swap?.hpCost ?? 0)} HP`
-                            : row.inLoadout
-                              ? `Move ${row.card.name} to the vault`
-                              : row.owned
-                                ? `Recall ${row.card.name} for ${row.card.recallCost} Stress`
-                                : `Take ${row.card.name} into the vault`
-                      }
-                    >
-                      {primed
-                        ? `MARK ${String(swap?.hpCost ?? 0)} HP?`
-                        : row.inLoadout
-                          ? 'IN LOADOUT'
-                          : row.owned
-                            ? 'RECALL'
-                            : 'TAKE'}
-                    </CardAction>
-                    <span
-                      className="t-meta"
-                      style={{
-                        flex: 'none',
-                        color: primedRelease
-                          ? 'var(--damage)'
-                          : needsHp
-                            ? 'var(--damage)'
-                            : 'var(--dim)',
-                        textAlign: 'right',
-                      }}
-                    >
-                      {primedRelease
-                        ? 'PRESS ✕ AGAIN'
-                        : needsHp
-                          ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS`
-                          : `COST ${row.card.recallCost}`}
-                    </span>
-                    {row.owned && (
-                      /*
-                       * The way back out, and the only control on this card
-                       * that reduces what the character owns.
-                       *
-                       * Last child of a `space-between` strip on purpose: that
-                       * pins it to the padding edge, so the readout beside it
-                       * can change from "COST 2" to "PRESS ✕ AGAIN" without
-                       * moving the target the second press has to hit. Its own
-                       * width never changes - one glyph, both states - and the
-                       * arming shows as colour plus that readout, which is
-                       * text a screen reader gets through the label below
-                       * rather than through a colour it cannot see.
-                       *
-                       * `minWidth: var(--control)` on `CardAction`, and the
-                       * strip's own height is `max(34px, var(--control))` -
-                       * both resolve to 34 on a mouse and to `--tap` (44)
-                       * under `any-pointer: coarse` or at 1179px and below. So it
-                       * is a 44 x 44 target wherever there is a finger,
-                       * the same floor as the TEXT button on every card row in
-                       * `LevelUp.tsx`, and it sits in the same band as the
-                       * action it undoes rather than in a menu two taps away.
-                       *
-                       * Only for a card the character owns. On an unowned card
-                       * there is nothing to give back, and a ✕ that does
-                       * nothing beside a TAKE that does something is a control
-                       * a player has to learn by pressing.
-                       */
-                      <CardAction
-                        tone={primedRelease ? 'warn' : 'held'}
-                        onClick={() => release(row.card.id)}
-                        label={
-                          primedRelease
-                            ? `Confirm: give ${row.card.name} back, so it is no longer yours`
-                            : `Give ${row.card.name} back - it stops being one of your cards`
-                        }
-                      >
-                        <span aria-hidden="true">✕</span>
-                      </CardAction>
-                    )}
+                    {action}
+                    {readout}
+                    {row.owned && cross}
                   </>
                 )
               }

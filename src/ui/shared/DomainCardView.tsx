@@ -90,7 +90,7 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
 }
 
 /**
- * The footer's height, shared so the overlay button can stop short of it.
+ * The footer's floor, shared so the overlay button can stop short of it.
  *
  * 34px on a mouse, and the touch floor wherever there is a finger. The footer
  * is where the card's one action lives - TAKE, RECALL, TO VAULT - and a 44px
@@ -99,6 +99,19 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
  * ordinary control here", and it resolves to 34 on a fine pointer and to
  * `--tap` at 1179px and below or under `pointer: coarse`, so the mouse layout
  * is unchanged to the pixel and every touchscreen gains ten.
+ *
+ * A FLOOR AND NOT A HEIGHT, since the readability ramp. The footer holds rem
+ * text - `.t-meta` readouts, `.chip` words - and a `height` would clip it at
+ * a root the OS has turned up: the cockpit's TO VAULT / COST pair is two
+ * 13.75px lines and a 3px gap, 30.5 inside 34 at the 16px root and 37.375
+ * at 125%, where the rig read COST 2 running past the tile's bottom edge
+ * with the `height` and flush with it on the floor. The Cards browser hands
+ * a phone tile a two-row footer for the same reason, in its own file.
+ * What a taller footer costs is the text box above it, which is `flex: 1`
+ * with `minHeight: 0` and gives the lines up first; the overlay button's
+ * `inset` still names this floor, and where the footer is taller the footer
+ * itself - positioned, `zIndex: 2` - is what a tap on the overlap hits, so
+ * the strip stays the one place on the card that does not open the reader.
  */
 const FOOTER_HEIGHT = 'max(34px, var(--control))';
 
@@ -523,10 +536,16 @@ export function DomainCardView({
           position: 'relative',
           zIndex: 2,
           flex: 'none',
-          height: FOOTER_HEIGHT,
+          minHeight: FOOTER_HEIGHT,
           // Lined up with whichever body sits above it.
           padding: reading ? '0 var(--s4)' : '0 11px',
           alignItems: 'center',
+          // A part that does not fit the row takes a second one rather than
+          // the tile's `overflow: hidden`: at a 125% root a 768 tablet's tile
+          // puts IN LOADOUT, COST 2 and the ✕ at 233.1 in 210.66, and the rig
+          // read the ✕ painted 33.55 of 44 before this. On one line it changes
+          // nothing - every call site's footer fits its row at the 16px root.
+          flexWrap: 'wrap',
           borderTop: '1px solid var(--line-soft)',
         }}
       >
