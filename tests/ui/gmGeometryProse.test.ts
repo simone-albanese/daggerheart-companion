@@ -1931,11 +1931,16 @@ const fieldGap = (): number =>
 const fieldBasis = (): number =>
   only(PARTS, /flex: '1 1 (\d+)px'/g, "the text block's flex basis");
 
-/** The `ch` cap on the hint - a declaration, and not a count of characters. */
+/**
+ * The `ch` cap on the hint - a declaration, and not a count of characters.
+ * Anchored on the hint's `id`, because the style block grew a third
+ * declaration (`overflowWrap`) with the readability ramp and is no longer
+ * one line.
+ */
 const hintCap = (): number =>
   only(
     PARTS,
-    /className="t-hint" style=\{\{ marginTop: \d+, maxWidth: '(\d+)ch' \}\}/g,
+    /id=\{hintId\}\s*className="t-hint"\s*style=\{\{\s*marginTop: \d+,\s*maxWidth: '(\d+)ch',/g,
     "the hint's `ch` cap",
   );
 
