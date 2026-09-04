@@ -1,5 +1,5 @@
 /**
- * The bestiary: 129 adversaries and 19 environments.
+ * The bestiary: 264 adversaries and 47 environments.
  *
  * This is the screen a GM reads *during* a scene, so the list scrolls inside
  * its own region and the stat block never moves out from under a finger. On a

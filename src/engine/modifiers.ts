@@ -527,7 +527,7 @@ const CLASS_MODS: Record<Ref, ClassRow[]> = {
 /**
  * On the sheet. Empty, and kept rather than deleted.
  *
- * Not one of the nine communities in `data/srd-1.0.json` moves a derived
+ * Not one of the fifteen communities in `data/srd-2.0.json` moves a derived
  * number - Orderborne rolls a d20 as its Hope Die, Wanderborne adds a pack -
  * so this register has no rows today. It exists because the COLLECTOR walks it,
  * and the collector's walk is what the auditor measures coverage against: a

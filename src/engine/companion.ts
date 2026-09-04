@@ -7,7 +7,7 @@
  * level-up options. The app holds the sheet; it does not play the animal.
  *
  * The sheet's own text no longer lives here. It used to, because the SRD prints
- * folio 18 as a *sheet* and the build parsed stat blocks; `parseRules` reaches
+ * folio 21 as a *sheet* and the build parsed stat blocks; `parseRules` reaches
  * that folio now, so the eight level-up options are read out of the dataset by
  * `companionUpgrades` in `src/ui/shared/srdReference.ts` and the constant that
  * held them is gone, as the note that stood here asked.

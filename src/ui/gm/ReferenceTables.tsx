@@ -38,9 +38,9 @@
  *
  * ## The provenance stamp sits on the table, never on the screen
  *
- * `SRD 1.0 · P.73` is drawn beside the table it belongs to and is read from
+ * `SRD 2.0 · P.95` is drawn beside the table it belongs to and is read from
  * that section's own `sourcePage`. The improvise topic composes two tables
- * thirty pages apart - adversaries on 73, environments on 102 - so a single
+ * sixty pages apart - adversaries on 95, environments on 159 - so a single
  * stamp at the top of the topic would print one page number over text that is
  * not on it. That is the licence version of the rule this app keeps everywhere
  * else: the screen does not get to claim something that is not so.
@@ -594,7 +594,7 @@ export function CountdownChart({ countdown }: { countdown: Countdown | null }): 
  * 0.3048 - and it is drawn in `--dim` on its own line, prefixed `≈`, with the
  * words COMPUTED BY THIS APP in the same element as the number, under a legend
  * that states the multiplication and the rounding in full. A metric figure
- * printed bare beside an `SRD 1.0 · P.40` stamp would be the app quoting itself
+ * printed bare beside an `SRD 2.0 · P.51` stamp would be the app quoting itself
  * as the book, which is the licence-shaped version of the rule this project
  * keeps everywhere else.
  *
@@ -918,8 +918,9 @@ function Chip({
  * The GM chapter: principles, practices, how a move is made, and the pitfalls.
  *
  * Five sections, five shut folds, each labelled with the SRD's own title and
- * summarised with its own page - because they are on four different pages and a
- * single stamp for the topic would print one of them over the other four.
+ * summarised with its own page - because they are on three different pages
+ * (85, 86 and 48) and a single stamp for the topic would print one of them
+ * over the others.
  *
  * Every section is drawn whole. These are lists of one-line instructions, and a
  * screen that showed three principles out of the seven `rules['gm-principles']`

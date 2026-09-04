@@ -7,7 +7,7 @@
  * countdown the GM already made.
  *
  * A rest is not only the character's. A Beastbound Ranger's companion clears
- * Stress alongside them - folio 18 - and until that was written here, a Ranger
+ * Stress alongside them - folio 22 - and until that was written here, a Ranger
  * who rested in this app came back with a companion still carrying every mark
  * they had taken.
  */
@@ -139,7 +139,7 @@ export const FEAR_DIE = 4;
  * The Fear a rest hands the GM, out of the rest that produced it.
  *
  * *"On a short rest, the GM gains 1d4 Fear. On a long rest, they gain Fear
- * equal to 1d4 + the number of PCs"* - `downtime`, p.41. The formula was one
+ * equal to 1d4 + the number of PCs"* - `downtime`, p.52. The formula was one
  * line inside `takeRest` while the player's rest screen was the only thing that
  * could produce it. The GM's side has a rest control now, and it cannot call
  * `takeRest`: that wants a `Character` and a `DerivedStats`, and the GM has

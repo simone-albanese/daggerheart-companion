@@ -138,9 +138,9 @@
  *
  * It said "Advances across downtime and between sessions." The trouble with it
  * was never that it was the app's own sentence instead of the book's - it was
- * that it described the wrong thing. `between sessions` occurs twice in all 69
- * shipped sections and both are in the Hope and Fear prose; it is nowhere in
- * the clocks. What the `countdowns` section says about this kind is that it
+ * that it described the wrong thing. `between sessions` occurs three times in
+ * all 82 shipped sections and all three are in the Hope and Fear prose
+ * (`hope-and-fear`, `using-fear`); it is nowhere in the clocks. What the `countdowns` section says about this kind is that it
  * advances after rests instead of action rolls. So the hint was handing the
  * clocks a property the book gives to another resource, on the screen whose
  * first paragraph is about not telling a GM something the app does not know.
@@ -213,7 +213,7 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
 
       {/* Directly under the pool it feeds, and above the clocks, because the
           one gesture a long rest offers is on a clock and the number it offers
-          first is Fear. Both halves of `downtime` p.41 are in this tool
+          first is Fear. Both halves of `downtime` p.52 are in this tool
           already; the rest is what connects them. */}
       <RestControl phone={phone} />
 

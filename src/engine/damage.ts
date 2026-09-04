@@ -19,7 +19,7 @@
  * Marking an Armor Slot moves the result down one rung, and can take a Minor
  * hit all the way to nothing. ONE slot, for one incoming damage - and
  * "incoming damage" is the SRD's own unit: "the total damage from a single
- * attack or source, before Armor Slots are marked" (Additional Rules, p42).
+ * attack or source, before Armor Slots are marked" (Additional Rules, p53).
  *
  * ## The cap is a parameter, and its default is one
  *
@@ -47,18 +47,21 @@
  * how many slots may be spent, and belong to a different parameter that this
  * engine does not model yet.
  *
- * ## Why nothing on screen may cite a rulebook for the cap
+ * ## Where the cap may be cited from, and where it could not be
  *
- * `data/srd-1.0.json` is the only rules text this app may quote, because it is
- * the only one the user can open inside the app - and it does not carry this
- * sentence. Its rules chapters never explain that marking an Armor Slot
- * reduces damage at all; they only presuppose it ("Direct damage is damage
- * that can't be reduced by marking Armor Slots"). The nearest thing to the cap
- * is Additional Rules' SPENDING RESOURCES, and it enumerates Hope and Stress,
- * not Armor Slots. The four cards above are strong internal evidence - a card
- * that grants "an additional Armor Slot" is meaningless unless the default is
- * one - but evidence is not a quotation. So: enforce the cap, and say what the
- * app does. Do not print a citation the reader cannot go and check.
+ * The shipped dataset is the only rules text this app may quote, because it is
+ * the only one the user can open inside the app. `data/srd-1.0.json` did not
+ * carry this sentence: its rules chapters never explained that marking an
+ * Armor Slot reduces damage at all, they only presupposed it ("Direct damage
+ * is damage that can't be reduced by marking Armor Slots"), and the nearest
+ * thing to the cap, Additional Rules' SPENDING RESOURCES, enumerates Hope and
+ * Stress. The four cards above were the evidence - a card that grants "an
+ * additional Armor Slot" is meaningless unless the default is one - and
+ * evidence is not a quotation, so no surface printed a citation. The shipped
+ * `data/srd-2.0.json` carries the sentence, in `armor` (p72): *"you can mark
+ * one Armor Slot to reduce the severity"*. A surface that wants to cite the
+ * cap now has a section to point at; one that does not still says what the
+ * app does, and nothing here quotes anything.
  *
  * ## What a surface must do with this
  *
@@ -325,7 +328,7 @@ export function markStress(
  * under DAMAGE THRESHOLDS, HIT POINTS, AND STRESS: "These systems function the
  * same way they do for PCs."
  *
- * So this is a reading of p.71 and not a quotation, exactly like the Massive
+ * So this is a reading of p.93 and not a quotation, exactly like the Massive
  * Damage argument above, and the owner took it the same way and for the same
  * reason on 2026-08-26 (`DECISIONI-2026-08-25.md` section 17): a table that
  * sees a rule applied to their own PCs and not to the monsters, with nothing on
@@ -401,7 +404,7 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  *
  * `prefs.massiveDamageRule` is off by default and a table turns it on
  * deliberately. Whether it also applies against an adversary is a reading, not
- * a quotation - the SRD says at p.71 that thresholds, HP and Stress "function
+ * a quotation - the SRD says at p.93 that thresholds, HP and Stress "function
  * the same way they do for PCs", and the Massive text itself sits in the PC
  * chapter - and the owner took it on 2026-08-25: yes, the same preference, on
  * both sides. So this takes the flag and never a default, because the failure

@@ -1,5 +1,5 @@
 /**
- * The card browser: 189 cards, and the only screen where scrolling is the
+ * The card browser: 210 cards, and the only screen where scrolling is the
  * point. So everything on it is inside one scroll, filters included: they are
  * the grid's first row and they scroll away with the cards they filter.
  *
@@ -99,7 +99,9 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * the nine - so the shipped build drew a tenth chip over a dataset with no
    * Dread card behind it. Measured in Chrome on the running app at 1440x900:
    * the readout goes `42 OF 189` -> `0 OF 189` and the grid becomes the single
-   * line "No cards match those filters." A filter whose only possible outcome
+   * line "No cards match those filters." (Those are SRD 1.0's figures, kept as
+   * the history of the rule; the shipped `data/srd-2.0.json` carries Dread and
+   * 210 cards, and the strip reads the chip list off it either way.) A filter whose only possible outcome
    * is the empty state is a control that lies about what is in the book.
    *
    * Intersected in `DOMAINS_FOR_DISPLAY`'s order rather than mapped from
@@ -257,7 +259,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
        *
        * These lines used to be written out here as well, and the copy had
        * drifted: it said "Free during downtime" for any recall that cost
-       * nothing, which for the 31 SRD cards whose Recall Cost is 0 meant the
+       * nothing, which for the 33 SRD cards whose Recall Cost is 0 meant the
        * log claiming a downtime in the middle of a scene. Two surfaces
        * disagreeing about what a tap costs is the thing this file's own header
        * is about, and the log line is part of the cost.
@@ -383,7 +385,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * with nothing on screen saying so, and 7 of 9 domains with it. Wrapped
    * inside the fold they are all on the glass. And the state is never silent:
    * the door reads FILTERS 2 with the count in bold, the readout beside it
-   * says how many of 189 survived, and CLEAR FILTERS is drawn the moment
+   * says how many of the 210 survived, and CLEAR FILTERS is drawn the moment
    * anything is set.
    */
   const searchField = (
@@ -391,7 +393,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
       type="search"
       value={query}
       onChange={(e) => setQuery(e.target.value)}
-      placeholder="Search 189 cards"
+      placeholder={`Search ${String(dataset.domainCards.length)} cards`}
       aria-label="Search cards"
       style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
     />
@@ -526,7 +528,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           is on a flex one. It sets the item's automatic minimum size to zero,
           so the auto row's base size is zero, and a row grows from its base
           size towards its growth limit only out of the grid's free space - of
-          which a grid of 189 cards in a 438px port has none. Measured in
+          which a grid of 210 cards in a 438px port has none. Measured in
           Chrome at 320x568 with `.stack` on this div: row 1 was **0px**, this
           element's own `getBoundingClientRect().height` was 0, and its 62px of
           controls were painted straight over the first card, which began at
@@ -782,7 +784,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           pinned one painting a panel and its own horizontal padding on top of
           that, whether or not anybody was reading it. ("~111px" stood here; it
           was the estimate, and it was short by the border it forgot to add.
-          `LicenceFooter.tsx` carries the measurement.) Here it is 189 cards
+          `LicenceFooter.tsx` carries the measurement.) Here it is 210 cards
           down, or one filter away.
 
           `gridColumn: '1 / -1'` because this scroll region is the card grid

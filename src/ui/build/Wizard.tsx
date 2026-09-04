@@ -122,7 +122,7 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * to `Choice`'s `body` under a `clamp` - three lines for the class, *two* for
  * the other two - which at `.t-dense`'s 11.5px/1.38 is a 15.87px line box, so
  * 48px of window for the class and 32px for the other two. Measured in Chrome
- * at 375x667 before the change: 95-158px hidden on each of the nine class
+ * at 375x667 before the change, on SRD 1.0's lists: 95-158px hidden on each of the nine class
  * cards, 111-285 on each of the eighteen ancestries, 158-253 on each of the
  * nine communities. The two longer lists were under the tighter clamp.
  *
@@ -876,7 +876,7 @@ function StepClass({
 
 /**
  * A screen of its own, because it used to be the bottom half of the class
- * screen: nine class cards and a block of feature text stood between the
+ * screen: the class cards (nine then) and a block of feature text stood between the
  * heading and the second of that screen's two required choices, which on a
  * phone put it about two screens below the words that promised it. A choice
  * nobody scrolls to is a choice nobody makes.

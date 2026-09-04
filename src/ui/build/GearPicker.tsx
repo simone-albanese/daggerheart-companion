@@ -1,7 +1,7 @@
 /**
- * Picking gear out of 204 weapons, 34 armors and 120 items.
+ * Picking gear out of 391 weapons, 85 armors and 240 items.
  *
- * The card browser already answered this question for 189 domain cards, so
+ * The card browser already answered this question for 210 domain cards, so
  * this is that screen again rather than a second idea of what a filter looks
  * like: a search box, segmented controls, chip rows where empty means "any", a
  * count of what survived, and a CLEAR FILTERS that only exists once something
@@ -332,7 +332,7 @@ function PickerDialog({
           // What `max-height` was buying - a panel that shrinks to a short
           // list - it was not delivering: a flex item with `flex-basis: 0` and
           // `grow: 1` still contributes its max-content to the container's
-          // intrinsic height, so filtering 204 weapons to 5 left the panel at
+          // intrinsic height, so filtering SRD 1.0's 204 weapons to 5 left the panel at
           // 832 of 830 and Done at y788-832 on both sides of this change,
           // measured. The behaviour could only differ once the whole list fits,
           // and there `100%` is the one to want anyway: Done keeps its y
@@ -968,7 +968,7 @@ function CountRow({
    *
    * Absent for loot and consumables, and absent by omission rather than by a
    * flag this row could get wrong: `ItemPicker` has no dice to pass in, because
-   * not one of the 60 loot entries or 60 consumables in `data/srd-1.0.json`
+   * not one of the 120 loot entries or 120 consumables in `data/srd-2.0.json`
    * carries a tier. See `randomGear.ts` for the counts.
    */
   random?: React.ReactNode;

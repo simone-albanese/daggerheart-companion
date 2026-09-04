@@ -228,8 +228,8 @@ export function makeCombatant(a: Adversary, index: number, partySize: number): S
      * only one left.
      *
      * `Array.isArray`, not `=== null`, and the gap between the two is a crash.
-     * Absent thresholds are real: counted in `data/srd-1.0.json`, 16 of the 129
-     * adversaries have none, and they are exactly its 16 Minions - all 20 Solos
+     * Absent thresholds are real: counted in `data/srd-2.0.json`, 28 of the 264
+     * adversaries have none, and they are exactly its 28 Minions - all 51 Solos
      * carry a tuple, which is the half `Adversary.thresholds` got wrong and
      * this comment copied forward before it was measured. But `null` is only
      * one of the two ways the field goes missing. An adversary that exists only

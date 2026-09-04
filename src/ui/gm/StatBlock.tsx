@@ -273,7 +273,7 @@ export function AdversaryBlock({
  * fields this band was missing - it just does not put them on the same side.
  *
  * IMPULSES is the sentence the place is *played* by. `using-environments`
- * (p.102) defines it as "the manner or mode with which the environment pushs
+ * (p.158) defines it as "the manner or mode with which the environment pushs
  * and pulls the people within them": nobody reads it out, and it is in force
  * during every sentence that is read out. So it is drawn shut, where a glance
  * reaches it without a tap.
@@ -372,7 +372,8 @@ export function AdversaryBlock({
  * conclusion does not turn on the 4.7px the sum clears the column by: the row
  * is 46 either way, and only the wrap itself is in doubt.
  *
- * Nor is the wrap new. The same arithmetic over all 19 environments puts the
+ * Nor is the wrap new. The same arithmetic over all 19 SRD 1.0 environments
+ * (not re-run over SRD 2.0's 47) puts the
  * four EXPLORATION bands at 350.30 shut - 25 characters of meta where these two
  * have 24 - so that row already wrapped for four of nineteen before SPECIAL was
  * written into it, and now wraps for six. Open, the chip reads HIDE and every
@@ -648,8 +649,8 @@ export function EnvironmentBlock({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
         {/*
-          Not "Event environments print no Difficulty" - four of the six in the
-          shipped book print one. The two that do not print `Difficulty:
+          Not "Event environments print no Difficulty" - ten of the thirteen in
+          the shipped book print one. The three that do not print `Difficulty:
           Special`, which `shared/parsers/environments.ts` stores as 0, so that
           is the word to draw. A dash said the field was missing.
         */}

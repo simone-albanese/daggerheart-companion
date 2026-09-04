@@ -465,7 +465,7 @@ export function CharacterSheet({
                  *
                  * `☑`/`☐` were the first version and depended on the print font
                  * carrying U+2610; dropping them was right. Dropping the box
-                 * with them was not: folio 18 says "mark it on your sheet", and
+                 * with them was not: folio 22 says "mark it on your sheet", and
                  * seven options printed as a bare name under a heading that
                  * counts marks is a list you cannot mark. `.dhc-tick` is this
                  * page's own checkbox - a border, which prints where a

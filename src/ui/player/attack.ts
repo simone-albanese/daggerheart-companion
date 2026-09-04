@@ -86,7 +86,7 @@ export type AttackSource =
       kind: 'companion';
       name: string;
       damage: DamageDice;
-      /** Their own, from the sheet: folio 18 asks the player to choose it. */
+      /** Their own, from the sheet: folio 21 asks the player to choose it. */
       damageType: 'phy' | 'mag';
     };
 
@@ -585,13 +585,13 @@ export const sourceName = (source: AttackSource): string =>
  * Unless stated otherwise, mundane weapons and unarmed attacks deal physical
  * damage, and spells deal magic damage."*
  *
- * A weapon carries its own answer and it is read rather than guessed: 70 of the
- * 204 shipped weapons are `mag`, so "weapon means physical" would be wrong more
- * than a third of the time. A spell is the sentence's other half and is magic.
+ * A weapon carries its own answer and it is read rather than guessed: 136 of the
+ * 391 shipped weapons are `mag` and four more are `phy/mag`, so "weapon means
+ * physical" would be wrong more than a third of the time. A spell is the sentence's other half and is magic.
  * A companion carries its own answer too, and that one used to be a guess. This
  * branch returned `phy` for every companion under a comment calling it the
  * SRD's default - true of an unarmed attack, and never true of this sheet,
- * where folio 18 asks the player outright to *"choose whether they deal
+ * where folio 21 asks the player outright to *"choose whether they deal
  * physical or magic damage"*. The sheet has the field now and it is read.
  *
  * The two that state nothing take the default and only one of them could have

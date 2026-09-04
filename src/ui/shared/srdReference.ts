@@ -10,10 +10,10 @@
  *
  * ## The rule this file exists to keep
  *
- * Every string these functions return came out of `data/srd-1.0.json` at
+ * Every string these functions return came out of `data/srd-2.0.json` at
  * runtime. Not one rules sentence, table heading, row name or column name is
  * typed into this repository. `Manuali/` is gitignored precisely because that
- * wording belongs to Darrington Press, and an app that stamps `SRD 1.0 · P.73`
+ * wording belongs to Darrington Press, and an app that stamps `SRD 2.0 · P.95`
  * over text it typed itself is claiming a provenance it does not have - which
  * is the same defect as a screen reporting a save that never reached the disk,
  * pointed at a licence instead of at a disk.
@@ -123,7 +123,7 @@ function benchmarkTable(rules: RulesSection[], id: string): BenchmarkTable {
 }
 
 /**
- * `rules['adversary-stat-block-benchmarks']`, p.73 - what to give an adversary
+ * `rules['adversary-stat-block-benchmarks']`, p.95 - what to give an adversary
  * you are inventing at the table, or re-tiering one you are not.
  */
 export function adversaryBenchmarks(rules: RulesSection[]): BenchmarkTable {
@@ -131,8 +131,8 @@ export function adversaryBenchmarks(rules: RulesSection[]): BenchmarkTable {
 }
 
 /**
- * `rules['adapting-environments']`, p.102. The same question for the room the
- * fight is in, and the SRD keeps it in a different chapter thirty pages away -
+ * `rules['adapting-environments']`, p.159. The same question for the room the
+ * fight is in, and the SRD keeps it in a different chapter sixty pages away -
  * which is exactly the kind of hand-search a reference screen is for.
  */
 export function environmentBenchmarks(rules: RulesSection[]): BenchmarkTable {
@@ -177,7 +177,7 @@ export interface FearGuidance {
 const NO_FEAR: FearGuidance = { title: '', parts: [], page: null };
 
 /**
- * `rules['using-fear']`, p.65 - the pool's own rules, what to spend it on, and
+ * `rules['using-fear']`, p.87 - the pool's own rules, what to spend it on, and
  * how much a scene is worth.
  *
  * The scene table is the reason this exists: the app has carried a Fear counter
@@ -276,7 +276,7 @@ const NO_COUNTDOWNS: CountdownGuidance = {
 };
 
 /**
- * `rules['countdowns']`, p.69, the five-row roll-result chart.
+ * `rules['countdowns']`, p.91, the five-row roll-result chart.
  *
  * Found as *the first block in the section that carries a table*, not by its
  * heading: `## DYNAMIC COUNTDOWN ADVANCEMENT` is the SRD's wording and typing
@@ -448,7 +448,7 @@ function rangeParts(text: string): RangePart[] {
 }
 
 /**
- * `rules['maps-range-and-movement']`, p.40 - what Close and Far actually mean,
+ * `rules['maps-range-and-movement']`, p.51 - what Close and Far actually mean,
  * on a map and off one.
  *
  * The section is returned whole and in the book's order, because it is one
@@ -501,7 +501,7 @@ export function feetRange(feet: [number, number]): string {
  * `rangeReference` returns the whole section for a screen that is reading it.
  * This is for a screen that is not: the player sheet prints a weapon's range as
  * a word and nothing on it ever said what the word means, so a table that had
- * not memorised p.40 had a reach it could not act on. One lookup, off the same
+ * not memorised p.51 had a reach it could not act on. One lookup, off the same
  * bullets `RangeReference` draws, so a rules layer that redefines Far moves
  * both at once.
  *
@@ -570,7 +570,7 @@ export interface DifficultyGuidance {
 const NO_DIFFICULTY: DifficultyGuidance = { title: '', lead: [], ladder: {}, page: null };
 
 /**
- * `rules['difficulty-benchmarks']`, p.66 - six tables of worked examples, one
+ * `rules['difficulty-benchmarks']`, p.88 - six tables of worked examples, one
  * per trait, at 5, 10, 15, 20, 25 and 30.
  *
  * ## No adjectives
@@ -647,8 +647,8 @@ export type BlockPart =
  * ends with a pipe - so a lead sentence run into the top of a table is prose by
  * the same rule, rather than a table that has quietly eaten a sentence.
  *
- * Measured against `data/srd-1.0.json`: all twelve table paragraphs and all
- * sixty-four bullet paragraphs in the shipped file are already pure, so
+ * Measured against `data/srd-2.0.json`: all twelve table paragraphs and all
+ * seventy-four bullet paragraphs in the shipped file are already pure, so
  * neither test costs the dataset a thing today. Both are here for the layer
  * that is not this file. (It read "seventy" while the dataset carried
  * seventy-five sections, and was right then; folios 12 and 18 added four more
@@ -736,13 +736,13 @@ export interface CompanionUpgrade {
 }
 
 /**
- * The eight level-up options for a companion, from folio 18.
+ * The eight level-up options for a companion, from folio 22.
  *
  * These were eight string literals in `src/engine/companion.ts` until the rules
  * stream reached the folio they are printed on. Licensed text typed into `src/`
- * is the thing this file exists to stop: the app stamps `SRD 1.0 · P.18` beside
+ * is the thing this file exists to stop: the app stamps `SRD 2.0 · P.22` beside
  * what it draws, and that stamp is only honest about text it read out of
- * `data/srd-1.0.json`. It also means a layer that rewrites the sheet is now
+ * `data/srd-2.0.json`. It also means a layer that rewrites the sheet is now
  * obeyed rather than ignored.
  *
  * BEASTBOUND'S EXPERT TRAINING AND ADVANCED TRAINING
@@ -786,9 +786,9 @@ export function companionUpgrades(rules: RulesSection[]): CompanionUpgrade[] {
  * The five sections of the SRD that tell a GM what to actually do, in the order
  * this app draws them.
  *
- * Principles and practices are the pair the book keeps together on p.63; then
- * the mechanism on p.64; then the shorter restatement from the combat chapter
- * on p.37, which is the one that adds the Fear Feature note and which had no
+ * Principles and practices are the pair the book keeps together on p.85; then
+ * the mechanism on p.86; then the shorter restatement from the combat chapter
+ * on p.48, which is the one that adds the Fear Feature note and which had no
  * home anywhere in this app; then the pitfalls, last, as the SRD has them.
  *
  * A section the dataset does not carry is skipped rather than drawn empty.
@@ -833,7 +833,7 @@ export interface ExperienceExamples {
 const NO_EXAMPLES: ExperienceExamples = { title: '', lead: null, items: [], page: null };
 
 /**
- * `rules['using-adversaries']`, p.71 - the eighteen Experiences the SRD offers
+ * `rules['using-adversaries']`, p.93 - the eighteen Experiences the SRD offers
  * a GM improvising an adversary.
  *
  * Found as **the first block in the section that is nothing but bare bullets**,
@@ -968,8 +968,8 @@ export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
  * returns them in is invisible until it is labelled.
  *
  * `heading` arrived with the multi-term matcher below, and it is not
- * decoration. This book keeps its own answers under `## ` subheads - **156 of
- * them, across 36 of its 69 sections** - and a matcher that reads a body line
+ * decoration. This book keeps its own answers under `## ` subheads - **179 of
+ * them, across 41 of its 82 sections** - and a matcher that reads a body line
  * together with its section's title lands on those subheads constantly, because
  * a subhead is where the SRD writes the words a GM half-remembers: it is the
  * subhead, not the section title, that says FALLING AND COLLISION DAMAGE. A subhead names a rule the way a title does, so it
@@ -1196,7 +1196,8 @@ export function wholeWordIn(low: string, term: string): boolean {
  *
  * ## There is no index, and that is a measurement rather than an opinion
  *
- * Measured on this machine against the shipped `data/srd-1.0.json`, on the Node
+ * Measured on this machine against the then-shipped `data/srd-1.0.json` (the
+ * figures below are that run's, not re-taken on SRD 2.0), on the Node
  * major `.nvmrc` names, 3000 iterations a query after 500 of warm-up, worst of
  * six queries: **0.244 ms** for the whole of what this function does, and the
  * worst of the six is now the query that matches nothing, because a query that

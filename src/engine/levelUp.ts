@@ -930,7 +930,7 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
      * IT IS NOT THE ONLY PLACE A CHARACTER GAINS A NEW ONE, and this comment
      * used to say it was. `ExperienceEditor` has an "Add an Experience" button
      * (`src/ui/build/parts.tsx`), reachable from Build and from the wizard, and
-     * folio 18's *"whenever"* covers that route too. Nothing there hands the
+     * folio 22's *"whenever"* covers that route too. Nothing there hands the
      * companion anything, so a hand-added Experience quietly leaves the animal
      * one behind. That is a real gap in the rule and not a decision; it is
      * written down here because the false sentence was hiding it.

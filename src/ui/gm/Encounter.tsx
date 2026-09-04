@@ -204,7 +204,7 @@ function AddButton({
           fontSize: 9.5,
           color: inRoster > 0 ? 'var(--hope)' : 'var(--dim)',
           // One line or nothing. Wrapped, it would push the picker row taller
-          // than the 46px cell for one adversary out of 129.
+          // than the 46px cell for one adversary out of 264.
           whiteSpace: 'nowrap',
         }}
       >
@@ -602,12 +602,13 @@ function Adjustments({
  * So the wrap tolerance for that one branch has not been measured, and the old
  * conclusion that it "cannot have got worse" is withdrawn rather than patched.
  * What bounds it is that 64 is not the longest line this function puts on the
- * glass: the longest environment name in the shipped dataset is `Burning Heart
- * of the Woods` at 26, which makes `OPENS IN BURNING HEART OF THE WOODS ·
- * CARRIED OVER, NOT PICKED HERE` 67 characters, and this commit does not
- * touch that branch. So the new line sits three inside an envelope the span
- * already carried. Both figures are `len()` over the literals and over
- * `max(e['name'] for e in data/srd-1.0.json environments)`; neither is a
+ * glass: the longest environment name in the shipped dataset is `Convergence,
+ * the City of Portals` at 32, which makes `OPENS IN CONVERGENCE, THE CITY OF
+ * PORTALS · CARRIED OVER, NOT PICKED HERE` 73 characters, and this commit does
+ * not touch that branch. So the new line sits nine inside an envelope the span
+ * already carried. (It was `Burning Heart of the Woods`, 26 and 67, on SRD
+ * 1.0's nineteen.) Both figures are `len()` over the literals and over
+ * `max(e['name'] for e in data/srd-2.0.json environments)`; neither is a
  * rendered width, and the day this span's wrap actually matters it wants a
  * measurement in Chrome rather than a longer arithmetic.
  */

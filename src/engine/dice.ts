@@ -99,7 +99,7 @@ export interface DualityInput {
    * characters can't aid you with Help an Ally... If you critically succeed on
    * a reaction roll, you don't clear a Stress or gain a Hope."
    *
-   * This is not a corner case. 38 of the 129 adversaries and 9 of the 19
+   * This is not a corner case. 97 of the 264 adversaries and 26 of the 47
    * environments call for one, and every non-leader roll in a Group Action
    * Roll is one - so a sheet that pays out on them hands the player several
    * Hope a session they never earned.

@@ -73,7 +73,7 @@ export const MAX_LEVEL = 10;
  *
  * The companion's Stress track takes the character's ceiling because it is a
  * Stress track and the engine has exactly one; the arithmetic agrees anyway -
- * three slots on the folio 18 sheet plus one Resilient per level-up from 2 to
+ * three slots on the folio 21 sheet plus one Resilient per level-up from 2 to
  * 10 is twelve.
  *
  * These are ceilings and never answers. Nothing here should be shown to a

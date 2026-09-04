@@ -381,8 +381,8 @@ const inProse = (text: string, search: string): boolean => text.toLowerCase().in
  *
  * A label is one word or two rather than a sentence, and a substring landing
  * inside one is almost never what was typed. Folded in as plain text, "hand"
- * would mean the entire armoury, because all 204 weapons print ONE-HANDED or
- * TWO-HANDED on their row; matched from word starts it still finds the sixteen
+ * would mean the entire armoury, because all 391 weapons print ONE-HANDED or
+ * TWO-HANDED on their row; matched from word starts it still finds the ten
  * weapons that say "hand" - the Hand Crossbows, the Hand Runes - and nothing
  * else. "far" still finds both Far and Very Far, because a space is a word
  * start.
@@ -673,8 +673,8 @@ export interface WeaponQuery {
 
 /**
  * The query a picker opens with. The slot being filled is pre-applied rather
- * than hidden: opening the off-hand picker on 204 weapons of which two thirds
- * cannot go there is a list you have to fight, and the chip that says so is
+ * than hidden: opening the off-hand picker on 391 weapons of which three in
+ * four cannot go there is a list you have to fight, and the chip that says so is
  * one tap from "Any".
  */
 export const weaponQuery = (slot: SlotChoice = 'all'): WeaponQuery => ({

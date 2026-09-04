@@ -3,7 +3,7 @@
  *
  * 100svh, CSS Grid, no document scroll. Play holds a fixed amount of content -
  * six traits, four tracks, five cards - so it fits by construction. The screens
- * where the content is unbounded (189 cards, 129 adversaries) scroll inside
+ * where the content is unbounded (210 cards, 264 adversaries) scroll inside
  * their own region, never the page.
  */
 

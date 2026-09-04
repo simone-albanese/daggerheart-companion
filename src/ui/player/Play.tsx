@@ -170,7 +170,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * The weapon is looked for in the character's own two hands and not in
    * `index.weapons`, and that is the difference between the sentence above
    * being true and it being a wish. `index.weapons` is the whole shipped
-   * catalogue - 204 weapons - so asking it about a ref answers "does this
+   * catalogue - 391 weapons - so asking it about a ref answers "does this
    * weapon exist", when the question here is "is this character holding it".
    * It answered yes for a Battleaxe taken off in Build and yes for a Battleaxe
    * belonging to a different sheet, and the offer stood at 2d10+3 either way.
@@ -556,12 +556,12 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * the hint under the trait grid, which a player reads while choosing a trait
  * rather than while asking what their character is. (It said "on every subclass
  * page", which the next paragraph contradicts and which the book contradicts
- * too: the heading is printed fourteen times against eighteen subclasses, and
- * the four without it run straight from the blurb into FOUNDATION FEATURES.)
+ * too: the heading is printed twenty times against twenty-six subclasses, and
+ * the six without it run straight from the blurb into FOUNDATION FEATURES.)
  *
- * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Four of the
- * eighteen shipped subclasses carry no Spellcast trait at all - both Guardian
- * subclasses and both Warrior ones - and for those characters the whole
+ * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Six of the
+ * twenty-six shipped subclasses carry no Spellcast trait at all - both Guardian
+ * subclasses, both Warrior ones and both Brawler ones - and for those characters the whole
  * Spellcast row is simply absent from `Equipped`. An absence explains nothing;
  * a line saying the class has none explains the absence.
  *
@@ -2237,14 +2237,14 @@ function Equipped({
  * Spellcast damage, which is the one attack the sheet cannot work out alone.
  *
  * *"Any time an effect says to deal damage using your Spellcast trait, you roll
- * a number of dice equal to your Spellcast trait."* 77 of the 189 shipped
- * domain cards mention Spellcast and 43 carry a dice formula, and not one of
- * them was rollable in this app.
+ * a number of dice equal to your Spellcast trait."* 87 of the 210 shipped
+ * domain cards mention Spellcast and 41 of those print a die (`d` and a size)
+ * in their text, and not one of them was rollable in this app.
  *
  * WHO SUPPLIES WHAT, which is the whole design of this panel. A `DomainCard`
- * carries free prose and nothing else - only three cards in the SRD say the
- * exact phrase "using your Spellcast trait", and only one of those pairs it
- * with a formula - so parsing a pool out of card text would mean the app
+ * carries free prose and nothing else - only six cards in the SRD say the
+ * exact phrase "using your Spellcast trait", and five of those print their own
+ * formula beside it - so parsing a pool out of card text would mean the app
  * silently rewriting a card that prints its own `2d8+4`. Nothing is parsed. The
  * app supplies the one number that is genuinely on the sheet, the die count,
  * and the player taps the die and types the modifier that are in their hand.

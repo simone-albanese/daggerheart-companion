@@ -3,13 +3,13 @@
  *
  * ## The measurement this file exists to answer
  *
- * `searchRules` searches `dataset.rules`: **69 sections** out of the **1438**
+ * `searchRules` searches `dataset.rules`: **82 sections** out of the **1451**
  * records the app ships. The other 1369 - every weapon, every domain card, every
  * adversary in the bestiary this same app draws - were not in any haystack.
  * Typing `Rally` got the honest silence the search draws for a word that is not
  * in the book, and `Rally` is the Bard's class feature, printed on the sheet of
  * anyone playing one. Typing `Acid Burrower` got the same silence, and it is an
- * adversary at p.75 of the same file, on the GM's own Bestiary screen two taps
+ * adversary at p.97 of the same file, on the GM's own Bestiary screen two taps
  * away. The silence was not a bug in the matcher: the matcher was never given
  * the words.
  *
@@ -30,7 +30,7 @@
  * ## The rule this file inherits from `srdReference.ts`
  *
  * Every string a record contributes to its own haystack came out of
- * `data/srd-1.0.json` at runtime. Not one of the book's sentences is typed
+ * `data/srd-2.0.json` at runtime. Not one of the book's sentences is typed
  * here. The `label` on a field is the app's word and never the book's - it is
  * the same kind of word `StatBlock.tsx` already prints as `IMPULSES · ` above
  * the SRD's own impulses - and **a label is never in the haystack**, so no
@@ -45,7 +45,7 @@
  * it has to *be* the book's, down to the case the JSON was written in;
  * capitalising it would put a string this repository composed inside a haystack
  * and inside a preview. That is what makes the invariant checkable in one
- * assertion - `srdIndex.test.ts` walks every line of all 1438 records and finds
+ * assertion - `srdIndex.test.ts` walks every line of all 1451 records and finds
  * each one verbatim among the dataset's own strings - and an invariant with an
  * exception list is an invariant that grows one more exception a year.
  *
@@ -403,8 +403,8 @@ const build = (
 });
 
 /**
- * Every record the app ships, flattened. **1438** in the shipped dataset - the
- * 69 rules sections and the 1369 the rules search cannot reach.
+ * Every record the app ships, flattened. **1451** in the shipped dataset - the
+ * 82 rules sections and the 1369 the rules search cannot reach.
  *
  * 849 and 780 on SRD 1.0. Both figures are pinned in `tests/ui/srdIndex.test.ts`
  * and moved with the switch; the six transformations and the sixteen martial

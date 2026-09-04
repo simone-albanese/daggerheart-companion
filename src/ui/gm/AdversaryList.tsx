@@ -1,5 +1,5 @@
 /**
- * One filtered list of 129 adversaries, used twice: as the bestiary's index and
+ * One filtered list of 264 adversaries, used twice: as the bestiary's index and
  * as the encounter builder's picker. The only difference between the two is
  * what sits on the right of a row, so that is the only thing the caller passes.
  *

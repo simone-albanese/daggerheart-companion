@@ -1277,7 +1277,7 @@ function CombatantCard({
         below for why it is still built.
 
         The argument used to be that the SRD alone did not fix what is in here:
-        the book ships motives and features on all 129 adversaries, so
+        the book ships motives and features on all 264 adversaries, so
         `MOTIVES & FEATURES` is what a GM sees, but a Core Rulebook layer could
         add an adversary the SRD does not have, and that one might carry only
         the one field. Every step of that is now gone. Nothing can import a
@@ -1395,8 +1395,8 @@ function CombatantCard({
             `tests/ui/gmGeometryProse.test.ts` keeps a guard over the files
             behind it.
 
-            The label plus the motives measures 37 characters at its shortest,
-            58 at the median and 92 at its longest over all 129 adversaries in
+            The label plus the motives measures 34 characters at its shortest,
+            63 at the median and 123 at its longest over all 264 adversaries in
             the book, every one of which carries motives. `.t-meta` is 10px IBM
             Plex Mono at 0.06em, which is a 0.6 advance plus the tracking -
             ~6.6px a character, the figure `GearPicker.tsx` derives and

@@ -5,7 +5,7 @@
  *
  * Nothing here reorders or renames anything. A section belongs to one or more
  * moments and stays exactly where the SRD put it: this is a second way to
- * arrive at the same sixty-nine sections, drawn through the same row and the
+ * arrive at the same eighty-two sections, drawn through the same row and the
  * same `BlockView` the search already uses.
  *
  * ## Why it is a table here and not a field on the dataset
@@ -15,7 +15,7 @@
  * evidence rather than by taste:
  *
  * - **On `RulesSection`.** `shared/parsers/rules.ts` emits exactly four keys
- *   from the PDF, so the field would be `undefined` on all sixty-nine the
+ *   from the PDF, so the field would be `undefined` on all eighty-two the
  *   first time anybody regenerated the dataset, and `build:srd`'s byte-for-byte
  *   re-derivation would then demand a value no parser can produce.
  * - **`data/moments.json`.** That directory holds generated files behind a CI
@@ -42,14 +42,14 @@
  * and a bundle is not where an argument belongs.
  *
  * The shape of the answer, which is why this is a list and not a field:
- * **94 memberships over 61 sections** - 30 sections with one moment, 29 with
- * two, 2 with three - and **8 with none**. `AskEntry.moment` is singular
+ * **97 memberships over 64 sections** - 33 sections with one moment, 29 with
+ * two, 2 with three - and **18 with none**, the SRD 2 additions among them. `AskEntry.moment` is singular
  * because a question is asked at one moment; a section is read at several.
  */
 import type { Ref, RulesSection } from '../../../shared/types.ts';
 import type { Moment } from './ask.ts';
 
-/** The 61 sections that belong somewhere, and where. */
+/** The 64 sections that belong somewhere, and where. */
 export const SECTION_MOMENTS: Readonly<Record<Ref, readonly Moment[]>> = {
   'the-basics': ['the-dice-landed'],
   'the-golden-rule': ['before-the-roll', 'between-scenes'],

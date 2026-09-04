@@ -2079,7 +2079,7 @@ export function DualityRoll({
          * The modifier row, which is not drawn when it has nothing to say.
          *
          * Giorgio asked twice for this row to be removed. P5-1 refused with an
-         * argument that still holds - 38 adversaries and 9 environments call
+         * argument that still holds - 97 adversaries and 26 environments call
          * for a reaction roll, the SRD makes you declare every modifier before
          * the dice, and an app you cannot roll with advantage in is wrong at
          * the table - and then shipped the wrong answer to it: a permanent
@@ -3314,7 +3314,7 @@ function ControlRow({
     */
     <div className="row" style={{ minWidth: 0, gap: 6, flexWrap: 'wrap' }}>
       {/* A reaction roll resolves the same way and pays nothing: no Hope, no
-          Fear, and no cleared Stress on a critical. 38 adversaries and 9
+          Fear, and no cleared Stress on a critical. 97 adversaries and 26
           environments call for one, so this is a switch, not a footnote, and
           it leads the row because on a phone it is also the only thing
           saying which kind of roll this is. It still takes Experiences - the
