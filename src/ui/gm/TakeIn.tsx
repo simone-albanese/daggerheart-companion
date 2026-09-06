@@ -324,7 +324,7 @@ function warnings(lines: readonly string[]): React.JSX.Element | null {
            * printed at the GM instead.
            */
           key={`${String(at)} ${line}`}
-          className="t-dense"
+          className="t-hint"
           style={{ margin: 0, color: 'var(--stress)', maxWidth: '62ch' }}
         >
           {line}
@@ -493,7 +493,7 @@ export function TakeIn(): React.JSX.Element {
       <span className="t-label">A COPY, BACK IN</span>
 
       {preview === null && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           {RESTING}
         </p>
       )}
@@ -522,12 +522,12 @@ export function TakeIn(): React.JSX.Element {
                 same table, or an unrelated one that started life on an upgraded device — only you
                 can tell.
               </p>
-              <p className="t-dense" style={{ margin: 0, maxWidth: '62ch' }}>
+              <p className="t-hint" style={{ margin: 0, maxWidth: '62ch' }}>
                 <strong>ARRIVING</strong> — &quot;
                 {spokenName(preview.incoming.name, CAMPAIGN_NAMES)}&quot;, {when(preview.exportedAt)}{' '}
                 · {tallied(preview.counts)}
               </p>
-              <p className="t-dense" style={{ margin: 0, maxWidth: '62ch' }}>
+              <p className="t-hint" style={{ margin: 0, maxWidth: '62ch' }}>
                 <strong>ALREADY HERE</strong> — &quot;{spokenName(local.name, CAMPAIGN_NAMES)}&quot;,
                 last written {describeAge(local.updatedAt)} ·{' '}
                 {tallied({
@@ -566,7 +566,7 @@ export function TakeIn(): React.JSX.Element {
       )}
 
       {blocked !== null && preview === null && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           {blocked}
         </p>
       )}

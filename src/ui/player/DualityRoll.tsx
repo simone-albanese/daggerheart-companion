@@ -339,7 +339,7 @@ function DieKeypad({
               borderRadius: 'var(--r1)',
               background: n === value ? color : 'var(--raised)',
               color: n === value ? 'var(--app)' : 'var(--text)',
-              font: '600 12px/1 var(--mono)',
+              font: '600 0.75rem/1 var(--mono)',
             }}
           >
             {n}
@@ -766,7 +766,7 @@ function ExtraKeypad({
             borderRadius: 'var(--r1)',
             background: n === die.value ? die.color : 'var(--raised)',
             color: n === die.value ? 'var(--app)' : 'var(--text)',
-            font: '600 12px/1 var(--mono)',
+            font: '600 0.75rem/1 var(--mono)',
           }}
         >
           {n}
@@ -1777,10 +1777,12 @@ export function DualityRoll({
    *
    * THIS LINE IS 12px NOW, AND THE ARITHMETIC MOVED WITH IT. It is the entire
    * statement of what the next roll will be and it was the smallest type on the
-   * sheet, so the reflow raises it - `12px/15px` at the declaration below, the
-   * size and the leading together, because `.t-meta` is `500 10px/1` and a size
-   * raised without its leading clips its own ink. At 0.06em that is about 7.9px
-   * a character, so **30 characters to a line** at 393px and 28 at 375px, where
+   * sheet, so the reflow raised it - `0.75rem/1.25` at the declaration below,
+   * 12px/15px at the root, the size and the leading together, because `.t-meta`
+   * was `500 10px/1` and a size raised without its leading clipped its own ink.
+   * At the 0.06em it had then that is about 7.9px a character (0.04em since the
+   * readability ramp, 7.68 by the same arithmetic; the counts here are not
+   * re-derived), so **30 characters to a line** at 393px and 28 at 375px, where
    * 10px gave 36 and 34.
    *
    * The ordinary armed-and-resolved state, typed dice off, is what this
@@ -2182,18 +2184,26 @@ export function DualityRoll({
                 className="t-meta"
                 style={{
                   marginTop: 4,
-                  // 12 and not `.t-meta`'s 10, with the leading declared beside
-                  // it: this is the whole statement of what the next roll will
-                  // be and it was the smallest type on the sheet. `.t-meta` is
-                  // `500 10px/1`, so raising the size alone leaves a 12px glyph
-                  // in a 10px line box and clips its own ink; `15px` is the
-                  // leading that holds it, and it is what makes two lines 30
-                  // rather than 20. Size and leading only - the family, the
-                  // weight and the 0.06em tracking stay the class's.
-                  fontSize: 12,
-                  lineHeight: '15px',
+                  // 0.75rem and 1.25, declared beside each other: this is the
+                  // whole statement of what the next roll will be, and it was
+                  // the smallest type on the sheet when `.t-meta` was `500
+                  // 10px/1` - a 12px glyph in a 10px line box clips its own
+                  // ink, so the leading was declared with the size, `15px`,
+                  // and two lines were 30 rather than 20, which is where
+                  // ROLL's 56 floor comes from. Since the readability ramp
+                  // `.t-meta` is 12px/1.25 itself wherever a finger is in play
+                  // and 11px on a fine-pointer desk; this line keeps the 12 on
+                  // the desk too, and 1.25 of 12 is the same 15. Size and
+                  // leading only - the family, the weight and the tracking
+                  // stay the class's.
+                  fontSize: '0.75rem',
+                  lineHeight: 1.25,
+                  // A real ink and no opacity fade: at 0.75 this line was one
+                  // of the roll readout's AA failures on the audit rig. The
+                  // verdict colour clears 4.5:1 on the panel in every state -
+                  // `--dim` idle, `--hope`, `--fear`, `--text` - and the
+                  // subordination comes from size and weight, not from fading.
                   color: verdictColor(result),
-                  opacity: 0.75,
                 }}
               >
                 {rollLine}
@@ -2557,7 +2567,7 @@ export function DualityRoll({
               : 'READY'
             : OUTCOME_LABEL[result.outcome].toUpperCase()}
         </span>
-        <span className="t-meta" style={{ color: verdictColor(result), opacity: 0.8 }}>
+        <span className="t-meta" style={{ color: verdictColor(result) }}>
           {/* `stillToType` first here for the reason it is first on the phone
               bar: one instruction line on this screen, and whichever readout a
               layout has, it shows that one. The desktop strip keeping its own
@@ -2591,7 +2601,7 @@ export function DualityRoll({
         <span style={{ font: '900 19px/1 var(--sans)', letterSpacing: '0.06em' }}>
           {idleLabel}
         </span>
-        <span className="t-num" style={{ color: 'var(--app)', opacity: 0.55 }}>
+        <span className="t-num" style={{ color: 'var(--app)' }}>
           2d12 {modSign}
           {armSummary === '' ? '' : ` · ${armSummary}`}
         </span>
@@ -2692,22 +2702,31 @@ function ExperienceChip({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 5,
-        maxWidth: basis === undefined ? 124 : undefined,
+        /*
+         * 8rem, not a px width: 128 at the 16px root, and it grows with the
+         * same OS text setting the name inside it follows. The number comes
+         * from the three-line clamp below - see "8rem AND NOT 124px" there.
+         */
+        maxWidth: basis === undefined ? '8rem' : undefined,
         minWidth: 0,
         minHeight: 'var(--tap)',
         paddingTop: 4,
         paddingBottom: 4,
         /*
-         * Larger than `.chip`'s 9.5px, because this is not a shelf label being
-         * scanned past: it is a phrase the player wrote, read across a table
-         * in a dim room at the moment they decide to spend a Hope on it. The
-         * row is 44px for the touch floor rather than for the text, so at one
-         * or two lines the bigger type costs no height at all - 13.225px of
-         * line-height twice over, plus 4 + 4 of padding, is 34.45 inside a 44.
-         * At three it costs 3.7, and the clamp below argues why that is the
-         * right trade.
+         * Larger than `.chip`'s own size, because this is not a shelf label
+         * being scanned past: it is a phrase the player wrote, read across a
+         * table in a dim room at the moment they decide to spend a Hope on it.
+         * 0.75rem is `.chip-name`'s size - 12px at the default root, and it
+         * scales with the OS text setting - declared here in the shorthand
+         * because the leading has to come with it. The row is 44px for the
+         * touch floor rather than for the text, so at one or two lines the
+         * bigger type costs no height at all - 13.8px of line-height twice
+         * over, plus 4 + 4 of padding and the 1 + 1 of border, is 37.6 inside
+         * a 44. At three it costs 7.4, and the clamp below argues why that is
+         * the right trade. (At the 11.5px this chip was before the readability
+         * ramp the same sum was 36.45 and 49.675, measured 49.7 in Chrome.)
          */
-        font: '600 11.5px/1.15 var(--mono)',
+        font: '600 0.75rem/1.15 var(--mono)',
         background: armed ? 'var(--hope-wash)' : 'var(--raised)',
         border: `1px solid ${armed ? 'var(--hope)' : 'transparent'}`,
         // The border and the filled pip carry the Hope; the name stays at full
@@ -2730,20 +2749,24 @@ function ExperienceChip({
        * went on hiding a whole line. `line-height: 1.15` on `11.5px` is
        * 13.225px, so two lines clip at 26.45 and three want 39.675 - the 14px
        * of hidden text the audit measured, in Chrome, twice: on the cockpit
-       * chip at its 124px `maxWidth` (span 77.8 wide, clientHeight 26,
-       * scrollHeight 40) for "SILVER-TONGUED DIPLOMAT", "Read every book in
+       * chip at the 124px `maxWidth` it had then (span 77.8 wide, clientHeight
+       * 26, scrollHeight 40) for "SILVER-TONGUED DIPLOMAT", "Read every book in
        * the tower" and "Talked my way past a magistrate" alike, and on the
        * phone at 375x1000 for a character with five Experiences, where
        * `ExperienceRow` goes two across and the chip is 172.5 with a 126.3px
        * span. The crossing on the phone is exactly 381px of viewport.
        *
-       * WHAT THREE COSTS: 5.7px, ONCE PER WRAPPED ROW THAT HOLDS ONE. 39.675 of
-       * text, plus this chip's own 4 + 4 of padding, plus the 1 + 1 of the
-       * border it declares two properties above - always 1px, `transparent`
-       * when unarmed but laid out either way - is 49.675 against a
-       * `minHeight: var(--tap)` of 44, with `box-sizing: border-box` set
+       * WHAT THREE COSTS: 5.7px, ONCE PER WRAPPED ROW THAT HOLDS ONE. (These
+       * are the 11.5px sums, kept because they are what was measured when the
+       * clamp went in; at the 0.75rem the chip is now the font comment above
+       * gives 37.6 and 51.4 by the same declarations, and the rig reads 51.39
+       * on the two long names at 1280x800 and 44 on the three short ones.)
+       * 39.675 of text, plus this chip's own 4 + 4 of padding, plus the 1 + 1
+       * of the border it declares two properties above - always 1px,
+       * `transparent` when unarmed but laid out either way - is 49.675 against
+       * a `minHeight: var(--tap)` of 44, with `box-sizing: border-box` set
        * globally by base.css. Measured 49.7 in Chrome on the cockpit chip at
-       * its 124px `maxWidth`. So a chip that needs the third line goes 44 ->
+       * the 124px `maxWidth` it had then. So a chip that needs the third line goes 44 ->
        * 49.7 and one that does not is unchanged at 44 - two lines are 26.45 + 8
        * + 2 = 36.45, comfortably inside the floor. An earlier revision of this
        * paragraph left the border out and said 47.675 and +3.7.
@@ -2762,11 +2785,14 @@ function ExperienceChip({
        * 172.5px chip - one line of code covers both surfaces and one of the two
        * fixes only covers one of them. And it costs the cockpit far more than
        * this does: the shelf is 402px wide, so at 168 it packs two chips to a
-       * row where 124 packs three. Packed the way `ControlRow`'s docblock packs
-       * them, five 168px chips take four rows - 44 + 44 + 44 + 34 and three 6px
-       * gaps, 184 - against the measured 155.3 the 124px chips take. That is
-       * +28.7 for the wider chip against +11.3 for the third line, on the same
-       * shelf, for the same five names. Its stated premise, that the roll panel
+       * row where 124 - and the 128 the chip is since the readability ramp -
+       * packs three. Packed the way `ControlRow`'s docblock packs them, five
+       * 168px chips take four rows - 44 + 44 + 44 + 34 and three 6px gaps, 184
+       * at the least - against the measured 155.3 the 124px chips took at
+       * 11.5px and the 158.8 the 128px chips take at 12. That was +28.7 for
+       * the wider chip against +11.3 for the third line, on the same shelf,
+       * for the same five names, and it is at least +25.2 against +14.8 now.
+       * Its stated premise, that the roll panel
        * is `overflow: hidden` and has no
        * spare height, was true when it was written and is no longer; the
        * arithmetic would have decided it either way.
@@ -2774,7 +2800,7 @@ function ExperienceChip({
        * ERGONOMICS. TARGET SIZE moves the right way and only the right way:
        * 44 -> 49.7 on the chips that need the third line, above this project's
        * 44px coarse floor and its 34px fine one in both states, with the width
-       * untouched at 172.5 on a two-across phone and at most 124 on the
+       * untouched at 172.5 on a two-across phone and at most 128 (8rem) on the
        * cockpit - width was never the charge here. THUMB ARC is the question of
        * whether 5.7px moves a neighbour under a thumb that was aiming at this
        * chip, and it does not: `ExperienceRow` gaps its rows by 6, so a row
@@ -2793,6 +2819,19 @@ function ExperienceChip({
        * characters of "Talked my way past a magistrate", and past it the full
        * name is still spelled out on the ROLL bar the moment the chip is armed,
        * which is `armSummary`'s whole job.
+       *
+       * 8rem AND NOT 124px, SINCE THE READABILITY RAMP. At `.chip-name`'s
+       * 12px the two long names above need a fourth line inside 124, and the
+       * clamp hid it: the rig at 1280x800 reads scrollHeight 55 against a
+       * clientHeight of 41 at 124 and at 126, and 42 against 41 from 128 up -
+       * three lines of 13.8, with the 1 the rounding of 41.39 costs. 128 is
+       * 8rem at the 16px root, and it is the widest chip that still packs
+       * three to the 402px shelf: 3 x 130 + 12 is the cap. Under a 125% root
+       * the same 8rem is 160, which packs two to a row and clears the 150 the
+       * probe needs for three lines at 15px, where 124 held two lines and hid
+       * two (87 against 52). A px width would have held the box still while
+       * the word inside it grew, which is the one arrangement the clamp cannot
+       * survive.
        */}
       <span
         style={{
@@ -3037,8 +3076,8 @@ function HeldDieChip({
  * macOS draws overlay bars and the rig hides them, so 402 is what is measured.
  * What it holds
  * reconstructs too, at the five Experiences an SRD character carries from
- * level 8: REACTION 62.2, DIS/—/ADV at 34 each, five chips at their 124px
- * `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4, and twelve 6px gaps -
+ * level 8: REACTION 62.2, DIS/—/ADV at 34 each, five chips at the 124px
+ * `maxWidth` they had then, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4, and twelve 6px gaps -
  * 1058.4, against 1058 measured in Chrome. It is byte-identical at 1180,
  * 1280, 1440 and 2560, because the track never widens: a bigger monitor
  * bought nothing at all.
@@ -3112,8 +3151,9 @@ function HeldDieChip({
  * profile (`pointer: fine` with `any-pointer: coarse`) at 1280x800 and
  * 1440x900: `--control` 34px, `--pip-h` 44px. tokens.css:129-132 says so in as
  * many words. So the shelf is REACTION 62.2x34, DIS/—/ADV 34x34, `+ DIE`
- * 45.4x34, DIFF 88.4x34, SPELLCAST 68.4x34, and the Experience chips 124x44 or
- * 124x49.7 - clear of this project's 34px fine floor and, for the chips, of its
+ * 45.4x34, DIFF 88.4x34, SPELLCAST 68.4x34, and the Experience chips 128x44 or
+ * 128x51.4 (8rem wide at the 16px root; they were 124x44 and 124x49.7 before
+ * the readability ramp) - clear of this project's 34px fine floor and, for the chips, of its
  * 44px coarse one, but 10px under that coarse floor for a finger on a
  * touchscreen laptop. That is a live defect of `--control`'s query and not of
  * this row; it is written up in the lane's doc-deltas file, and the reason
@@ -3323,7 +3363,7 @@ function ControlRow({
             minHeight: 'var(--control)',
             padding: '4px 6px',
             textAlign: 'center',
-            font: '600 13px/1 var(--mono)',
+            font: '600 0.8125rem/1 var(--mono)',
           }}
         />
       </label>

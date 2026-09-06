@@ -180,7 +180,7 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
               />
             ))}
         {(tab === 'adversaries' ? shownAdversaries : shownEnvironments).length === 0 && (
-          <li className="t-dense" style={{ color: 'var(--dim)', padding: '10px 2px' }}>
+          <li className="t-hint" style={{ color: 'var(--dim)', padding: '10px 2px' }}>
             Nothing matches that filter.
           </li>
         )}
@@ -248,15 +248,16 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
               right-aligned so it still reads as attached to the button it
               qualifies, in the detail's own full-width column where its length
               costs nothing at all. It is read and never touched, so nothing
-              here changes a target or a thumb's reach; the only price is 27px
+              here changes a target or a thumb's reach; the only price is 30px
               of vertical space in a column that already scrolls, and only on
               the evenings the two numbers disagree. That figure is arithmetic,
-              not a measurement: `tokens.css` declares `.t-meta` as
-              `font: 500 10px/1 var(--mono)`, but the element this comment
-              stands over steps it to `lineHeight: 1.5`, so the line box is 15,
-              and the enclosing `.stack` - the detail column this block opens,
+              not a measurement: `.t-meta` is 12px on a phone since the
+              readability ramp (`500 10px/1` when this was summed, and 27 then),
+              and the element this comment stands over steps its leading to
+              `lineHeight: 1.5`, so the line box is 18, and the enclosing
+              `.stack` - the detail column this block opens,
               `<div className="stack" style={{ gap: 12 }}>` - charges that gap
-              once to a new flex item. 15 + 12.
+              once to a new flex item. 18 + 12.
 
               Still only under a Minion. The rule in `partySize.ts` is that the
               two numbers are said where the preference is *used*, and beside

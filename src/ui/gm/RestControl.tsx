@@ -200,7 +200,7 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
       </div>
 
       {kind === null ? (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           Nothing here notices a rest by itself. When the table takes one, say which, and the
           Fear it owes you is worked out from the book rather than from memory.
         </p>
@@ -219,7 +219,7 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
               <span className="t-label" style={{ color: 'var(--damage)' }}>
                 {affordance.label}
               </span>
-              <p className="t-dense" style={{ margin: 0, maxWidth: '62ch' }}>
+              <p className="t-hint" style={{ margin: 0, maxWidth: '62ch' }}>
                 This rest owes you a Fear die, and this device has been told not to roll one and
                 not to take one.
               </p>
@@ -272,7 +272,7 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
                 +{gain} FEAR{kind === 'long' ? ` · 1D${FEAR_DIE} + ${partySize} PCS` : ''}
               </span>
               {applied < gain && (
-                <span className="t-dense" style={{ color: 'var(--stress)' }}>
+                <span className="t-hint" style={{ color: 'var(--stress)' }}>
                   The pool stops at {MAX_FEAR}, so {applied} of those {gain} will land.
                 </span>
               )}
@@ -297,7 +297,7 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
             <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--line-soft)', paddingTop: 10 }}>
               <span className="t-meta">ADVANCE ONE LONG-TERM COUNTDOWN</span>
               {longTerm.length === 0 ? (
-                <span className="t-dense" style={{ color: 'var(--muted)' }}>
+                <span className="t-hint" style={{ color: 'var(--muted)' }}>
                   No long-term countdowns are running. A rest is the moment to start one.
                 </span>
               ) : (

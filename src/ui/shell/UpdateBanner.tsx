@@ -38,9 +38,12 @@
  *
  * It is **432.78px** of natural width against a span that gets `viewport −
  * 171.6` (40 of margin, 18 of padding, 2 of border, 12 of gap, 49.63 of RELOAD,
- * 6 of the inner gap, 44 of the dismiss), so it wraps - two `.t-dense` lines are
- * 31.74px and fit inside the 44 the controls hold open, three are 47.61 and
- * four are 63.48, which do not. Measured column cost, banner absent → present:
+ * 6 of the inner gap, 44 of the dismiss), so it wraps - two `.t-dense` lines were
+ * 31.74px and fit inside the 44 the controls hold open, three were 47.61 and
+ * four 63.48, which do not. (Measured before the readability ramp; the message
+ * is `.t-hint` at 13px/1.4 now, an 18.2px line, and its natural width about
+ * 13/11.5 of the figure above - which widths take three lines is not
+ * re-measured.) Measured column cost, banner absent → present:
  *
  *   - **66** at 393×852 (738→672) and 430×932 (818→752) - two lines, 58px;
  *   - **70** at 375×667 (553→483), 360×800 (686→616) and 344×882 (768→698) -

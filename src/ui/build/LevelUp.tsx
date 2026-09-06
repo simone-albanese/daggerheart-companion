@@ -327,7 +327,7 @@ export function LevelUp({
           {/* Step one. */}
           <Section label="Tier achievement" hint={achievement === null ? 'NONE AT THIS LEVEL' : undefined}>
             {achievement === null ? (
-              <p className="t-dense" style={{ margin: 0 }}>
+              <p className="t-hint" style={{ margin: 0 }}>
                 Tier achievements land at levels 2, 5 and 8. This level brings advancements only.
               </p>
             ) : (
@@ -395,7 +395,7 @@ export function LevelUp({
               </span>
             }
           >
-            <p className="t-dense" style={{ margin: 0 }}>
+            <p className="t-hint" style={{ margin: 0 }}>
               Choose any two advancements with at least one unmarked slot, from your tier or below.
               Each tier keeps its own slots.
             </p>
@@ -685,7 +685,7 @@ function BoxedOption({
           }}
         />
       </span>
-      <span className="t-dense" style={{ color: '#b4b1ab' }}>
+      <span className="t-read" style={{ color: '#b4b1ab' }}>
         {option.detail}
       </span>
     </button>
@@ -786,7 +786,7 @@ function PickDetail({
                 }}
               >
                 <Mark on={on} size={14} />
-                <span style={{ flex: 1, font: '600 13px/1 var(--sans)', textAlign: 'left' }}>
+                <span style={{ flex: 1, font: '600 0.8125rem/1 var(--sans)', textAlign: 'left' }}>
                   {TRAIT_LABELS[t]}
                 </span>
                 <span className="t-num" style={{ color: 'var(--muted)' }}>
@@ -809,7 +809,7 @@ function PickDetail({
     return (
       <DetailShell label="Choose two Experiences">
         {character.experiences.length === 0 ? (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             This character has no Experiences to raise yet.
           </span>
         ) : (
@@ -837,7 +837,7 @@ function PickDetail({
                   }}
                 >
                   <Mark on={on} size={14} />
-                  <span style={{ flex: 1, font: '600 13px/1 var(--sans)', textAlign: 'left' }}>
+                  <span style={{ flex: 1, font: '600 0.8125rem/1 var(--sans)', textAlign: 'left' }}>
                     {e.name || 'Unnamed Experience'}
                   </span>
                   <span className="t-num" style={{ color: 'var(--hope)' }}>
@@ -875,7 +875,7 @@ function PickDetail({
     return (
       <DetailShell label={`Take the ${nextCard} card`}>
         {owned.length === 0 ? (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             No subclass on this character yet.
           </span>
         ) : (
@@ -983,7 +983,7 @@ function PickDetail({
           )}
 
           {chosenClass && (
-            <span className="t-dense" style={{ color: 'var(--muted)' }}>
+            <span className="t-hint" style={{ color: 'var(--muted)' }}>
               You also gain {chosenClass.name}&rsquo;s class feature, and cross out an unused
               &ldquo;upgraded subclass&rdquo; option and the other multiclass option.
             </span>
@@ -1054,7 +1054,7 @@ function GrantedCard({
         </span>
       </div>
       {feature !== null && (
-        <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <span className="t-read" style={{ color: 'var(--text-2)' }}>
           {feature.text}
         </span>
       )}
@@ -1143,7 +1143,7 @@ function CardExchangeRow({
           OPTIONAL — AND IT IS NOT THE CARD ABOVE
         </span>
       </div>
-      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+      <span className="t-read" style={{ color: 'var(--text-2)' }}>
         You can also exchange one domain card you&rsquo;ve previously acquired for a different
         domain card of the same level or lower.
       </span>
@@ -1166,7 +1166,8 @@ function CardExchangeRow({
             borderRadius: '0 var(--r3) var(--r3) 0',
           }}
         >
-          <span className="t-label">
+          {/* A sentence with a name in it, so `.t-hint` rather than a caps label. */}
+          <span className="t-hint" style={{ fontWeight: 600 }}>
             Take instead of {given.name} — level {given.level} or lower
           </span>
           <CardPicker
@@ -1308,7 +1309,7 @@ function CardPicker({
                     flex: 1,
                     minWidth: 0,
                     textAlign: 'left',
-                    font: '600 13.5px/1.15 var(--sans)',
+                    font: '600 0.84375rem/1.15 var(--sans)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -1333,7 +1334,7 @@ function CardPicker({
           );
         })}
         {rows.length === 0 && (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             {mode === 'owned'
               ? 'You have no domain cards in that domain to trade away.'
               : ceiling === undefined

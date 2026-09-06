@@ -108,7 +108,8 @@
  *
  * **This moved the prose from 14.5px to 13px and that was not announced.** The
  * old arm drew the body at `t-body` (`400 14.5px/1.5`); `BlockView` draws it at
- * `t-read` (`var(--read-size)`, 13px/1.45), and the contrast rises with it. It
+ * `t-read` (`var(--read-size)`, 13px/1.45 then and 16px/1.5 on a phone since the
+ * readability ramp), and the contrast rises with it. It
  * is kept, for one reason: this is the same SRD text the reference region
  * draws, and two surfaces showing the same paragraph at two sizes is a worse
  * defect than either size. But the reflow spent a commit *raising* the smallest
@@ -423,7 +424,7 @@ function SceneArm({
           // The visible label is one word for every scene row on the screen,
           // and a `<select>` has no text of its own to tell them apart either.
           aria-label={`ENVIRONMENT — ${row}`}
-          style={{ minHeight: 'var(--tap)', font: '600 13px/1 var(--sans)' }}
+          style={{ minHeight: 'var(--tap)', font: '600 0.8125rem/1 var(--sans)' }}
         >
           <option value="">No environment</option>
           {environments.map((e) => (
@@ -1049,7 +1050,7 @@ function RosterList({
             <li key={entry.ref} className="stack" style={{ gap: 6 }}>
               {adversary === undefined ? (
                 <span className="spread" style={{ gap: 10 }}>
-                  <span className="t-dense" style={{ color: 'var(--dim)' }}>
+                  <span className="t-hint" style={{ color: 'var(--dim)' }}>
                     {entry.ref}
                   </span>
                   <span className="t-meta" style={{ flex: 'none' }}>
@@ -1069,7 +1070,7 @@ function RosterList({
                   onClick={() => setPreview(open ? null : entry.ref)}
                   style={{ gap: 10, width: '100%', minHeight: 'var(--tap)', textAlign: 'left' }}
                 >
-                  <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+                  <span className="t-hint" style={{ color: 'var(--text-2)' }}>
                     {adversary.name}
                   </span>
                   <span className="t-meta" style={{ flex: 'none' }}>
@@ -1574,7 +1575,7 @@ function CountdownArm({
             value={item.sceneId ?? ''}
             onChange={(e) => setScene(item.id, e.target.value || null)}
             aria-label={`BELONGS TO — ${row}`}
-            style={{ minHeight: 'var(--tap)', font: '600 13px/1 var(--sans)' }}
+            style={{ minHeight: 'var(--tap)', font: '600 0.8125rem/1 var(--sans)' }}
           >
             <option value="">The campaign</option>
             {scenes.map((scene) => (

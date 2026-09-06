@@ -145,7 +145,8 @@ export function Encounter({ phone }: { phone: boolean }): React.JSX.Element {
  * builder's `TAKE THE n` both outlived it, summing `count` raw, and both are
  * corrected in the commit that is correcting this sentence. What is true of
  * this cell is the narrower thing - it is the one that cannot say the words:
- * at `.t-meta` 9.5px in the shipped IBM Plex Mono 500, measured in Chrome with
+ * at the 9.5px this cell set on `.t-meta` when it was measured (10px, in rem,
+ * since the readability ramp) in the shipped IBM Plex Mono 500, measured in Chrome with
  * a `Range`, "3 GROUPS OF 4" is 81.52px and this cell's content box is 44px -
  * 46px less its two 1px borders.
  *
@@ -201,7 +202,7 @@ function AddButton({
       <span
         className="t-meta"
         style={{
-          fontSize: 9.5,
+          fontSize: '0.625rem',
           color: inRoster > 0 ? 'var(--hope)' : 'var(--dim)',
           // One line or nothing. Wrapped, it would push the picker row taller
           // than the 46px cell for one adversary out of 129.
@@ -246,8 +247,9 @@ function Party({
         Between the base and the stepper that moves it, because that is the
         order the eye already runs in on this panel: the number, then what the
         number is, then the control. Read and never touched, so it costs the
-        thumb nothing and the panel 21px - a 10px line box, since `.t-meta` is
-        `10px/1` (`tokens.css:565-566`) and nothing below steps it, plus the
+        thumb nothing and the panel 26px - a 15px line box, since `.t-meta` is
+        12px/1.25 on a phone since the readability ramp (`10px/1`, and 21 for
+        the panel, before it) and nothing below steps it, plus the
         `gap: 11` this `.panel stack` charges every item it holds. Arithmetic
         over those two declarations, not a measurement. And it is only ever
         there on a disagreement, so it is a line that means something every
@@ -469,7 +471,7 @@ function Adjustments({
               }}
             />
             <span
-              className="t-dense"
+              className="t-hint"
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -534,15 +536,15 @@ function Adjustments({
         plans the same fight had a third transcription of it. `damageBumpRule`
         is the one read all of them share now, so a rules layer that changes the
         bump changes every screen that says it, and none of them can drift from
-        another. Uppercased for the register this line is set in; the words are
-        the book's.
+        another. A sentence, so `.t-hint` in sentence case rather than a caps
+        meta line; the words are the book's.
       */}
-      <span className="t-meta" style={{ color: 'var(--dim)', lineHeight: 1.5 }}>
+      <span className="t-hint" style={{ color: 'var(--dim)' }}>
         {adjustments.damageBump
           ? bump === null
-            ? 'THE DAMAGE BUMP IS ON; NO RULES LAYER HERE SAYS WHAT IT ADDS'
-            : `THIS FIGHT: ${bump.toUpperCase()}`
-          : 'ROUND CIRCLES ARE DERIVED FROM THE ROSTER AND CANNOT BE TOGGLED'}
+            ? 'The damage bump is on; no rules layer here says what it adds'
+            : `This fight: ${bump}`
+          : 'Round circles are derived from the roster and cannot be toggled'}
       </span>
     </section>
   );
@@ -728,7 +730,7 @@ function Roster({
       ))}
 
       {entries.length === 0 && missing.length === 0 && (
-        <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+        <div className="panel t-hint" style={{ padding: 14, color: 'var(--dim)' }}>
           Nothing picked yet. Every adversary you add spends its role cost — a group of Minions the
           size of the party costs 1, a Solo costs 5.
         </div>
@@ -844,9 +846,10 @@ function Roster({
           {/*
             Under the button rather than beside it: at 393 this section is one
             column, and a name of any length beside a full-width primary control
-            has nowhere to go. `lineHeight` because `.t-meta` ships at `10px/1`
-            and this sentence wraps - the same correction the adjustments note
-            above makes, for the same reason.
+            has nowhere to go. `lineHeight` because `.t-meta` shipped at `10px/1`
+            when this was written and this sentence wraps - the same correction
+            the adjustments note above makes, for the same reason. The role is
+            1.25 since the readability ramp; 1.5 is kept for a sentence.
           */}
           <span
             className="t-meta"

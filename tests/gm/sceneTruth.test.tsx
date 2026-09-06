@@ -613,9 +613,9 @@ describe('END SCENE names what the second tap takes', () => {
       endScene().dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
   };
-  /** The one `.t-dense` in this screen: the line naming what END SCENE takes. */
+  /** The one `.t-hint` paragraph in this screen: the line naming what END SCENE takes. */
   const costLine = (): HTMLParagraphElement => {
-    const found = container.querySelectorAll('p.t-dense');
+    const found = container.querySelectorAll('p.t-hint');
     if (found.length !== 1) throw new Error(`expected one cost line, found ${found.length}`);
     return found[0] as HTMLParagraphElement;
   };

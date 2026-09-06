@@ -190,7 +190,7 @@ export function SceneSwitcher({ label }: { label: string }): React.JSX.Element {
           maxWidth: cap,
           padding: '0 10px',
           borderRadius: 'var(--r2)',
-          font: '500 10px/1 var(--mono)',
+          font: '500 0.75rem/1 var(--mono)',
           letterSpacing: '0.1em',
           overflow: 'hidden' as const,
           textOverflow: 'ellipsis' as const,

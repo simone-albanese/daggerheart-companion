@@ -154,7 +154,7 @@ export function ImportConflicts({
           user is allowed to take their time over the buttons below. Nothing
           has been written: the store returned these instead of putting them.
         */}
-        <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        <span className="t-hint" style={{ color: 'var(--text-2)' }}>
           This device&rsquo;s copy was edited more recently, so nothing has been changed. Choose
           what to do with each one.
         </span>

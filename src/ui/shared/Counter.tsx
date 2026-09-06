@@ -444,8 +444,13 @@ export function Counter({
               whiteSpace: 'nowrap',
               // 11, not `.t-label`'s own size: this line is subordinate to the
               // number under it rather than heading it, at both sizes the card
-              // is drawn at - 38 on the phone and 26 in the cockpit.
+              // is drawn at - 38 on the phone and 26 in the cockpit. And a px
+              // 11 at line-height 1 rather than the class's rem and 1.2,
+              // because this cell is measured in px term by term in
+              // `tokens.css` - the 13px first line is the mark's silhouette,
+              // and a 13.2px label box would move every sum there by 0.2.
               fontSize: 11,
+              lineHeight: 1,
             }}
           >
             {label}
@@ -487,8 +492,9 @@ export function Counter({
             {value}
           </span>
           {/*
-           * The maximum, at `--counter-max`, which is `.t-meta`'s 10 at every
-           * width and is the one token here that does NOT step.
+           * The maximum, at `--counter-max`, 10px at every width - its own value,
+           * not `.t-meta`'s, which is 12 since the readability ramp - and the
+           * one token here that does NOT step.
            *
            * Nobody reads a marked count on its own: `3` means nothing and
            * `3 / 6` means everything, so this half of the value is read exactly
@@ -503,6 +509,10 @@ export function Counter({
             className="t-meta"
             style={{
               fontSize: 'var(--counter-max)',
+              // `.t-meta` is 1.25 since the readability ramp; this line is a
+              // term of the cell's px height and keeps the 10px box it was
+              // measured at.
+              lineHeight: 1,
               color: 'var(--dim)',
               display: 'block',
             }}

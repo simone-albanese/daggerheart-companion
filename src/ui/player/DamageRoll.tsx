@@ -261,7 +261,7 @@ function FaceKeypad({
               borderRadius: 'var(--r1)',
               background: n === value ? 'var(--damage)' : 'var(--raised)',
               color: n === value ? 'var(--app)' : 'var(--text)',
-              font: '600 12px/1 var(--mono)',
+              font: '600 0.75rem/1 var(--mono)',
             }}
           >
             {n}
@@ -548,7 +548,7 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
       }}
     >
       <span className="stack" style={{ flex: 1, minWidth: 0, gap: 4, textAlign: 'left' }}>
-        <span style={{ font: `900 ${phone ? 15 : 13}px/1 var(--sans)`, color: 'var(--text)' }}>
+        <span style={{ font: `900 ${phone ? '0.9375rem' : '0.8125rem'}/1 var(--sans)`, color: 'var(--text)' }}>
           {headline}
         </span>
         <span className="t-meta" style={{ color: 'var(--muted)' }}>

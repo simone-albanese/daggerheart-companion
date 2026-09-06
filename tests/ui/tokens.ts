@@ -177,6 +177,15 @@ function chase(value: string, table: Map<string, string>, depth: number): number
     }
     return chase(seen, table, depth + 1);
   }
+  /*
+   * `rem`, at the browser's default root. The readability ramp declares every
+   * text role in rem so the OS text-size setting reaches it, and `html` is
+   * `font-size: 100%` in `base.css` - so at the default setting 1rem is 16px,
+   * and that is the one root this suite measures at. A sweep that needs a
+   * larger root is a Chrome question, not a jsdom one.
+   */
+  const rem = /^(\d+(?:\.\d+)?)rem$/.exec(v);
+  if (rem !== null) return Number.parseFloat(rem[1]!) * 16;
   const n = Number.parseFloat(v);
   return Number.isFinite(n) ? n : 0;
 }

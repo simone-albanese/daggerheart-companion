@@ -591,11 +591,13 @@ describe('giving a card back', () => {
 
   it('never moves the ✕ between the two presses, which is what makes the second one land', () => {
     /*
-     * The measurement. This footer is a fixed-height `space-between` strip with
-     * no room for a second line, so a question written INTO the ✕ would widen
-     * it and slide it left between the presses. The arming is a colour and a
-     * readout to its left instead; the ✕ is the last child, so the strip's
-     * padding edge pins it and every width change is absorbed before it.
+     * The measurement. This footer is a `space-between` strip on a floor, so a
+     * question written INTO the ✕ would widen it and slide it left between the
+     * presses. The arming is a colour and a readout instead - beside the ✕ on
+     * a desk, under it on a phone, where the strip is two rows since the
+     * readability ramp; either way the ✕ is the last thing on its row, so the
+     * strip's padding edge pins it and every width change is absorbed
+     * elsewhere.
      */
     const c = seed();
     browse(c);

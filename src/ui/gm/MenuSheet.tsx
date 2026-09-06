@@ -318,7 +318,7 @@ export function MenuSheet({
             </button>
           ))}
         </div>
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The tab bar is not on this screen: the bottom of it belongs to ADD, SHOW and SAVE while
           you are running a session. Settings is where it always is, in the header.
         </p>
@@ -340,7 +340,7 @@ export function MenuSheet({
             </button>
           ))}
         </div>
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           These two are otherwise the content of a session row, so improvising a fight meant
           writing a row for it first. {whereTheOthersAre(prefs)}
         </p>
@@ -357,7 +357,7 @@ export function MenuSheet({
         >
           OPEN THE REFERENCE
         </button>
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The tables you would otherwise be turning pages for, read out of the SRD this app ships
           rather than retyped from it — so a rules layer that changes one changes what you see.
         </p>
@@ -374,7 +374,7 @@ export function MenuSheet({
         >
           OPEN THE NAME GENERATOR
         </button>
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           People, places and regions, for the moment the players walk up to someone you had not
           planned. It knows what is already on the board and in tonight&apos;s list, so it will not
           hand you a name that is taken.
@@ -508,7 +508,7 @@ function Campaigns({
       <button type="button" onClick={onNew} className="btn" style={{ flex: 'none', minHeight: 'var(--tap)' }}>
         NEW CAMPAIGN
       </button>
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+      <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
         Switching campaign never touches the characters you play — those live in their own store
         and are not owned by any table, so the same sheet can sit on two boards at once.
       </p>
@@ -574,7 +574,7 @@ function Rename({
       >
         RENAME
       </button>
-      <p className="t-dense" style={{ margin: 0, marginTop: 8, color: 'var(--muted)', maxWidth: '62ch' }}>
+      <p className="t-hint" style={{ margin: 0, marginTop: 8, color: 'var(--muted)', maxWidth: '62ch' }}>
         Only the open campaign can be renamed here. Open another campaign to rename that one.
       </p>
     </div>
@@ -611,7 +611,7 @@ function ThisDevice({
         </p>
       )}
       {notices.map((notice) => (
-        <p key={notice} className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+        <p key={notice} className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           {notice}
         </p>
       ))}
@@ -621,11 +621,11 @@ function ThisDevice({
             LEFT UNTOUCHED
           </span>
           {quarantined.map((record) => (
-            <p key={record.id} className="t-dense" style={{ margin: 0, maxWidth: '62ch' }}>
+            <p key={record.id} className="t-hint" style={{ margin: 0, maxWidth: '62ch' }}>
               <strong>{record.name ?? 'A campaign with no readable name'}</strong> — {record.reason}
             </p>
           ))}
-          <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
             Nothing has been deleted. A newer version of this app wrote these, and this one will not
             open them rather than read them as its own shape and write that back over the original.
           </p>

@@ -55,7 +55,7 @@ const BODY = {
 function Block({ block }: { block: NoteBlock }): React.JSX.Element {
   if (block.type === 'bullets') {
     return (
-      <ul className="t-dense" style={{ ...BODY, paddingLeft: 20 }}>
+      <ul className="t-read" style={{ ...BODY, paddingLeft: 20 }}>
         {block.items.map((item, i) => (
           <li key={`${String(i)}-${item[0]?.text.slice(0, 12) ?? ''}`}>
             <Spans spans={item} />
@@ -75,7 +75,7 @@ function Block({ block }: { block: NoteBlock }): React.JSX.Element {
     );
   }
   return (
-    <p className="t-dense" style={{ ...BODY, textAlign: align, whiteSpace: 'pre-wrap' }}>
+    <p className="t-read" style={{ ...BODY, textAlign: align, whiteSpace: 'pre-wrap' }}>
       <Spans spans={block.spans} />
     </p>
   );

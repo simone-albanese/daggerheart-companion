@@ -108,7 +108,7 @@ export function FeatureList({ features }: { features: Feature[] }): React.JSX.El
         </div>
       ))}
       {features.length === 0 && (
-        <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        <span className="t-hint" style={{ color: 'var(--dim)' }}>
           No features.
         </span>
       )}
@@ -230,7 +230,7 @@ export function AdversaryBlock({
           </div>
           <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
             {a.experiences.map((x) => (
-              <span key={x.name} className="chip" style={{ color: 'var(--text-2)', fontSize: 11 }}>
+              <span key={x.name} className="chip chip-name" style={{ color: 'var(--text-2)' }}>
                 {x.name} {signed(x.bonus)}
               </span>
             ))}
@@ -300,8 +300,10 @@ export function AdversaryBlock({
  * derivation it is standing on, which is the three subtractions above, and not
  * its own changelog.
  *
- * `.t-meta` is 10px IBM Plex Mono at 0.06em - a 0.6 advance plus the tracking,
- * ~6.6px a character, which `GearPicker.tsx:716-720` derives and
+ * `.t-meta` was 10px IBM Plex Mono at 0.06em when this was measured (12px at
+ * 0.04em on a phone since the readability ramp, 7.68 a character by the same
+ * arithmetic; the counts below are the 10px ones) - a 0.6 advance plus the
+ * tracking, ~6.6px a character, which `GearPicker.tsx:716-720` derives and
  * `ReferenceTables.tsx` uses for this class - so 339 holds 51 characters a
  * line: 51 characters want 336.6px and 52 want 343.2, so the column would have
  * to shed 2.4px or gain 4.2 before that count moved at all. No
@@ -336,7 +338,9 @@ export function AdversaryBlock({
  * children: three at `flex: 'none'` and the name at `flex: 1` with `minWidth:
  * 0`. `flex: 1` is a basis of 0%, so the name contributes nothing to where the
  * line breaks and takes whatever is left of it. Shut, over Ambushed and
- * Ambushers, whose header text is identical:
+ * Ambushers, whose header text is identical. (As the roles were when this was
+ * summed - label 10px at 0.16em, meta 10, chip 9.5; since the readability ramp
+ * they are 11 at 0.12em, 12 and 11 on a phone, and the sum is not re-derived.)
  *
  * - `.t-label` ENVIRONMENT, 11 characters at `10px var(--mono)` plus 0.16em of
  *   tracking - 7.6 each - is 83.60.

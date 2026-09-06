@@ -152,7 +152,7 @@ export function Settings(): React.JSX.Element {
                   gap: 9,
                   borderRadius: 'var(--r2)',
                   background: active ? 'var(--raised)' : 'transparent',
-                  font: `${active ? 700 : 600} 12px/1 var(--sans)`,
+                  font: `${active ? 700 : 600} 0.75rem/1 var(--sans)`,
                   letterSpacing: '0.09em',
                   textTransform: 'uppercase',
                   color: active ? 'var(--text)' : 'var(--dim)',
@@ -395,7 +395,7 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
 
         {!prefs.digitalDice && !prefs.manualDice && (
           <div
-            className="t-dense"
+            className="t-hint"
             style={{
               padding: '10px 12px',
               borderRadius: 'var(--r3)',
@@ -568,7 +568,7 @@ function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
         */}
         {(off || liveDoors(prefs).length === 0) && (
           <div
-            className="t-dense"
+            className="t-hint"
             style={{
               padding: '10px 12px',
               borderRadius: 'var(--r3)',
@@ -967,7 +967,7 @@ function Backup({
                     : `${health.daysSince} day${health.daysSince === 1 ? '' : 's'} ago`}
               </div>
             </div>
-            <p id={`${panel}-why`} className="t-dense" style={{ margin: '9px 0 0', maxWidth: '58ch' }}>
+            <p id={`${panel}-why`} className="t-hint" style={{ margin: '9px 0 0', maxWidth: '58ch' }}>
               {/* backupStatus's own line first: it is the only one that knows a
                   write failed or a folder permission lapsed. */}
               {health.detail ??

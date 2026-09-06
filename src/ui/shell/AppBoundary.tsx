@@ -99,7 +99,7 @@ function Fallback({ error, onRetry }: { error: Error; onRetry: () => void }): Re
           Try again
         </button>
         <code
-          className="t-dense"
+          className="t-hint"
           style={{
             maxWidth: 460,
             padding: 12,
@@ -164,7 +164,7 @@ function ExportEverything(): React.JSX.Element {
         {busy ? 'Exporting…' : 'Export everything'}
       </button>
       {note !== null && (
-        <span className="t-dense" style={{ color: 'var(--muted)' }}>
+        <span className="t-hint" style={{ color: 'var(--muted)' }}>
           {note}
         </span>
       )}

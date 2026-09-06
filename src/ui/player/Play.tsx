@@ -594,7 +594,7 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
          * written.
          */}
         {character.pronouns !== '' && (
-          <span className="t-meta" style={{ color: 'var(--line)' }}>
+          <span aria-hidden="true" className="t-meta" style={{ color: 'var(--line)' }}>
             ·
           </span>
         )}
@@ -627,7 +627,7 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
       </div>
       <SpellcastLine stats={stats} />
       {lineage !== '' && (
-        <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
+        <div className="t-hint" style={{ color: 'var(--muted)' }}>{lineage}</div>
       )}
     </div>
   );
@@ -688,7 +688,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
           <span className="t-meta">{character.pronouns.toUpperCase()}</span>
         )}
         {character.pronouns !== '' && (
-          <span className="t-meta" style={{ color: 'var(--line)' }}>
+          <span aria-hidden="true" className="t-meta" style={{ color: 'var(--line)' }}>
             ·
           </span>
         )}
@@ -725,12 +725,12 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
           </span>
         ))}
         {stats.domains.length === 0 && (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             No domains — this sheet has no class the app can read.
           </span>
         )}
       </div>
-      <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
+      <div className="t-hint" style={{ color: 'var(--text-2)' }}>
         {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
       </div>
 
@@ -829,7 +829,7 @@ function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] 
       }}
     >
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ font: '700 13px/1.2 var(--sans)', color: 'var(--text)' }}>
+        <span style={{ font: '700 0.8125rem/1.2 var(--sans)', color: 'var(--text)' }}>
           {feature.name}
         </span>
         {chips.map((c) => (
@@ -841,7 +841,7 @@ function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] 
       <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.05em' }}>
         {feature.source.toUpperCase()}
       </span>
-      <span className="t-dense" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
+      <span className="t-read" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
         {feature.text}
       </span>
     </div>
@@ -880,7 +880,7 @@ function FeatureList({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
 
   if (all.length === 0) {
     return (
-      <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+      <div className="panel t-hint" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
         No features — this sheet has no class, ancestry or community the app can read.
       </div>
     );
@@ -1073,7 +1073,7 @@ function TraitRow({
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                // Overrides `.chip`'s `font: 600 9.5px/1 var(--mono)` size and
+                // Overrides `.chip`'s `font: 600 var(--chip-size)/1 var(--mono)` size and
                 // leading and keeps its family, its weight and its tracking.
                 // 17 is the MODIFIER's size - the number you add to 2d12 - and
                 // it is the chip's own, because the number is what the chip is
@@ -1109,9 +1109,10 @@ function TraitRow({
                * chip that got 14px shorter. Deliberately 13 and not the 10 a
                * flatter ramp would give: six labels carrying the identity of
                * the number beneath them, cut by a third, is a shrink nobody
-               * asked for.
+               * asked for. (13 as 0.8125rem since the readability ramp, so the
+               * OS text size reaches it; the number under it stays px.)
                */}
-              <span style={{ display: 'block', fontSize: 13 }}>
+              <span style={{ display: 'block', fontSize: '0.8125rem' }}>
                 {TRAIT_LABELS[t].slice(0, 3).toUpperCase()}{' '}
               </span>
               <span style={{ display: 'block' }}>
@@ -1303,7 +1304,7 @@ function TraitGrid({
                   style={{
                     display: 'block',
                     marginTop: 6,
-                    font: '500 9px/1.35 var(--mono)',
+                    font: '500 0.625rem/1.35 var(--mono)',
                     letterSpacing: '0.04em',
                     color: active ? 'var(--text-2)' : 'var(--dim)',
                   }}
@@ -1900,7 +1901,7 @@ function VanishedWeapon({
       <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
         {refId}
       </span>
-      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+      <span className="t-hint" style={{ color: 'var(--text-2)' }}>
         No damage this build can roll — choose again in Build.
       </span>
     </div>
@@ -1976,7 +1977,7 @@ function Equipped({
         armor === undefined &&
         missing.primary === null &&
         missing.secondary === null && (
-          <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+          <div className="panel t-hint" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
             Nothing equipped — choose gear in Build.
           </div>
         )}
@@ -2086,7 +2087,7 @@ function Equipped({
              * over `FeatureBlock` in `build/parts.tsx`.
              */}
             {w.feature !== '' && (
-              <span className="t-dense" style={{ display: 'block', marginTop: 5, color: 'var(--text-2)' }}>
+              <span className="t-read" style={{ display: 'block', marginTop: 5, color: 'var(--text-2)' }}>
                 {w.feature}
               </span>
             )}
@@ -2151,7 +2152,7 @@ function Equipped({
               Gambeson's «Flexible: +1 to Evasion» was invisible on the one
               screen where the Evasion it changes is drawn. */}
           {armor.feature !== '' && (
-            <div className="t-dense" style={{ marginTop: 5, color: 'var(--text-2)' }}>
+            <div className="t-read" style={{ marginTop: 5, color: 'var(--text-2)' }}>
               {armor.feature}
             </div>
           )}
@@ -2304,13 +2305,13 @@ function SpellcastPanel({
                 minHeight: 'var(--control)',
                 padding: '4px 6px',
                 textAlign: 'center',
-                font: '600 13px/1 var(--mono)',
+                font: '600 0.8125rem/1 var(--mono)',
               }}
             />
           </label>
         </div>
       ) : (
-        <span className="t-dense">
+        <span className="t-hint">
           {zeroNote === null
             ? 'A Spellcast trait of +0 or lower rolls no damage dice.'
             : `“${zeroNote}”`}
@@ -2353,7 +2354,7 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
         </div>
       )}
       {carried.length === 0 && (
-        <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+        <div className="panel t-hint" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
           Nothing carried — add items in Build.
         </div>
       )}
@@ -2443,8 +2444,9 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
                      * Its width came entirely from `.chip`'s own
                      * `padding: 4px 6px` around the label - there is no
                      * horizontal padding declared here, and `base.css:42-50`
-                     * zeroes a button's border. `.chip` is IBM Plex Mono at
-                     * 9.5px with `letter-spacing: 0.06em`, and the shipped
+                     * zeroes a button's border. `.chip` was IBM Plex Mono at
+                     * 9.5px with `letter-spacing: 0.06em` when this was measured
+                     * (11px on a phone since the readability ramp), and the shipped
                      * `plexmono-600-latin.woff2` is a flat 600/1000 advance, so
                      * a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px and `USE`
                      * is 3 x 6.27 + 12 = **30.81px**. Measured 30.8x44, and it
@@ -2515,7 +2517,7 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
               )}
             </div>
             {showing && entry.note !== undefined && (
-              <p className="t-dense" style={{ margin: '6px 2px 2px', color: 'var(--text-2)' }}>
+              <p className="t-read" style={{ margin: '6px 2px 2px', color: 'var(--text-2)' }}>
                 {entry.note}
               </p>
             )}
@@ -2621,7 +2623,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
           <GhostRow key={refId} refId={refId} />
         ))}
         {vault.length === 0 && ghostVault.length === 0 && (
-          <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+          <div className="panel t-hint" style={{ padding: 14, color: 'var(--dim)' }}>
             The vault is empty. Cards you own but are not carrying live here.
           </div>
         )}
@@ -2717,7 +2719,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  font: '600 12px/1 var(--sans)',
+                  font: '600 0.75rem/1 var(--sans)',
                   color: 'var(--text-2)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -2750,7 +2752,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
           );
         })}
         {vault.length === 0 && ghostVault.length === 0 && (
-          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+          <span className="t-hint" style={{ color: 'var(--dim)' }}>
             The vault is empty.
           </span>
         )}
@@ -2926,7 +2928,7 @@ function LoadoutRows(): React.JSX.Element {
         />
       ))}
       {loadout.length === 0 && ghostLoadout.length === 0 && (
-        <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+        <div className="panel t-hint" style={{ padding: 14, color: 'var(--dim)' }}>
           No cards in the loadout yet. Add some in Cards.
         </div>
       )}
@@ -3109,8 +3111,9 @@ function PlayDesktop({
                * `RecallButton`'s shape eleven rows down: the price is what you
                * read before deciding, and it now rides in the accessible name
                * too. The overlay that opens the card still stops at the band's
-               * top edge (`inset: 0 0 FOOTER_HEIGHT 0`), so a high miss opens
-               * the card and a low one vaults it - no new ambiguity, and the
+               * top edge - it is positioned from the card's body, so it ends
+               * where the band begins at any height - so a high miss opens
+               * the card and a low one vaults it: no new ambiguity, and the
                * dead strip between them is gone.
                */
               footer={
@@ -3128,17 +3131,17 @@ function PlayDesktop({
                     alignSelf: 'stretch',
                     /*
                      * -1px at the top, and it is the difference between
-                     * clearing the floor and missing it by one. `height:
-                     * FOOTER_HEIGHT` is a border box under this app's global
-                     * `box-sizing`, and the band's 1px `borderTop` is inside
-                     * it, so a stretched child measures 33 of the 34 - and 43
-                     * of the 44 `--control` resolves to on a touchscreen,
-                     * which is a pixel under the floor this project states.
-                     * The negative margin takes the *target* over that
-                     * hairline without painting anything on it. The overlay
-                     * that opens the reader stops at the same edge, and this
-                     * button is later in the DOM inside a `zIndex: 2` footer,
-                     * so the one pixel they share resolves here.
+                     * clearing the floor and missing it by one. The band's
+                     * `minHeight: FOOTER_HEIGHT` is a border-box floor under
+                     * this app's global `box-sizing`, and the band's 1px
+                     * `borderTop` is inside it, so a stretched child measures
+                     * 33 of the 34 - and 43 of the 44 `--control` resolves to
+                     * on a touchscreen, which is a pixel under the floor this
+                     * project states. The negative margin takes the *target*
+                     * over that hairline without painting anything on it. The
+                     * overlay that opens the reader ends at the same edge,
+                     * and this button is later in the DOM inside a `zIndex:
+                     * 2` footer, so the one pixel they share resolves here.
                      */
                     margin: '-1px -11px 0',
                     padding: '0 11px',
@@ -4007,10 +4010,13 @@ function PlayPhone({
        * nothing and is chosen rather than discovered.
        *
        * FULL WIDTH, AND IT IS THE REASON THERE ARE TWO PAIRS AND NOT THREE.
-       * Its worst summary - `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` - is
-       * 257.41px against a 181.5px half cell. There is no arrangement of a
-       * shared row that does not cut it, and cutting it is the one failure
-       * `Disclosure` exists to prevent.
+       * Its worst summary - `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` - was
+       * 257.41px at the 10px it was measured at, against a 181.5px half cell,
+       * and no shared row held it. At the role's 12 it is 300, which a
+       * stacked half cell would take as two wrapped lines under the name - a
+       * three-line header beside a two-line partner. Full width it sits
+       * whole on the line under CARRIED, 300 in the header's 365, which is
+       * `Disclosure`'s own measurement.
        */}
       <Disclosure
         id="carried"
@@ -4018,19 +4024,14 @@ function PlayPhone({
         label="Carried"
         summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
         /*
-         * The one fold that keeps `.t-meta`'s 10px while the others go to 11:
-         * at 11 this summary measures ~283 against 257.41 at 10, and it
-         * ellipsises at full width.
-         *
-         * The reason is one subtraction and it is done in exactly one place.
-         * This comment used to do it here as well, and did it wrong - it set
-         * the ~283 against `390`, an offset from the left of the glass, in "a
-         * 369px column", a width. `Disclosure`'s `tightSummary` paragraph now
-         * says in terms why those two are not comparable and what the number
-         * actually is. **Read it there.** A measurement copied to a second site
-         * is a measurement that will disagree with itself.
+         * No size of its own any more. This was the one fold held under the
+         * `.t-meta` role - at 10 and then 11 - so that its line, the longest
+         * summary on the sheet, would fit in one; since the readability ramp
+         * the summary wraps instead, at the role, and `Disclosure`'s own
+         * docblock carries the measurement and the subtraction that went
+         * wrong twice while a size was the fix. A measurement copied to a
+         * second site is a measurement that will disagree with itself.
          */
-        tightSummary
       >
         <Items bare />
       </Disclosure>
