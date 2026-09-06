@@ -41,7 +41,7 @@ proprietario). Rapporto dell'audit: `AUDIT-2026-09-04.md`.
    («safeguards flagged … [reasoning_extraction]», zero azioni; riformulare non è servito); ha
    girato su Opus per un quarto d'ora senza toccare file; poi il proprietario ha chiesto di
    **riprovarla con Fable** e di lanciare in parallelo **un secondo audit completo** con Fable.
-   Entrambe sono in volo (§2).
+   Entrambe sono in volo (§2); la causa del blocco è stata isolata alle 19:10 (§3).
 
 ## 2. LE DUE ONDATE IN VOLO — leggi prima di fare qualunque cosa
 
@@ -54,8 +54,11 @@ transcript migrano nella sessione nuova (memoria «workflows-share-one-agent-poo
 ### 2a. L'ondata dei quattro S2 — run `wf_93de2361-f5f`
 
 - Script: `~/.claude/projects/…/5d2588f6-…/workflows/scripts/four-s2-at-the-table-wf_93de2361-f5f.js`
-  (sul modello di sessione, cioè Fable; se muore ancora con `[reasoning_extraction]`, rimettere
-  `model: 'opus'` sugli `agent()` di fix e repair e rilanciare con `resumeFromRunId`).
+  (su Fable. Era morta tre volte al primo messaggio con `[reasoning_extraction]`: due ondate-sonda
+  hanno isolato la causa nello SCHEMA di output, non nel prompt — le `description` dei campi
+  `guardList`/`ergonomics`/`datasetChanged`, una delle quali diceva «where the reasoning was
+  written». Tolte le descrizioni e spostati i significati nel prompt, è partita al quarto lancio.
+  Se muore ancora così: controllare le `description` dello schema prima di ogni altra cosa).
 - Brief: `~/.claude/projects/…/audit-harness/audit-2026-09-06/WAVE-BRIEF.md` (copia stabile).
 - Corsie e worktree, tutti da `main` bb160a3: **T1** = S2-2 Combo Die del Brawler
   (`~/Documents/dh-wt/fix-T1`, ramo `fix-T1`), **T2** = S3-2 Beastform Evolved (`fix-T2`),
@@ -90,8 +93,10 @@ transcript migrano nella sessione nuova (memoria «workflows-share-one-agent-poo
 
 ## 3. Regole macchina confermate oggi
 
-- **Fable può bloccare le corsie al primo messaggio** (`[reasoning_extraction]`, 3–4 s, zero
-  azioni): non riformulare, cambiare modello sulle corsie e rilanciare dalla cache.
+- **Fable blocca un `agent()` al primo messaggio** (`[reasoning_extraction]`, 3–6 s, zero azioni)
+  quando lo schema di output ha una `description` che parla di «reasoning»: non riformulare il
+  prompt, non cambiare modello; togliere le descrizioni dallo schema e rilanciare dalla cache
+  (memoria «fable-safeguard-blocks-repair-lanes»; sonde: `wf_fce355dc-df4`, `wf_94742836-e77`).
 - `. ./env.sh >/dev/null 2>&1 && node -v` → v24; mai la porta 5199; un file di test alla volta
   nelle corsie, la suite intera solo a composizione; `mergeStateStatus: CLEAN` non è una CI verde,
   serve un run sull'HEAD esatto; una PR può restare senza evento `pull_request`.
