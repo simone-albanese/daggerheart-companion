@@ -210,7 +210,7 @@ export function SaveSheet(): React.JSX.Element {
             </button>
           )}
           {failedAgain && (
-            <p className="t-dense" style={{ margin: 0, color: 'var(--damage)', maxWidth: '62ch' }}>
+            <p className="t-hint" style={{ margin: 0, color: 'var(--damage)', maxWidth: '62ch' }}>
               That try did not land either. Nothing above has changed.
             </p>
           )}
@@ -235,7 +235,7 @@ export function SaveSheet(): React.JSX.Element {
               Making sure your last change has reached this device…
             </p>
           )}
-          <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
             You never have to press anything for that to be true. The campaign is written 400 ms
             after you stop changing it, and again the moment this tab goes away. SAVE is here to
             tell you where it is, and to hand you a copy.

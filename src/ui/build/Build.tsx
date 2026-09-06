@@ -159,7 +159,7 @@ export function Build(): React.JSX.Element {
                   >
                     <span
                       style={{
-                        font: '600 13px/1 var(--sans)',
+                        font: '600 0.8125rem/1 var(--sans)',
                         color: active ? 'var(--text)' : 'var(--muted)',
                       }}
                     >

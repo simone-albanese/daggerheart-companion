@@ -139,9 +139,10 @@ describe('ending a scene', () => {
    * It was `{armed && ...}` once. `armed` is cleared by a 4-second timer, not
    * by a tap, so the line vanished under a hand that had not moved and every
    * card, track, chip and remove control below it came up by its height plus
-   * the stack's 10px gap - 25.87px at one line of `.t-dense` and 41.74 at two,
-   * which is as far as the shipped wording reaches (`Scene.tsx` costs the
-   * characters). That is just *under* the 44px floor the button in the row
+   * the stack's 10px gap - 25.87px at one line of the old 11.5px `.t-dense` and
+   * 41.74 at two, which is as far as the shipped wording reached (`Scene.tsx`
+   * costs the characters; the line is `.t-hint`, 13px/1.4, since the
+   * readability ramp, so the jump it would make today is larger, not smaller). That is just *under* the 44px floor the button in the row
    * immediately above declares for a single target, not over it. What makes it
    * a defect is not the size: it is that the grid moved at all, on a timer,
    * for no gesture.
@@ -155,7 +156,7 @@ describe('ending a scene', () => {
    * same string, same box.
    */
   const costLine = (): HTMLParagraphElement => {
-    const found = container.querySelectorAll('p.t-dense');
+    const found = container.querySelectorAll('p.t-hint');
     if (found.length !== 1) throw new Error(`expected one cost line, found ${found.length}`);
     return found[0] as HTMLParagraphElement;
   };

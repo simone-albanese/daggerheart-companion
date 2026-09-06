@@ -370,7 +370,7 @@ export function Merchant({
           */}
           <div className="stack" aria-live="polite" style={{ flex: 'none', gap: 8 }}>
             {stall === null ? (
-              <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+              <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
                 {EMPTY_STALL}
               </p>
             ) : (
@@ -395,14 +395,14 @@ export function Merchant({
                       */}
                     {originStamp(item) === '' ? '' : ` · ${originStamp(item)}`}
                   </span>
-                  <span className="t-dense" style={{ color: 'var(--text-3)', maxWidth: '62ch' }}>
+                  <span className="t-read" style={{ color: 'var(--text-3)', maxWidth: '62ch' }}>
                     {item.text}
                   </span>
                 </article>
               ))
             )}
           </div>
-          <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
             {STALL_PROVENANCE}
           </p>
         </section>

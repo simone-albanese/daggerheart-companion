@@ -68,7 +68,9 @@
  * ## The topic strip
  *
  * Chips at `var(--tap)` with `padding: 0 12px`, and `--tap` is 44px: every
- * chip measures exactly 44.00 tall. `.t-label` is 10px mono at `0.16em`, so
+ * chip measures exactly 44.00 tall. `.t-label` was 10px mono at `0.16em` when
+ * this was measured (11px at 0.12em since the readability ramp, about 7.9 a
+ * character by the same arithmetic; the eight labels are not re-measured), so
  * about 7.6px a character - 6.00 of advance in IBM Plex Mono plus 1.6px of
  * letter-spacing - and measured with a `Range` it predicts all eight labels to
  * within 0.01: 7.6 a character plus the chip's own 24 of padding and 2.00 of

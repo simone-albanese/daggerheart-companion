@@ -219,11 +219,12 @@ describe('the way out of a screen that will not render', () => {
     expect(shown()).toContain('The Sablewood Winter');
 
     /*
-     * And it is set as prose. `.t-meta` is 10px mono at line-height 1 with no
-     * width at all - right for the 53 characters this line used to carry, and
-     * for these 400-odd it is ten line boxes of 13px glyphs stepping 10px, so
-     * every line overlaps the one above it by three pixels; on a desktop it is
-     * one unbroken 1232px run. `.t-dense` is what the `retried` paragraph above
+     * And it is set as prose. `.t-meta` is a mono metadata line with no width
+     * at all - right for the 53 characters this line used to carry, and wrong
+     * for these 400-odd: at the `500 10px/1` it was before the readability
+     * ramp they were ten line boxes of 13px glyphs stepping 10px, every line
+     * overlapping the one above it by three pixels, and one unbroken 1232px
+     * run on a desktop. `.t-hint` is what the `retried` paragraph above
      * already uses for the same kind of sentence.
      */
     const line = container.querySelector('[role="status"]');
@@ -232,7 +233,7 @@ describe('the way out of a screen that will not render', () => {
       line?.className,
       'a 400-character sentence in the 10px/1 mono metadata role overlaps its own lines',
     ).not.toContain('t-meta');
-    expect(line?.className).toContain('t-dense');
+    expect(line?.className).toContain('t-hint');
     expect((line as HTMLElement | null)?.style.maxWidth).toBe('420px');
   });
 

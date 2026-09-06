@@ -187,7 +187,7 @@ export function Attribution({ compact = false }: { compact?: boolean }): React.J
       {ATTRIBUTION.map((line) => (
         <p
           key={line.slice(0, 24)}
-          className="t-dense"
+          className="t-hint"
           style={{ margin: 0, color: 'var(--muted)', maxWidth: 560 }}
         >
           {line}

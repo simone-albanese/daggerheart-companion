@@ -369,7 +369,13 @@ export function Header({
     <header
       className="spread"
       style={{
-        height: 52,
+        /*
+         * A floor and not a height since the readability ramp: the nav words
+         * and the character picker inside it are rem, so a root the OS has
+         * turned up grows the bar by a few pixels instead of clipping them. At
+         * the 16px root it is the same 52 it always was.
+         */
+        minHeight: 52,
         flex: 'none',
         alignItems: 'center',
         /*
@@ -412,7 +418,7 @@ export function Header({
                   minHeight: 'var(--control)',
                   borderRadius: 'var(--r2)',
                   background: screen === s.id ? 'var(--raised)' : 'transparent',
-                  font: `${screen === s.id ? 700 : 600} 12px/1 var(--sans)`,
+                  font: `${screen === s.id ? 700 : 600} 0.75rem/1 var(--sans)`,
                   letterSpacing: '0.09em',
                   color: screen === s.id ? 'var(--text)' : 'var(--dim)',
                   textTransform: 'uppercase',
@@ -517,11 +523,11 @@ export function Header({
              * thing to edit than a predicate over an empty array.
              */}
             <span className="t-meta">SRD ONLY</span>
-            <span style={{ color: 'var(--line)' }}>|</span>
+            <span aria-hidden="true" style={{ color: 'var(--line)' }}>|</span>
             <span className="t-meta">
               LOCAL · {characters.length} CHARACTER{characters.length === 1 ? '' : 'S'}
             </span>
-            <span style={{ color: 'var(--line)' }}>|</span>
+            <span aria-hidden="true" style={{ color: 'var(--line)' }}>|</span>
           </>
         )}
         {/*
@@ -607,7 +613,7 @@ export function Header({
                   maxWidth: phone ? 'min(150px, 38vw)' : 'min(200px, 17vw)',
                   minHeight: 0,
                   padding: '2px 6px',
-                  font: '700 13px/1 var(--sans)',
+                  font: '700 0.8125rem/1 var(--sans)',
                 }}
               >
                 {characters.map((c) => (
@@ -623,7 +629,7 @@ export function Header({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  font: '700 13px/1 var(--sans)',
+                  font: '700 0.8125rem/1 var(--sans)',
                   color: 'var(--text)',
                 }}
                 title={active.name || 'Unnamed'}
@@ -678,9 +684,10 @@ export function Header({
          * when someone is worried about losing a character. Findable means
          * legible, which is what the word buys. `--control` resolves to --tap,
          * 44px, at every width below 1180 and on any coarse pointer, so the
-         * box is 44x44 against a 10px label; SETTINGS only widens it, to about
-         * 55px (eight characters of 10px IBM Plex Mono at 0.6em advance, plus
-         * 0.08em of tracking).
+         * box is 44x44 against a `.t-meta` label - 12px on a phone since the
+         * readability ramp, 10 when this was written; SETTINGS only widens
+         * it, to about 65px (eight characters of 12px IBM Plex Mono at 0.6em
+         * advance, plus 0.08em of tracking; 55 at the 10).
          *
          * The theme control stays in Settings > Display, and that is not a
          * regression because it was never here. It is a three-way choice -

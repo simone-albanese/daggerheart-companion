@@ -70,7 +70,7 @@ export function NameRefusal({
         marginTop: refusal === null ? 0 : 6,
       }}
     >
-      <p id={id} role="status" className="t-dense" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+      <p id={id} role="status" className="t-hint" style={{ flex: 1, minWidth: 0, margin: 0 }}>
         {refusal}
       </p>
       {refusal !== null && offer !== null && (

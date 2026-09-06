@@ -296,7 +296,7 @@ const CLAIMS: Claim[] = [
   {
     says: 'the maximum, which is the one token here that does not step',
     file: 'src/ui/shared/Counter.tsx',
-    find: /`--counter-max`, which is `\.t-meta`'s (\d+) at every width/g,
+    find: /`--counter-max`, (\d+)px at every width/g,
     is: () => resolve('var(--counter-max)', PHONE),
   },
   // --------------------------------------------------------- the whole block

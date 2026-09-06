@@ -20,6 +20,21 @@ body,
   margin: 0;
 }
 
+/*
+ * The root size, and it is a percentage on purpose.
+ *
+ * Every text role in `tokens.css` is declared in rem, so this is the one
+ * line that ties them to the OS or browser text-size setting: 100% is 16px by
+ * default and 20px for a user who has asked for 125%. A px here - or `62.5%`,
+ * the old trick for making 1rem 10px - would take that setting away from the
+ * one person this ramp is for. Layout constants and glanced numbers stay px in
+ * `tokens.css`, and their cells are measured there; the boxes around scaling
+ * text use `min-height` so a larger root grows them instead of clipping.
+ */
+html {
+  font-size: 100%;
+}
+
 body {
   background: var(--app);
   color: var(--text);
@@ -109,10 +124,13 @@ textarea {
  * gesture most.
  *
  * `!important` because the sizes it has to beat are inline `font:` shorthands,
- * which no ordinary rule can reach - and `(pointer: coarse)` because a mouse
- * never had this problem and the dense controls read better small.
+ * which no ordinary rule can reach - and `(any-pointer: coarse)` rather than
+ * `(pointer: coarse)`, because an iPad in a keyboard case reports its primary
+ * pointer as fine and still zooms the page when a finger focuses a field. A
+ * mouse-only desktop never had this problem and its dense controls read
+ * better small, and `any-pointer` is false there.
  */
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   input,
   textarea,
   select {
@@ -321,7 +339,9 @@ select,
   border-radius: var(--r3);
   background: var(--raised);
   border: 1px solid var(--line);
-  font: 600 13px/1 var(--sans);
+  /* 14px in rem, from a 13px literal: a control's word is glanced, but it is
+     the word that says what the tap does. */
+  font: 600 0.875rem/1 var(--sans);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -353,14 +373,30 @@ select,
   background: transparent;
 }
 
+/*
+ * A chip: a glanced tag in the thumb arc.
+ *
+ * `--chip-size` is 11px wherever any pointer is coarse and 10px on a
+ * fine-pointer desktop - see the ramp in `tokens.css`. It was 9.5px
+ * everywhere, which is a size for a mouse at 60 cm and not for a finger at
+ * 40. The height comes from the padding and, where the chip is a control,
+ * from the `--tap` floor its call site declares, so a larger root text size
+ * grows the chip rather than clipping its word. A chip that carries a NAME -
+ * an Experience, a tag, a weapon - takes `.chip-name` and a 12px word: a name
+ * is read, not recognised.
+ */
 .chip {
-  font: 600 9.5px/1 var(--mono);
+  font: 600 var(--chip-size) / 1 var(--mono);
   letter-spacing: 0.06em;
   padding: 4px 6px;
   border-radius: var(--r1);
   background: var(--raised);
   color: var(--muted);
   white-space: nowrap;
+}
+
+.chip-name {
+  font-size: 0.75rem;
 }
 
 /*

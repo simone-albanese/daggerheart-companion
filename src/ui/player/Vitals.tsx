@@ -759,7 +759,7 @@ export function IncomingDamage({
               minHeight: 'var(--control)',
               padding: '2px 4px',
               textAlign: 'center',
-              font: '600 12px/1 var(--mono)',
+              font: '600 0.75rem/1 var(--mono)',
             }
           : {
               width: 84,

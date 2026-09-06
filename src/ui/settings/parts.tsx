@@ -138,7 +138,28 @@ export function Field({
           <div style={{ flex: '1 1 180px', minWidth: 0 }}>
             <div style={{ font: '600 14px/1.3 var(--sans)', color: 'var(--text)' }}>{label}</div>
             {hint !== undefined && (
-              <div id={hintId} className="t-dense" style={{ marginTop: 5, maxWidth: '62ch' }}>
+              <div
+                id={hintId}
+                className="t-hint"
+                style={{
+                  marginTop: 5,
+                  maxWidth: '62ch',
+                  /*
+                   * A hint is a sentence, and a sentence may carry a token
+                   * with no space in it - About's licence row quotes the
+                   * DPCGL's 73-character path. Without this that token is
+                   * the column's minimum width: `Rows` is a grid and its one
+                   * track cannot go narrower than its widest unbreakable
+                   * word, so at a 125% root the path at 16.25px is 420 and
+                   * every Field in the About rows was laid out 448 wide in a
+                   * 369 column - 67 elements clipped, measured on the rig at
+                   * 393x852 - and at the 16px root it was 336 in 339, three
+                   * pixels from doing the same. The path breaks now, and a
+                   * hint can never be the thing that sets the column.
+                   */
+                  overflowWrap: 'anywhere',
+                }}
+              >
                 {hint}
               </div>
             )}
@@ -340,7 +361,7 @@ export function Note({
   return (
     <div
       role={role}
-      className="t-dense"
+      className="t-hint"
       style={{
         background: wash,
         border: `1px solid ${edge}`,

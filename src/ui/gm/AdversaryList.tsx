@@ -104,7 +104,7 @@ export function FilterBar({
           aria-label="Filter adversaries by role"
           value={value.role}
           onChange={(e) => onChange({ ...value, role: e.target.value as Filter['role'] })}
-          style={{ flex: 1, minWidth: 0, minHeight: 'var(--control)', padding: '4px 8px', font: '600 12px/1 var(--sans)' }}
+          style={{ flex: 1, minWidth: 0, minHeight: 'var(--control)', padding: '4px 8px', font: '600 0.75rem/1 var(--sans)' }}
         >
           <option value="all">Every role</option>
           {ADVERSARY_ROLES.map((r) => (
