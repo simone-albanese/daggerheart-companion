@@ -1524,7 +1524,7 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
   // And it must not deny the display. A parked ref IS drawn: it lives on the
   // record as `?id`, `missingCardRefs` returns it because `?5407` can never be
   // an index key, and both surfaces that list cards draw a row for it. Play
-  // draws `GhostRow` - a dashed row reading CARD NOT IN THIS BUILD and naming
+  // draws `GhostRow` - a dashed row reading CARD NOT IN THIS BOOK and naming
   // the ref, with TO VAULT beside it in the loadout and nothing beside it in
   // the vault, because a vault ghost has nowhere to be moved to - and
   // `PlayDesktop` draws the cockpit's own copy of the same cell. Rest draws
@@ -1554,7 +1554,7 @@ function readBody(bytes: Uint8Array, registry: Registry, version: number): Decod
       ? []
       : [
           `${unresolved.length} reference${unresolved.length === 1 ? '' : 's'} could not be found in this device's content ` +
-            `(${unresolved.join(', ')}). They stay on the sheet - drawn as rows marked CARD NOT IN THIS BUILD, ` +
+            `(${unresolved.join(', ')}). They stay on the sheet - drawn as rows marked CARD NOT IN THIS BOOK, ` +
             `with a way to move them to the vault - and are passed on unchanged when you send it again. ` +
             `What this build cannot do is name them, and adding the content here later will not: ` +
             `a device that already has it names them when the sheet arrives there.`,

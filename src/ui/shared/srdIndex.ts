@@ -3,13 +3,13 @@
  *
  * ## The measurement this file exists to answer
  *
- * `searchRules` searches `dataset.rules`: **69 sections** out of the **1438**
+ * `searchRules` searches `dataset.rules`: **82 sections** out of the **1451**
  * records the app ships. The other 1369 - every weapon, every domain card, every
  * adversary in the bestiary this same app draws - were not in any haystack.
  * Typing `Rally` got the honest silence the search draws for a word that is not
  * in the book, and `Rally` is the Bard's class feature, printed on the sheet of
  * anyone playing one. Typing `Acid Burrower` got the same silence, and it is an
- * adversary at p.75 of the same file, on the GM's own Bestiary screen two taps
+ * adversary at p.97 of the same file, on the GM's own Bestiary screen two taps
  * away. The silence was not a bug in the matcher: the matcher was never given
  * the words.
  *
@@ -30,7 +30,7 @@
  * ## The rule this file inherits from `srdReference.ts`
  *
  * Every string a record contributes to its own haystack came out of
- * `data/srd-1.0.json` at runtime. Not one of the book's sentences is typed
+ * `data/srd-2.0.json` at runtime. Not one of the book's sentences is typed
  * here. The `label` on a field is the app's word and never the book's - it is
  * the same kind of word `StatBlock.tsx` already prints as `IMPULSES · ` above
  * the SRD's own impulses - and **a label is never in the haystack**, so no
@@ -45,7 +45,7 @@
  * it has to *be* the book's, down to the case the JSON was written in;
  * capitalising it would put a string this repository composed inside a haystack
  * and inside a preview. That is what makes the invariant checkable in one
- * assertion - `srdIndex.test.ts` walks every line of all 1438 records and finds
+ * assertion - `srdIndex.test.ts` walks every line of all 1451 records and finds
  * each one verbatim among the dataset's own strings - and an invariant with an
  * exception list is an invariant that grows one more exception a year.
  *
@@ -111,7 +111,15 @@ import type {
   Weapon,
   Armor,
 } from '../../../shared/types.ts';
-import { ruleTerms, wholeWordIn, type RuleMatchKind } from './srdReference.ts';
+import { foldQuery, ruleTerms, wholeWordIn, type RuleMatchKind } from './srdReference.ts';
+
+/**
+ * Re-exported, because this is where `foldQuery` was declared until the rules
+ * search in `srdReference.ts` needed the same fold: `Cards.tsx` and the search
+ * tests import it from here, and that file imports from this one only in the
+ * other direction.
+ */
+export { foldQuery };
 
 /**
  * Which collection of the dataset a record came out of.
@@ -395,8 +403,8 @@ const build = (
 });
 
 /**
- * Every record the app ships, flattened. **1438** in the shipped dataset - the
- * 69 rules sections and the 1369 the rules search cannot reach.
+ * Every record the app ships, flattened. **1451** in the shipped dataset - the
+ * 82 rules sections and the 1369 the rules search cannot reach.
  *
  * 849 and 780 on SRD 1.0. Both figures are pinned in `tests/ui/srdIndex.test.ts`
  * and moved with the switch; the six transformations and the sixteen martial
@@ -424,7 +432,7 @@ const build = (
  * changing the identity of `dataset`. Searching it costs what `searchRules`
  * costs and less: the reject is one `includes` per term against a haystack that
  * is a few hundred characters where a section's is a few thousand, and 1369
- * short rejects are cheaper than 69 long ones.
+ * short rejects are cheaper than 82 long ones.
  */
 export function srdIndex(dataset: Dataset): SrdRecord[] {
   const out: SrdRecord[] = [];
@@ -485,7 +493,9 @@ function quoteIn(haystack: string, terms: readonly string[]): string | null {
   for (const raw of haystack.split('\n')) {
     const line = raw.trim();
     if (line === '') continue;
-    const low = line.toLowerCase();
+    // The same fold the reject in `searchSrd` applied to the record whole, or
+    // a line carrying the term behind a ’ scores zero and the hit has no quote.
+    const low = foldQuery(line);
     let score = 0;
     for (const t of terms) {
       if (!low.includes(t)) continue;
@@ -512,33 +522,12 @@ function quoteIn(haystack: string, terms: readonly string[]): string | null {
  *
  * The AND is over the whole record rather than over one line; the header says
  * why, and says why there is no fallback when it finds nothing.
+ *
+ * `foldQuery` is `srdReference.ts`'s and is folded on both sides here, needle
+ * and haystack, for the reason its own docblock gives. It lived in this file
+ * until the rules search needed it too; it is re-exported above so the Cards
+ * screen and the tests that reached it here still do.
  */
-/**
- * Fold what a phone keyboard cannot type.
- *
- * SRD 2.0 sets ten card names with a NON-BREAKING hyphen, U+2011: the nine
- * `*‑Touched` cards and `Battle‑Hardened`. SRD 1.0 had none. A player types
- * `Arcana-Touched` with the ASCII hyphen their keyboard offers and the app
- * answers *"Nothing in this dataset carries that"* — about a card it ships and
- * draws. Measured on the real Search screen: 0 of 10 found by the hyphen, all
- * 10 found by a space.
- *
- * Folded here rather than at extraction, because the NAME is right: the book
- * prints U+2011 so a card would not break across a line, and rewriting it would
- * be the app inventing a spelling. What is wrong is the comparison.
- *
- * The soft hyphen and zero-width space are folded too. They buy nothing on
- * either book — measured, one U+00AD and four U+200B in 224 pages, none in a
- * name — and they cost one character class here.
- */
-export const foldQuery = (s: string): string =>
-  s
-    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
-    .replace(/[\u00AD\u200B]/g, '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
-
 export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] {
   const needle = foldQuery(query);
   if (needle === '') return [];
@@ -563,9 +552,13 @@ export function searchSrd(index: readonly SrdRecord[], query: string): SrdHit[] 
     if (!terms.every((t) => low.includes(t) || name.includes(t))) continue;
 
     const line = quoteIn(record.haystack, terms);
-    // Unreachable while a record survived the reject above on something other
-    // than its name alone, and answered rather than asserted: a record whose
+    // Unreachable while `quoteIn` folds each line exactly as the reject above
+    // folded the whole, and answered rather than asserted: a record whose
     // every term came out of its *name* is a title hit and returned already.
+    // It WAS reachable for one round - the reject folded and the quote only
+    // lowercased, so a body carrying a term behind a U+2011 or a ’ passed the
+    // reject and was then dropped here without a line, which is the silent
+    // half of the defect the fold exists to close.
     if (line === null) continue;
     bodies.push({ ...seen, where: 'text', line });
   }

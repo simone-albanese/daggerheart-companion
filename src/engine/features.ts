@@ -22,7 +22,15 @@
  * fixture requirement from PascalCase exports in `.tsx` files, and this exports
  * no component.
  */
-import type { Ancestry, CharClass, Character, Community, Ref, Subclass } from '../../shared/types.ts';
+import type {
+  Ancestry,
+  CharClass,
+  Character,
+  Community,
+  Ref,
+  Subclass,
+  Transformation,
+} from '../../shared/types.ts';
 import type { DatasetIndex } from './character.ts';
 
 /**
@@ -41,7 +49,20 @@ export type FeatureSite =
   | 'subclass-specialization'
   | 'subclass-mastery'
   | 'ancestry'
-  | 'community';
+  | 'community'
+  /**
+   * The transformation card the character holds, when one resolves.
+   *
+   * This site did not exist for one round, and the cost was measured on the
+   * shipped dataset: a level-5 Warlock holding `vampire` printed a sheet with
+   * no "Vampire", "Fangs" or "Feed" anywhere on it, and Play - which reads
+   * this same list - showed neither feature; only Build drew the held card.
+   * Folio 42 asks players to "remind GMs of their transformations' negative
+   * effects whenever they're relevant", and the negative effect is the second
+   * feature on every card. A held card whose drawback is on no screen but the
+   * one you edit on is a card the sheet is hiding from the table.
+   */
+  | 'transformation';
 
 export interface HeldFeature {
   site: FeatureSite;
@@ -136,6 +157,28 @@ export function characterFeatures(c: Character, index: DatasetIndex): HeldFeatur
 
   const community = index.collections.communities.get(c.communityRef ?? '');
   if (community) push('community', community.id, community.name, [community.feature]);
+
+  /*
+   * After the heritage, because that is where the book files it: "When your
+   * character gains a transformation, add the card to your loadout as if it
+   * were part of your character's heritage" (folio 42). The source is the
+   * card's own name - `Vampire`, not `Vampire · Transformation` - for the
+   * reason the community's is: a card has one name and it is the name the
+   * table knows it by.
+   *
+   * `collections.transformations`, never `byRef`: SRD 2.0 prints an adversary
+   * and a card that both slugify to `vampire`, and the bare-slug map answers
+   * with the adversary. `Character.transformationRef` says why at length.
+   * An unresolvable ref contributes nothing here and is the printed sheet's
+   * `missing` list's to report.
+   */
+  const transformation: Transformation | undefined =
+    c.transformationRef === null || c.transformationRef === ''
+      ? undefined
+      : index.collections.transformations.get(c.transformationRef);
+  if (transformation) {
+    push('transformation', transformation.id, transformation.name, transformation.features);
+  }
 
   const hopeFeature: HeldFeature | null = klass
     ? {

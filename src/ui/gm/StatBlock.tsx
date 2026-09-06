@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import type { Adversary, Environment, Feature } from '../../../shared/types.ts';
+import { severeIsNone } from '../../engine/damage.ts';
 
 /** `phy`, `direct mag`, `phy/mag` - all of them, without a lookup table. */
 export function damageLabel(type: string): string {
@@ -199,10 +200,22 @@ export function AdversaryBlock({
           value={a.thresholds ? String(a.thresholds[0]) : '—'}
           color={a.thresholds ? undefined : 'var(--dim)'}
         />
+        {/*
+          * NONE, the book's own word, where the pair is `3/None`. Five tier-1
+          * blocks print a Severe that damage never reaches, and the parser
+          * stores it as `Number.MAX_SAFE_INTEGER`; `severeIsNone` in
+          * `engine/damage.ts` is the one test for that value. Printed the same
+          * way the environment band prints SPECIAL for a Difficulty the book
+          * gives no number for: the word, in `--dim`, rather than sixteen digits no
+          * GM could apply. `—` stays for the whole pair being None, because there
+          * the sentence under the grid carries the rule.
+          */}
         <Stat
           label="SEVERE"
-          value={a.thresholds ? String(a.thresholds[1]) : '—'}
-          color={a.thresholds ? undefined : 'var(--dim)'}
+          value={
+            a.thresholds === null ? '—' : severeIsNone(a.thresholds[1]) ? 'NONE' : String(a.thresholds[1])
+          }
+          color={a.thresholds !== null && !severeIsNone(a.thresholds[1]) ? undefined : 'var(--dim)'}
         />
         <Stat label="HP" value={String(a.hp)} color="var(--damage)" />
         {/*
@@ -260,7 +273,7 @@ export function AdversaryBlock({
  * fields this band was missing - it just does not put them on the same side.
  *
  * IMPULSES is the sentence the place is *played* by. `using-environments`
- * (p.102) defines it as "the manner or mode with which the environment pushs
+ * (p.158) defines it as "the manner or mode with which the environment pushs
  * and pulls the people within them": nobody reads it out, and it is in force
  * during every sentence that is read out. So it is drawn shut, where a glance
  * reaches it without a tap.
@@ -363,7 +376,8 @@ export function AdversaryBlock({
  * conclusion does not turn on the 4.7px the sum clears the column by: the row
  * is 46 either way, and only the wrap itself is in doubt.
  *
- * Nor is the wrap new. The same arithmetic over all 19 environments puts the
+ * Nor is the wrap new. The same arithmetic over all 19 SRD 1.0 environments
+ * (not re-run over SRD 2.0's 47) puts the
  * four EXPLORATION bands at 350.30 shut - 25 characters of meta where these two
  * have 24 - so that row already wrapped for four of nineteen before SPECIAL was
  * written into it, and now wraps for six. Open, the chip reads HIDE and every
@@ -387,15 +401,16 @@ export function AdversaryBlock({
  *
  * ## The Difficulty this app is allowed to state
  *
- * Two environments print `Difficulty: Special` instead of a number - Ambushed
- * and Ambushers, both p.103 - and `shared/parsers/environments.ts` stores that
+ * Three environments in SRD 2.0 print `Difficulty: Special` instead of a
+ * number - Ambushed and Ambushers (p161, the two SRD 1.0 also wrote as
+ * Special) and Duel (p168) - and `shared/parsers/environments.ts` stores that
  * as 0, because `Environment.difficulty` is a number. Suppressing the readout
  * on 0 was right, since 0 is a lie, but it left the field reading as *absent*,
  * which is worse: a GM could not tell whether the place had no Difficulty or
  * the app had lost it. The header now prints the book's own word, SPECIAL.
  *
  * The substitute splits cleanly into a quote and an app's arithmetic, and the
- * seam is the whole design. Both blocks carry a Passive named Relative
+ * seam is the whole design. The two ambushes carry a Passive named Relative
  * Strength reading "The Difficulty of this environment equals that of the
  * adversary with the highest Difficulty" - so *that* a substitute exists is the
  * book's, not this app's, and the feature itself is already printed verbatim
@@ -405,6 +420,21 @@ export function AdversaryBlock({
  * is too low. A chosen set is arithmetic, so the line takes this project's
  * rule for anything computed rather than quoted - `--dim`, prefixed `≈`, with
  * COMPUTED BY THIS APP in the same element as the number.
+ *
+ * DUEL GETS NO SUBSTITUTE, and the seam is why. Its Relative Strength reads
+ * "equals that of the adversary who issued the challenge" - a fact about the
+ * fiction, which the GM holds and the board does not. The strongest card is
+ * only sometimes the challenger, so a maximum here is not a scoped version of
+ * the book's rule, it is a different rule wearing the book's attribution: with
+ * a Difficulty 12 challenger and a 15 beside them the band said "≈ DIF 15 ·
+ * FROM THE STRONGEST ADVERSARY HERE" for every Duel. `derivesFromStrongest`
+ * reads the block's own sentence for "highest Difficulty" rather than keying
+ * on two ids, so a custom dataset that prints the ambush rule under another
+ * name gets the substitute and one that prints Duel's rule does not. For Duel
+ * the header says SPECIAL and the feature is one fold down; no line was added
+ * in its place, because a line the band does not draw costs nothing against
+ * the 46px floor above, and "ask the GM who issued the challenge" is a control
+ * this band has not got.
  *
  * `strongestHere` is optional because two callers draw this band and only one
  * of them has a fight under it. `Scene.tsx` passes it, off the OPEN row's own
@@ -417,6 +447,16 @@ export function AdversaryBlock({
  * header still says SPECIAL and no number is claimed. Reading `useGm` in here
  * would have got the arithmetic for free and got exactly that defect with it.
  */
+/**
+ * Whether a Special environment's own Relative Strength says "the adversary
+ * with the highest Difficulty" - the one rule a maximum over the board can
+ * stand in for. True of Ambushed and Ambushers (p161); false of Duel (p168),
+ * whose rule names the challenger; false of any block with a number.
+ */
+export const derivesFromStrongest = (e: Environment): boolean =>
+  e.difficulty <= 0 &&
+  e.features.some((f) => f.name === 'Relative Strength' && /highest Difficulty/i.test(f.text));
+
 export function EnvironmentBand({
   environment,
   strongestHere,
@@ -428,7 +468,7 @@ export function EnvironmentBand({
   const [open, setOpen] = useState(false);
   const e = environment;
   const special = e.difficulty <= 0;
-  const derived = special && strongestHere !== undefined ? strongestHere : null;
+  const derived = derivesFromStrongest(e) && strongestHere !== undefined ? strongestHere : null;
   return (
     <section
       className="panel stack"
@@ -446,7 +486,7 @@ export function EnvironmentBand({
         </span>
         <span style={{ font: '700 14px/1.15 var(--sans)', flex: 1, minWidth: 0 }}>{e.name}</span>
         <span className="t-meta" style={{ flex: 'none' }}>
-          T{e.tier} · {e.type.toUpperCase()} · DIF {special ? 'SPECIAL' : e.difficulty}
+          T{e.tier} · {e.type.toUpperCase()} · DIFF {special ? 'SPECIAL' : e.difficulty}
         </span>
         <span className="chip" style={{ flex: 'none', color: 'var(--text-2)' }}>
           {open ? 'HIDE' : `${e.features.length} FEATURES`}
@@ -468,7 +508,7 @@ export function EnvironmentBand({
           )}
           {derived !== null && (
             <span className="t-meta" style={{ lineHeight: 1.5, color: 'var(--dim)' }}>
-              ≈ DIF {derived} · FROM THE STRONGEST ADVERSARY HERE · COMPUTED BY THIS APP
+              ≈ DIFF {derived} · FROM THE STRONGEST ADVERSARY HERE · COMPUTED BY THIS APP
             </span>
           )}
         </div>
@@ -613,8 +653,8 @@ export function EnvironmentBlock({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
         {/*
-          Not "Event environments print no Difficulty" - four of the six in the
-          shipped book print one. The two that do not print `Difficulty:
+          Not "Event environments print no Difficulty" - ten of the thirteen in
+          the shipped book print one. The three that do not print `Difficulty:
           Special`, which `shared/parsers/environments.ts` stores as 0, so that
           is the word to draw. A dash said the field was missing.
         */}

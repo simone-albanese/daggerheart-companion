@@ -684,12 +684,13 @@ describe('ADD', () => {
 
   it('will not start a nameless countdown, and says why beside the field', () => {
     // The primary countdown's name is what the top bar prints and what its −
-    // button is called: an empty one produces "Advance  by one".
+    // button is called: an empty one produces "Advance  by one". The hint says
+    // the half a GM can see (R3-13 dropped the screen-reader half).
     gm();
     click(named('ADD'));
     click(leading('COUNTDOWN'));
     expect(named('ADD TO THE END OF THE NIGHT').disabled).toBe(true);
-    expect(text()).toContain('what its − button is called');
+    expect(text()).toContain('A countdown needs a name');
     submit();
     expect(useGm.getState().session).toHaveLength(0);
   });

@@ -139,13 +139,48 @@ describe('the features a character actually holds', () => {
 
     click(header);
     const screen = text();
-    const missing = held.features.filter((f) => !screen.includes(f.name) || !screen.includes(f.text));
+    // `FeatureText` draws each line as its own block and a `- ` line as a
+    // bullet, so a feature's text reaches `textContent` line by line with the
+    // hyphens turned into bullets - which is what this compares against.
+    const asDrawn = (t: string): string =>
+      t
+        .split('\n')
+        .map((l) => (l.startsWith('- ') ? `• ${l.slice(2)}` : l))
+        .join('');
+    const missing = held.features.filter(
+      (f) => !screen.includes(f.name) || !screen.includes(asDrawn(f.text)),
+    );
     expect(
       missing.map((f) => `${f.source} · ${f.name}`),
       'these features are on the sheet and not on the screen. Before this section existed ' +
         'EVERY one of them was missing, and the only way to read them was to print the sheet:' +
         `\n  ${missing.map((f) => `${f.source} · ${f.name}`).join('\n  ')}`,
     ).toEqual([]);
+  });
+
+  it('lists a held transformation\'s features, drawback included, sourced to the card', () => {
+    /*
+     * The engine list had no transformation site, so a Warlock holding the
+     * Vampire card saw Fangs and Feed on the Build screen only - not here,
+     * where the fight is, and not on paper. Folio 42: "players remind GMs of
+     * their transformations' negative effects whenever they're relevant", and
+     * Feed is the negative effect.
+     */
+    const card = index.collections.transformations.get('vampire');
+    expect(card, 'the shipped dataset stopped carrying the Vampire card').toBeDefined();
+    const c = seed({ transformationRef: 'vampire' });
+    play(c);
+    const held = characterFeatures(c, index);
+    expect(held.features.filter((f) => f.site === 'transformation').map((f) => f.name)).toEqual(
+      card!.features.map((f) => f.name),
+    );
+    click(fold('Lineage, domains & features'));
+    const screen = text();
+    for (const f of card!.features) {
+      expect(screen, `${f.name} is on the sheet and not on the screen`).toContain(f.name);
+      expect(screen).toContain(f.text);
+    }
+    expect(screen).toContain(card!.name.toUpperCase());
   });
 
   it('leads with the class Hope feature, which the printed sheet files elsewhere', () => {
@@ -229,7 +264,7 @@ describe('the gear that is actually equipped', () => {
       activeArmor: 'gambeson-armor',
     });
     play(c);
-    click(fold('Weapons & armour'));
+    click(fold('Weapons & armor'));
     const screen = text();
     expect(screen, 'the Greatsword still says only its dice').toContain('Massive: -1 to Evasion');
     expect(screen).toContain('Barrier: +2 to Armor Score; -1 to Evasion');
@@ -245,7 +280,7 @@ describe('the gear that is actually equipped', () => {
       activeArmor: 'gambeson-armor',
     });
     play(c);
-    click(fold('Weapons & armour'));
+    click(fold('Weapons & armor'));
     const screen = text();
     expect(screen).toContain('−1 EVASION');
     expect(screen).toContain('+2 ARMOR');
@@ -260,7 +295,7 @@ describe('the gear that is actually equipped', () => {
       activeArmor: null,
     });
     play(c);
-    click(fold('Weapons & armour'));
+    click(fold('Weapons & armor'));
     const screen = text();
     expect(screen).toContain('Reliable: +1 to attack rolls');
     expect(screen, 'an attack-roll bonus was charted as a sheet number').not.toContain(
@@ -379,9 +414,10 @@ describe('the Spellcast trait, in the class info', () => {
   });
 
   it('says a class has none rather than leaving an absence to explain itself', () => {
-    // Four of the eighteen shipped subclasses carry no Spellcast trait - both
-    // Guardian subclasses and both Warrior ones - and for those characters the
-    // whole Spellcast row is missing from Equipped. A blank explains nothing.
+    // Six of the twenty-six shipped subclasses carry no Spellcast trait - both
+    // Brawler subclasses, both Guardian ones and both Warrior ones - and for
+    // those characters the whole Spellcast row is missing from Equipped. A blank
+    // explains nothing.
     setViewport(1280);
     const c = asSubclass(subclassWith(false));
     play(c);

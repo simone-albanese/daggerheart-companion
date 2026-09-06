@@ -166,7 +166,7 @@ const askRows = (): Element[] => [...container.querySelectorAll('section[data-as
 const spoken = (): string =>
   (container.querySelector('span.sr-only[role="status"]')?.textContent ?? '').trim();
 
-/** The fourteen blocks of the index, as controls. */
+/** The sixteen blocks of the index, as controls. */
 const kindBlocks = (): HTMLButtonElement[] => [
   ...container.querySelectorAll<HTMLButtonElement>('[data-index="kinds"] > button'),
 ];
@@ -253,8 +253,8 @@ describe('the search is global', () => {
 
   it('counts the whole index in the field, not the sections alone', () => {
     // The placeholder used to say `69 rules sections` on a field that has
-    // driven the 780 records since the index landed. Here it is the index's
-    // own length, so a homebrew layer moves it.
+    // driven the whole index since it landed - 780 records then, 1369 now.
+    // Here it is the index's own length, so a homebrew layer moves it.
     mount();
     expect(field().getAttribute('placeholder')).toBe(
       `Search ${String(srdIndex(dataset).length)} entries in the book`,
@@ -430,7 +430,7 @@ describe('the empty field is an index of what the app ships', () => {
     const sticky = [...container.querySelectorAll<HTMLButtonElement>('button')].find(
       (b) => b.style.position === 'sticky',
     );
-    expect(sticky, 'a browse of 204 rows needs the way out to travel with it').toBeDefined();
+    expect(sticky, `a browse of ${built.length} rows needs the way out to travel with it`).toBeDefined();
     expect(sticky!.style.minHeight).toBe('44px');
     expect(sticky!.textContent).toContain(String(built.length));
     press(sticky!);

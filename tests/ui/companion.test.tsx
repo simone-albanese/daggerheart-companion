@@ -121,7 +121,7 @@ const byText = (needle: string): HTMLElement => {
 };
 
 /**
- * The shipped dataset with one of folio 18's level-up options taken out.
+ * The shipped dataset with one of folio 22's level-up options taken out.
  *
  * `companionUpgrades` reads the options out of the `- Name: text` bullets of
  * one rules section, so a shorter list is a shorter body and nothing else. It
@@ -188,7 +188,7 @@ describe('the level-up options reach the sheet from the dataset', () => {
      * not a hypothetical: `Companion.tsx`'s `{upgrades.length}` was replaced
      * with the literal `8` and this file stayed 24/24 green.
      *
-     * A layer that rewrites folio 18 is the case this is really about - it is
+     * A layer that rewrites folio 22 is the case this is really about - it is
      * the whole reason the options were moved out of `src/` and into the rules
      * stream - and a sheet that kept saying 8 would be counting the book the
      * app is no longer drawing.
@@ -306,8 +306,8 @@ describe('a companion’s damage type', () => {
  *
  * `BACKLOG.md` P1-1 shipped without this and said why: arming a companion
  * "needs a second armed slot on Play and a decision about whose Proficiency and
- * whose roll it is". Folio 18 makes both decisions, and it was prose no build
- * could reach until `parseRules` was pointed at it.
+ * whose roll it is". Folios 21-22 make both decisions, and it was prose no
+ * build could reach until `parseRules` was pointed at them.
  *
  * The control is on the companion's own panel and not in `Equipped`, because a
  * player who switched to COMPANION is operating the animal and should not be
@@ -418,7 +418,7 @@ describe('declaring the companion’s attack from Play', () => {
 /**
  * *"Spend a Hope to add an applicable **Companion** Experience to the roll."*
  *
- * The chips are the half of folio 18 that is easy to leave out, because the
+ * The chips are the half of folio 21 that is easy to leave out, because the
  * roll works without them. It would just be the wrong roll: "Ran with the
  * wolves" is not a thing the raven did.
  */

@@ -107,7 +107,7 @@ describe('what a shut row says about itself', () => {
     // The two are different facts and the difference is the point: one is a
     // scene not yet placed, the other is a scene whose place this device has
     // not loaded. Collapsing them loses the second one entirely.
-    expect(describe_(gone)).toBe('NOT IN THIS DATASET');
+    expect(describe_(gone)).toBe('NOT IN THIS BOOK');
   });
 
   /*
@@ -308,7 +308,7 @@ describe('what a shut row says about itself', () => {
 
   it('keeps the kind of a link it cannot resolve, instead of going quiet', () => {
     const item: SessionItem = { ...base(), kind: 'link', target: { kind: 'adversary', ref: 'the-gnawing' } };
-    expect(describe_(item)).toBe('ADVERSARY · NOT IN THIS DATASET');
+    expect(describe_(item)).toBe('ADVERSARY · NOT IN THIS BOOK');
   });
 
   it('draws a link kind this build has never heard of, and says what it was called', () => {
@@ -317,8 +317,8 @@ describe('what a shut row says about itself', () => {
     // nothing at all.
     const named: SessionItem = { ...base(), kind: 'link', target: { kind: 'unknown', named: 'photo', ref: 'p1' } };
     const nameless: SessionItem = { ...base(), kind: 'link', target: { kind: 'unknown', named: '', ref: 'p1' } };
-    expect(describe_(named)).toBe('PHOTO · NOT A KIND THIS BUILD KNOWS');
-    expect(describe_(nameless)).toBe('NOT A KIND THIS BUILD KNOWS');
+    expect(describe_(named)).toBe('PHOTO · NOT A KIND THIS APP KNOWS');
+    expect(describe_(nameless)).toBe('NOT A KIND THIS APP KNOWS');
   });
 
   it('reads a countdown as its value over its start, and as a word at zero', () => {

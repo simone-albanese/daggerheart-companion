@@ -91,9 +91,9 @@
  *
  * A blank screen owed its reader what it is for and what it will look in, and
  * a sentence said both. What it could not say is **what is in there** - and on
- * a surface holding 849 records across fourteen collections, that is the thing
+ * a surface holding 1451 records across sixteen collections, that is the thing
  * a reader has to guess at before they can type. The index answers it by
- * drawing the shelves instead of naming them: fourteen blocks, each with its
+ * drawing the shelves instead of naming them: sixteen blocks, each with its
  * own count, and RULES opening onto the book's five chapters.
  *
  * **It is a browse, not a filter, and that distinction is the owner's decision
@@ -106,9 +106,9 @@
  *
  * **This is not a second `Reference.tsx`.** That screen is eight chosen
  * subjects with a renderer apiece, and its GM chapter is curated into five
- * folds. The index chooses nothing and hides nothing: fourteen blocks in the
- * dataset's own order under the dataset's own labels, 849 records, 69 sections.
- * The moment anybody reorders the fourteen, promotes a kind or drops a chapter,
+ * folds. The index chooses nothing and hides nothing: sixteen blocks in the
+ * dataset's own order under the dataset's own labels, 1451 records, 82 sections.
+ * The moment anybody reorders the sixteen, promotes a kind or drops a chapter,
  * it has become the third reference screen and should be reverted instead.
  *
  * ### What is drawn, in three ranks
@@ -190,7 +190,7 @@
  * `LicenceFooter` below it, so the column measures **537.00** against 342.00
  * and scrolls by 195. That is not the failure it would have been on a screen
  * budgeted against a fixed height: this column has always scrolled, the whole
- * index is reachable in one flick, and the thing a reader came for - fourteen
+ * index is reachable in one flick, and the thing a reader came for - sixteen
  * shelves and their counts - is above the fold at both sizes. The named lever
  * is therefore **not** taken: the lead sentence stays, because deleting it
  * would buy 32px towards a fold this content does not have to meet.
@@ -242,14 +242,14 @@ const chapterId = (chapter: SrdChapter): string => `chapter-${chapter}`;
 const kindId = (kind: SrdKind): string => `kind-${kind}`;
 
 /**
- * The fourteen shelves, in the dataset's own order and under its own labels.
+ * The sixteen shelves, in the dataset's own order and under its own labels.
  *
  * The order is `SRD_KINDS` unchanged and the labels are `SRD_KIND_LABELS`
  * unchanged: there is one vocabulary for the kinds of thing this app ships and
  * this screen does not get a second. Counts come off the index that is already
  * built in this scope rather than from a number typed here - a homebrew layer
- * that adds records is counted too, and a placeholder that said 849 anyway
- * would be the screen guessing at what it holds.
+ * that adds records is counted too, and a placeholder that hard-coded the
+ * count anyway would be the screen guessing at what it holds.
  */
 function KindGrid({
   counts,
@@ -416,8 +416,8 @@ export function Search(): React.JSX.Element {
    * Built here for the field's count and built again inside the results, both
    * memoised on the dataset, which changes about never. The count has to be
    * the dataset's own rather than a number typed here: a homebrew layer that
-   * adds records is searched too, and a placeholder that said 849 anyway would
-   * be the screen guessing at what it holds.
+   * adds records is searched too, and a placeholder that hard-coded the count
+   * anyway would be the screen guessing at what it holds.
    */
   const index = useMemo(() => srdIndex(dataset), [dataset]);
 
@@ -506,7 +506,8 @@ export function Search(): React.JSX.Element {
                       *control* rather than a label. Both halves of that were
                       decided by measurement rather than taste.
 
-                      WEAPONS opens onto 204 rows. Measured in Chrome,
+                      WEAPONS opened onto SRD 1.0's 204 rows when this was
+                      measured - 391 now. Measured in Chrome,
                       `pointer: coarse`, insets 47/34: the scroller becomes
                       **11,557px** at 393x852 and **11,573px** at 375x667 -
                       21.9 and **33.8 screens**. The prediction this was

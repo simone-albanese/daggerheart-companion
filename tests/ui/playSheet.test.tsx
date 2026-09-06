@@ -211,7 +211,7 @@ function fold(label: string): HTMLButtonElement {
  * opens the fold by hand first.
  */
 function openEquipped(): void {
-  const header = fold('Weapons & armour');
+  const header = fold('Weapons & armor');
   if (header.getAttribute('aria-expanded') === 'false') click(header);
 }
 
@@ -445,7 +445,7 @@ describe('what a phone shows of the character sheet', () => {
       'HP', // the four counters, second, where the message puts them
       'AGI +', // the traits, as one row of numbers
       'ROLL', // and then the dice, in the flow
-      'Weapons & armour',
+      'Weapons & armor',
       'Experiences', // "e fare entrare le armi e le experience"
       // Cards before Carried, which reads *against* "sotto armi e armature e
       // ultime le carte" and is decision 6 of the reflow: the cards are the
@@ -813,7 +813,7 @@ describe('the whole sheet, at 393x852', () => {
         .filter((b) => b.className === 'stack')
         .map(upTo),
       'the wrong set of folds is drawing the two-line header that fits half a cell',
-    ).toEqual(['Weapons & armour', 'Experiences', 'Cards', 'Rest & downtime']);
+    ).toEqual(['Weapons & armor', 'Experiences', 'Cards', 'Rest & downtime']);
     expect(
       indexHeaders()
         .filter((b) => b.className === 'row')
@@ -1115,7 +1115,7 @@ describe('the trait row and the roll surface', () => {
     // whole fold index is below it. `has nothing pinned` makes the second half
     // of that claim over every fold; this one is about ROLL itself.
     expect((container.firstElementChild as HTMLElement).contains(roll())).toBe(true);
-    expect(text().indexOf('ROLL')).toBeLessThan(text().indexOf('Weapons & armour'));
+    expect(text().indexOf('ROLL')).toBeLessThan(text().indexOf('Weapons & armor'));
   });
 
   /*
@@ -1441,7 +1441,7 @@ describe('the budget the pin came off for', () => {
    */
   const INDEX: Array<{ what: string; px: number }> = [
     { what: 'gap', px: GAP },
-    { what: 'Weapons & armour | Experiences, paired', px: 44 },
+    { what: 'Weapons & armor | Experiences, paired', px: 44 },
     { what: 'gap', px: GAP },
     // Cards above Carried since decision 6, and Rest comes up beside it from
     // below Carried - the reflow's only reorder, and it costs this table
@@ -2028,7 +2028,7 @@ describe('the budget the pin came off for', () => {
       );
     }
     const LABELS = [
-      'Weapons & armour',
+      'Weapons & armor',
       'Experiences',
       'Cards',
       'Rest & downtime',
@@ -2624,9 +2624,9 @@ describe('the incoming-damage box, where the ladder is', () => {
       damageField(),
       'the calculator is asking for a number it cannot read a verdict from',
     ).toBeNull();
-    expect(text()).toContain('ARMOR NOT IN THIS BUILD');
+    expect(text()).toContain('ARMOR NOT IN THIS BOOK');
     expect(
-      (text().match(/ARMOR NOT IN THIS BUILD/g) ?? []).length,
+      (text().match(/ARMOR NOT IN THIS BOOK/g) ?? []).length,
       'the sentence is on the screen twice, which is 44px of saying it again',
     ).toBe(1);
   });
@@ -2919,7 +2919,7 @@ describe('the vault', () => {
   it('does not call a recall that cost nothing a downtime', () => {
     // The log line read "Free during downtime" whenever the price was zero,
     // and nothing had ever passed `{ downtime: true }` - so the only way to
-    // reach it was one of the 31 SRD cards whose Recall Cost is 0, in the
+    // reach it was one of the 33 SRD cards whose Recall Cost is 0, in the
     // middle of a scene. Two zeroes, two reasons, and now two sentences.
     const free = dataset.domainCards.find((k) => k.recallCost === 0);
     expect(free, 'the shipped dataset has no card with a Recall Cost of 0').toBeDefined();
@@ -3092,7 +3092,7 @@ describe('a card this build cannot read', () => {
     // rows are what this test is about, and the fold defaults shut.
     click(fold('Cards'));
     const body = text();
-    expect(body).toContain('CARD NOT IN THIS BUILD');
+    expect(body).toContain('CARD NOT IN THIS BOOK');
     expect(body).toContain('card-from-a-newer-bundle');
     expect(body).toContain('card-from-a-homebrew-layer');
   });
@@ -3133,7 +3133,7 @@ describe('a card this build cannot read', () => {
     expect(body, 'the gallery still offers a slot the recall gate will refuse').not.toContain(
       'SLOTS FREE',
     );
-    expect(body).toContain('CARD NOT IN THIS BUILD');
+    expect(body).toContain('CARD NOT IN THIS BOOK');
   });
 
   it('shows in the vault too, so that count agrees as well', () => {
@@ -3228,7 +3228,7 @@ describe('the carried items, out loud', () => {
  * `▶ MODIFIERS … NONE`, the band Giorgio wanted back, spent on announcing that
  * nothing is happening.
  *
- * The capability stays - 38 adversaries and 9 environments call for a reaction
+ * The capability stays - 97 adversaries and 26 environments call for a reaction
  * roll, and an app you cannot roll with advantage in is wrong at the table -
  * so the controls move behind MODS on the roll bar, which costs no height at
  * all beside a 56px ROLL. The whole risk of that is the same as the fold's:
@@ -4010,10 +4010,10 @@ describe('what the attack is made with', () => {
 
   it('says what is armed on the closed fold, so a declaration is never off screen', () => {
     play(withBattleaxe());
-    expect(fold('Weapons & armour').textContent).toContain('3 WORN');
+    expect(fold('Weapons & armor').textContent).toContain('3 WORN');
     click(weaponRow('Battleaxe'));
     expect(
-      fold('Weapons & armour').textContent,
+      fold('Weapons & armor').textContent,
       'the fold can be shut with a weapon armed and nothing would say which',
     ).toContain('ARMED · BATTLEAXE');
   });
@@ -4021,7 +4021,7 @@ describe('what the attack is made with', () => {
   it('lets go of a weapon that comes off in Build', () => {
     /*
      * The declaration is a ref, and a ref has to be resolved against something.
-     * Resolved against `index.weapons` - the 204 shipped weapons, which is
+     * Resolved against `index.weapons` - the 391 shipped weapons, which is
      * where a weapon's dice live and therefore the obvious place to look - the
      * lookup answers "yes, a Battleaxe exists" to the question "is this
      * character holding a Battleaxe". So the fold went on saying ARMED ·
@@ -4030,15 +4030,15 @@ describe('what the attack is made with', () => {
      */
     play(withBattleaxe());
     click(weaponRow('Battleaxe'));
-    expect(fold('Weapons & armour').textContent).toContain('ARMED · BATTLEAXE');
+    expect(fold('Weapons & armor').textContent).toContain('ARMED · BATTLEAXE');
 
     rebuild({ activePrimaryWeapon: null, activeSecondaryWeapon: null, activeArmor: null });
     expect(text()).toContain('Nothing equipped');
     expect(
-      fold('Weapons & armour').textContent,
+      fold('Weapons & armor').textContent,
       'the fold names a weapon the section beneath it says is not there',
     ).not.toContain('BATTLEAXE');
-    expect(fold('Weapons & armour').textContent).toContain('NOTHING');
+    expect(fold('Weapons & armor').textContent).toContain('NOTHING');
   });
 
   it('does not hand the next sheet the last one’s declaration', () => {
@@ -4056,7 +4056,7 @@ describe('what the attack is made with', () => {
 
     switchTo({ ...playedCharacter(), name: 'The other one', activePrimaryWeapon: 'battleaxe' });
     expect(
-      fold('Weapons & armour').textContent,
+      fold('Weapons & armor').textContent,
       'the arriving sheet was handed an attack it never declared',
     ).not.toContain('ARMED');
     expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('false');
@@ -4096,11 +4096,67 @@ describe('what the attack is made with', () => {
     expect(weaponRow('Unarmed').textContent).toContain('d4');
   });
 
+  /*
+   * SRD 2 p55, Damage Type: "Weapons that deal magic damage can only be
+   * wielded by characters with a Spellcast trait." Arming a Hallowed Axe on a
+   * sheet with no subclass Spellcast trait used to arm Strength and say
+   * nothing; the sentence is now on the row, the way the Build slot says it.
+   */
+  it('says a magic weapon needs a Spellcast trait, on a sheet that has none (p55)', () => {
+    // No subclass, so no Spellcast trait - the Warrior's and the Guardian's case.
+    play(seed({ subclassRefs: [], activePrimaryWeapon: 'hallowed-axe', activeSecondaryWeapon: null }));
+    expect(weaponRow('Hallowed Axe').textContent).toContain('MAGIC WEAPONS NEED A SPELLCAST TRAIT');
+    // The fixture's bard has one, and the sentence goes with it.
+    play(seed({ activePrimaryWeapon: 'hallowed-axe', activeSecondaryWeapon: null }));
+    expect(weaponRow('Hallowed Axe').textContent).not.toContain('SPELLCAST TRAIT');
+    // A physical weapon on the traitless sheet says nothing either.
+    play(seed({ subclassRefs: [], activeSecondaryWeapon: null }));
+    expect(fold('Weapons & armor').textContent).not.toContain('SPELLCAST TRAIT');
+  });
+
+  /*
+   * The Brawler's own weapon. SRD 2 p12, "I Am the Weapon": "You have a
+   * primary weapon called Brawler's Strike equipped while you have no other
+   * Active Weapons. It uses a trait of your choice, has Melee range, and deals
+   * d8+d6 physical damage using your Proficiency." The only barehanded attack
+   * this screen offered a Brawler was the Unarmed row's [Proficiency]d4.
+   */
+  it('carries the Brawler’s Strike row for a barehanded Brawler, both dice scaled (p12)', () => {
+    play(seed({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    const row = weaponRow('Brawler’s Strike');
+    // Proficiency 2 at level 3: 2d8+2d6, and the trait is the player's to pick.
+    expect(row.textContent).toContain('2d8+2d6');
+    expect(row.textContent).toContain('A TRAIT OF YOUR CHOICE');
+    // The Unarmed row stays: p50's [Proficiency]d4 is everyone's.
+    expect(weaponRow('Unarmed').textContent).toContain('2d4');
+  });
+
+  it('does not draw it for a Brawler holding a weapon, nor for any other class', () => {
+    play(seed({ classRef: 'brawler', activeSecondaryWeapon: null }));
+    expect(() => weaponRow('Brawler’s Strike')).toThrow();
+    play(seed({ activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    expect(() => weaponRow('Brawler’s Strike')).toThrow();
+  });
+
+  it('leaves it standing under whichever trait the player picks, and moves no chip itself', () => {
+    play(seed({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null }));
+    click(weaponRow('Brawler’s Strike'));
+    expect(weaponRow('Brawler’s Strike').getAttribute('aria-pressed')).toBe('true');
+    expect(fold('Weapons & armor').textContent).toContain('ARMED · BRAWLER’S STRIKE');
+    expect(weaponRow('Brawler’s Strike').textContent).toContain('ARMED · A TRAIT OF YOUR CHOICE');
+    // "a trait of your choice": arming moved nothing, and Knowledge completes
+    // the declaration rather than withdrawing it.
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    click(traitChip('KNO'));
+    expect(traitChip('KNO').getAttribute('aria-pressed')).toBe('true');
+    expect(weaponRow('Brawler’s Strike').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('does not pick the trait for the GM when it is armed', () => {
     play(seed());
     click(weaponRow('Unarmed'));
     expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
-    expect(fold('Weapons & armour').textContent).toContain('ARMED · UNARMED');
+    expect(fold('Weapons & armor').textContent).toContain('ARMED · UNARMED');
     // "Unarmed attack rolls use either Strength or Finesse (GM's choice)", so
     // the chips are exactly where they were.
     expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
@@ -4291,7 +4347,7 @@ describe('the spell, and the +0 that rolls nothing', () => {
     // exists at all only because something is.
     expect(traitChip('PRE').getAttribute('aria-pressed')).toBe('false');
     expect(armedStrip()!.textContent).toContain('SPELLCAST');
-    expect(fold('Weapons & armour').textContent).toContain('ARMED · SPELLCAST');
+    expect(fold('Weapons & armor').textContent).toContain('ARMED · SPELLCAST');
   });
 
   it('keeps the modifier the card printed when the die changes', () => {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyProficiency,
+  diceOf,
   cryptoRng,
   formatDamage,
+  highestDamage,
   OUTCOME_DETAIL,
   OUTCOME_LABEL,
   outcomeDetail,
@@ -272,7 +274,9 @@ describe('rollDuality fixed dice', () => {
 });
 
 describe('rollDuality bonus dice and experience', () => {
-  it('rolls each bonus die with its own size and adds them all', () => {
+  it('rolls each bonus die with its own size and adds them all - Rally, Prayer, Slayer, Patron', () => {
+    // These are dice a feature adds to the total on their own; the Help an
+    // Ally d6 is not one of them, see the describe below.
     const rng = scriptedRng(4, 4, 6, 8);
     const r = rollDuality({ modifier: 0, difficulty: null, bonusDice: [6, 8] }, rng);
     expect(rng.calls).toEqual([12, 12, 6, 8]);
@@ -285,6 +289,94 @@ describe('rollDuality bonus dice and experience', () => {
     expect(r.experienceBonus).toBe(3);
     expect(r.total).toBe(14);
     expect(r.outcome).toBe('success-hope');
+  });
+});
+
+/**
+ * SRD 2 p49, Help an Ally: "If multiple advantage dice apply to the same
+ * action roll due to one or more players using Help an Ally, the player making
+ * the action roll adds only the highest result of all advantage dice rolled
+ * (including their own) and ignores the rest." The book's own example: Anne,
+ * +1 Agility, 13 with Hope (8 and 5), her advantage die a 2, Bo's a 3 and
+ * Cameron's a 4 - "an 18 with Hope (13 + 1 + 4)". The engine used to add every
+ * one of them and answer 23.
+ */
+describe('rollDuality and Help an Ally', () => {
+  it('adds only the highest advantage die, the roller’s own included (p49, Anne)', () => {
+    const r = rollDuality(
+      {
+        modifier: 1,
+        difficulty: null,
+        advantage: true,
+        helpDice: [6, 6],
+        fixed: { hope: 8, fear: 5, advantage: 2, help: [3, 4] },
+      },
+      refusingRng,
+    );
+    expect(r.advantageDie).toBe(2);
+    expect(r.helpDice).toEqual([3, 4]);
+    expect(r.highestAdvantage).toBe(4);
+    expect(r.total).toBe(18);
+  });
+
+  it('adds only the highest Help die when the roller had no advantage of their own', () => {
+    const r = rollDuality(
+      { modifier: 1, difficulty: null, helpDice: [6, 6], fixed: { hope: 8, fear: 5, help: [3, 4] } },
+      refusingRng,
+    );
+    expect(r.advantageDie).toBeNull();
+    expect(r.highestAdvantage).toBe(4);
+    expect(r.total).toBe(18);
+  });
+
+  it('keeps the roller’s own die when it is the highest', () => {
+    const r = rollDuality(
+      {
+        modifier: 1,
+        difficulty: null,
+        advantage: true,
+        helpDice: [6],
+        fixed: { hope: 8, fear: 5, advantage: 6, help: [3] },
+      },
+      refusingRng,
+    );
+    expect(r.highestAdvantage).toBe(6);
+    expect(r.total).toBe(20);
+  });
+
+  it('still adds a Rally die on its own beside the Help pool', () => {
+    // Rally is a bonus die, not an advantage die: 13 + 1 + Rally 3 + best of
+    // (2, 4).
+    const r = rollDuality(
+      {
+        modifier: 1,
+        difficulty: null,
+        advantage: true,
+        bonusDice: [6],
+        helpDice: [6],
+        fixed: { hope: 8, fear: 5, advantage: 2, bonus: [3], help: [4] },
+      },
+      refusingRng,
+    );
+    expect(r.total).toBe(21);
+  });
+
+  it('rolls a Help die the table did not type, with its own size', () => {
+    const rng = scriptedRng(8, 5, 4);
+    const r = rollDuality({ modifier: 1, difficulty: null, helpDice: [6] }, rng);
+    expect(rng.calls).toEqual([12, 12, 6]);
+    expect(r.helpDice).toEqual([4]);
+    expect(r.total).toBe(18);
+  });
+
+  it('changes nothing about a roll with no Help dice', () => {
+    const r = rollDuality(fixed(8, 5, { advantage: true, fixed: { advantage: 2 } }), refusingRng);
+    expect(r.helpDice).toEqual([]);
+    expect(r.highestAdvantage).toBe(2);
+    expect(r.total).toBe(15);
+    const plain = rollDuality(fixed(8, 5), refusingRng);
+    expect(plain.highestAdvantage).toBeNull();
+    expect(plain.total).toBe(13);
   });
 });
 
@@ -482,5 +574,71 @@ describe('reaction rolls', () => {
   it('never promise a Hope in the readout', () => {
     const detail = outcomeDetail(rollDuality(fixedDice(10, 2)));
     expect(detail).not.toMatch(/hope|fear/i);
+  });
+});
+
+/**
+ * SRD 2 p12, Brawler, "I Am the Weapon": Brawler's Strike "deals d8+d6
+ * physical damage using your Proficiency (both the d8 and d6 scale off your
+ * Proficiency)". The one pool in the book that rolls two kinds of die.
+ * `parseDamage('d8+d6')` used to answer `1d8` and drop the d6 without a word.
+ */
+describe('a pool of two kinds of die (Brawler’s Strike, p12)', () => {
+  it('reads d8+d6 as a d8 and also a d6, rather than as a d8', () => {
+    expect(parseDamage('d8+d6')).toEqual({
+      count: 1,
+      sides: 8,
+      modifier: 0,
+      also: [{ count: 1, sides: 6 }],
+    });
+    expect(parseDamage('2d8+2d6+3')).toEqual({
+      count: 2,
+      sides: 8,
+      modifier: 3,
+      also: [{ count: 2, sides: 6 }],
+    });
+    // A die subtracted is not a pool this app knows how to roll.
+    expect(parseDamage('d8-d6')).toBeNull();
+    // And a one-kind pool carries no `also` at all, so nothing downstream
+    // starts reading an empty list as a second kind of die.
+    expect(parseDamage('d8+2')).toEqual({ count: 1, sides: 8, modifier: 2 });
+  });
+
+  it('prints and round-trips as 1d8+1d6', () => {
+    expect(formatDamage(parseDamage('d8+d6')!)).toBe('1d8+1d6');
+    expect(formatDamage(parseDamage('1d8+1d6+2')!)).toBe('1d8+1d6+2');
+  });
+
+  it('scales both the d8 and the d6 by Proficiency (p12)', () => {
+    const scaled = applyProficiency(parseDamage('d8+d6')!, 3);
+    expect(scaled).toEqual({ count: 3, sides: 8, modifier: 0, also: [{ count: 3, sides: 6 }] });
+    expect(formatDamage(scaled)).toBe('3d8+3d6');
+  });
+
+  it('flattens to the d8s then the d6s, and the critical adds every one of them', () => {
+    const pool = applyProficiency(parseDamage('d8+d6')!, 2);
+    expect(diceOf(pool)).toEqual([8, 8, 6, 6]);
+    expect(highestDamage(pool)).toBe(28);
+    // A one-kind pool still answers count × sides, which is what the critical
+    // added before this file knew a second kind.
+    expect(highestDamage({ count: 3, sides: 10, modifier: 2 })).toBe(30);
+  });
+
+  it('rolls every die of the pool with its own size, in that order', () => {
+    const pool = applyProficiency(parseDamage('d8+d6')!, 2);
+    const rng = scriptedRng(7, 3, 5, 2);
+    const r = rollDamage(pool, { critical: true }, rng);
+    expect(rng.calls).toEqual([8, 8, 6, 6]);
+    expect(r.dice).toEqual([7, 3, 5, 2]);
+    expect(r.criticalBonus).toBe(28);
+    expect(r.total).toBe(7 + 3 + 5 + 2 + 28);
+    expect(r.spec).toBe('2d8+2d6');
+  });
+
+  it('lands a typed face on the die of the same index, d6s included', () => {
+    const pool = applyProficiency(parseDamage('d8+d6')!, 1);
+    const r = rollDamage(pool, { fixed: [8, 6] }, refusingRng);
+    expect(r.dice).toEqual([8, 6]);
+    expect(r.total).toBe(14);
   });
 });

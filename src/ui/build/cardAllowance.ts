@@ -1,8 +1,8 @@
 /**
  * How many domain cards a character takes at creation.
  *
- * The SRD's step 8 says two, and for seventeen of the eighteen subclasses it is
- * two. A Wizard who takes School of Knowledge gets three, because that
+ * The SRD's step 8 says two, and for twenty-five of the twenty-six subclasses it
+ * is two. A Wizard who takes School of Knowledge gets three, because that
  * subclass's foundation feature Prepared reads "Take an additional domain card
  * of your level or lower from a domain you have access to." An app that
  * hardcodes two tells that player they are finished one card short, and they

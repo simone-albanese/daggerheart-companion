@@ -7,7 +7,7 @@
  * countdown the GM already made.
  *
  * A rest is not only the character's. A Beastbound Ranger's companion clears
- * Stress alongside them - folio 18 - and until that was written here, a Ranger
+ * Stress alongside them - folio 22 - and until that was written here, a Ranger
  * who rested in this app came back with a companion still carrying every mark
  * they had taken.
  */
@@ -139,7 +139,7 @@ export const FEAR_DIE = 4;
  * The Fear a rest hands the GM, out of the rest that produced it.
  *
  * *"On a short rest, the GM gains 1d4 Fear. On a long rest, they gain Fear
- * equal to 1d4 + the number of PCs"* - `downtime`, p.41. The formula was one
+ * equal to 1d4 + the number of PCs"* - `downtime`, p.52. The formula was one
  * line inside `takeRest` while the player's rest screen was the only thing that
  * could produce it. The GM's side has a rest control now, and it cannot call
  * `takeRest`: that wants a `Character` and a `DerivedStats`, and the GM has
@@ -173,7 +173,7 @@ export const fearFromRest = (rest: RestKind, roll: number, partySize: number): n
  * AN ANIMAL WHO HAS LEFT THE SCENE IS NOT CLEARED, AND THAT IS A DELIBERATE
  * DEVIATION RATHER THAN THE RULE ABOVE BEING APPLIED CARELESSLY.
  *
- * Folio 18 says two things and this is where they meet. The sentence quoted
+ * Folio 22 says two things and this is where they meet. The sentence quoted
  * above carries no exception; three paragraphs earlier the same folio says
  * *"when they mark their last Stress, they drop out of the scene... They
  * remain unavailable until the start of your next long rest, WHERE THEY RETURN

@@ -161,7 +161,7 @@ describe('the index of everything shipped', () => {
 
 describe('what a haystack is allowed to contain', () => {
   /**
-   * The licence property, checked over all 849 rather than sampled.
+   * The licence property, checked over all 1451 rather than sampled.
    *
    * Not one line the search can match on or quote back is composed by this
    * repository. It is why `srdIndex.ts` prints a weapon's trait as `agility`

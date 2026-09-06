@@ -1,5 +1,5 @@
 /**
- * One filtered list of 129 adversaries, used twice: as the bestiary's index and
+ * One filtered list of 264 adversaries, used twice: as the bestiary's index and
  * as the encounter builder's picker. The only difference between the two is
  * what sits on the right of a row, so that is the only thing the caller passes.
  *
@@ -64,7 +64,7 @@ export function FilterBar({
   placeholder?: string;
 }): React.JSX.Element {
   // The count comes from the dataset that is actually loaded; a layer on top of
-  // the SRD changes it, and a placeholder that says 129 anyway is a small lie.
+  // the SRD changes it, and a placeholder that hard-codes the count is a small lie.
   const hint = placeholder ?? `Search ${total} adversaries`;
   return (
     <div className="stack" style={{ gap: 8, flex: 'none' }}>
@@ -178,7 +178,7 @@ export function AdversaryRow({
           {a.name}
         </span>
         <span className="t-meta" style={{ letterSpacing: '0.08em' }}>
-          T{a.tier} · {a.role.toUpperCase()} · DIF {a.difficulty} · HP {a.hp}
+          T{a.tier} · {a.role.toUpperCase()} · DIFF {a.difficulty} · HP {a.hp}
         </span>
       </button>
       {trailing}

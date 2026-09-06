@@ -2,9 +2,9 @@
  * The selectors the GM reference is built on, against the shipped dataset.
  *
  * These assertions are the licence check as much as the parsing check. The app
- * stamps `SRD 1.0 · P.73` beside the table it draws, and that stamp is only
+ * stamps `SRD 2.0 · P.95` beside the table it draws, and that stamp is only
  * honest if what is on the screen is byte-for-byte what is in
- * `data/srd-1.0.json`. So the values are pinned here, in the tests, where
+ * `data/srd-2.0.json`. So the values are pinned here, in the tests, where
  * pinning them costs nothing - and nowhere in `src`, where pinning them would
  * be transcribing the book into the repository.
  *
@@ -801,7 +801,7 @@ describe('goldAndLoot', () => {
   });
 
   /*
-   * The values, pinned here and nowhere in `src`. The app stamps SRD 1.0 · P.69
+   * The values, pinned here and nowhere in `src`. The app stamps SRD 2.0 · P.91
    * beside this table, and that stamp is only honest if what reaches the glass
    * is byte-for-byte the shipped file - which is the same reason no SRD row
    * string reaches a shipped one. `1-5 Handfuls` and `1-2 Chests` are typed
@@ -899,10 +899,10 @@ describe('playerExperiences', () => {
 });
 
 /**
- * The two class-chapter folios the rules stream reaches for, and nothing else.
+ * The class-chapter folios the rules stream reaches for, and nothing else.
  *
- * Folio 12 and folio 18 are prose sitting inside a chapter of stat blocks, so
- * `parseRules` walks two pages whose neighbours belong to other parsers. Both
+ * Folios 15 and 21-22 are prose sitting inside a chapter of stat blocks, so
+ * `parseRules` walks three pages whose neighbours belong to other parsers. Both
  * risks are one-sided and both are pinned here: a range that reaches too far
  * pulls the Beastform stat cards or the Rogue into a rules section, and a
  * manifest that names the wrong heading drops the sentence the engine was
@@ -911,7 +911,7 @@ describe('playerExperiences', () => {
  *
  * The sentences asserted below are the ones `src/engine/` now depends on. They
  * are quoted rather than summarised for the reason the file's own docblock
- * gives: the app stamps `SRD 1.0 · P.n` beside them.
+ * gives: the app stamps `SRD 2.0 · P.n` beside them.
  */
 describe('the Beastform and companion folios', () => {
   const body = (id: string): string => rules.find((r) => r.id === id)?.body ?? '';
@@ -926,19 +926,19 @@ describe('the Beastform and companion folios', () => {
   });
 
   it('stops before the stat cards, which are parseBeastforms’ and not prose', () => {
-    // `TIER 1` opens the cards. Without the drop spec every card on folio 12
+    // `TIER 1` opens the cards. Without the drop spec every card on folio 15
     // lands in the section above, which reads as a longer rule and not as an
     // error.
     expect(body('beastform-options')).not.toContain('AGILE SCOUT');
     expect(body('beastform-options')).not.toContain('Gain advantage on');
   });
 
-  it('carries the companion sheet, both columns of folio 21, in reading order', () => {
+  it('carries the companion sheet, folio 21 and the two boxes of folio 22, in reading order', () => {
     expect(rules.find((r) => r.id === 'ranger-companion')?.sourcePage).toBe(21);
-    // Column one: the four steps. Step 4 is the one the sheet had no field for.
+    // Folio 21: the four steps. Step 4 is the one the sheet had no field for.
     expect(body('ranger-companion')).toContain('Choose whether they deal physical or magic damage');
     expect(body('ranger-companion')).toContain('Whenever you gain a new Experience, your companion also gains one');
-    // Column two: the two boxes, which no module had a copy of at all.
+    // Folio 22: the two boxes, which no module had a copy of at all.
     expect(body('companion-taking-damage')).toContain(
       'When you choose a downtime move that clears Stress on yourself, your companion clears an equal number of Stress',
     );
@@ -1004,7 +1004,7 @@ describe('the Beastform and companion folios', () => {
  * The eight boxes on the companion sheet, read out of the dataset.
  *
  * They were eight string literals in `src/engine/companion.ts` - licensed text
- * typed into `src/`, drawn with no `SRD 1.0 · P.n` stamp on it and unreachable
+ * typed into `src/`, drawn with no `SRD 2.0 · P.n` stamp on it and unreachable
  * by a layer that rewrites the sheet. The ids are the load-bearing half: they
  * are what `companion.upgrades` persists and what the transfer codec puts on
  * the wire as plain strings, so a derivation that produced different slugs

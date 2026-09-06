@@ -772,7 +772,7 @@ describe('adding and removing one from the sheet', () => {
    */
   it('shows a ref it cannot name, in the armor path’s own words', () => {
     mount(sheet({ classRef: 'test-class', transformationRef: unresolvedRef(CARD_ID) }), makeDataset());
-    expect(container.textContent).toContain('TRANSFORMATION NOT IN THIS BUILD');
+    expect(container.textContent).toContain('TRANSFORMATION NOT IN THIS BOOK');
     expect(container.textContent).toContain(unresolvedRef(CARD_ID));
     expect(named('Drop it')).toBeDefined();
   });

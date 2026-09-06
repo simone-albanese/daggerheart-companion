@@ -15,6 +15,7 @@ import {
   weaponDamage,
 } from '@engine/character.ts';
 import { MAX_FAVOR, MAX_FOCUS, type Character, type Dataset } from '@shared/types.ts';
+import { newCompanion } from '@engine/companion.ts';
 import { hasDataset, loadDataset } from '../../tools/sampleCharacters.ts';
 import {
   advancement,
@@ -159,7 +160,7 @@ describe('armor this build cannot resolve', () => {
 
   it('does not let syncCounters empty the Armor track of armor it cannot name', () => {
     // This is where zero used to do its damage: `normalizeActive` runs on every
-    // level-up and armor change, and it would have written max 0 over a track
+    // level-up and gear change, and it would have written max 0 over a track
     // the player is marking, taking their marked slots with it.
     const c = makeCharacter({ ...parked, armorSlots: { marked: 3, max: 6 } });
     expect(syncCounters(c, deriveStats(c, ds)).armorSlots).toEqual({ marked: 3, max: 6 });
@@ -204,6 +205,61 @@ describe('scars', () => {
   it('never goes below zero Hope', () => {
     const many = Array.from({ length: BASE_HOPE + 4 }, (_, i) => `scar ${i}`);
     expect(stats({ scars: many }).maxHope).toBe(0);
+  });
+});
+
+/**
+ * SRD 2 p22, the Beastbound companion's level-up options: "Light in the Dark:
+ * Use this as an additional Hope slot your character can mark." The tick is
+ * stored on the companion sheet and, until this, nothing derived from it - a
+ * Ranger who marked it kept six slots, and could not even set a seventh by
+ * hand, because `syncCounters` wrote `maxHope` back over the track.
+ */
+describe('Light in the Dark', () => {
+  const BEASTBOUND = makeSubclass({
+    id: 'beastbound',
+    name: 'Beastbound',
+    foundationFeatures: [{ name: 'Companion', text: 'You have an animal companion of your choice.' }],
+  });
+  const withCompanion = makeDataset({
+    classes: [makeClass({ id: 'ranger' })],
+    subclasses: [BEASTBOUND, MARTIAL],
+  });
+  const wix = indexDataset(withCompanion);
+  const ranger = (p: Partial<Character> = {}): Character =>
+    makeCharacter({ classRef: 'ranger', subclassRefs: ['beastbound'], ...p });
+  const companion = (upgrades: string[]): Character['companion'] => ({
+    ...newCompanion('Ash', 'a raven'),
+    upgrades,
+  });
+
+  it('adds one Hope slot when the companion has it (p22)', () => {
+    const c = ranger({ companion: companion(['light-in-the-dark']) });
+    expect(deriveStats(c, withCompanion, wix).maxHope).toBe(BASE_HOPE + 1);
+  });
+
+  it('adds nothing for a companion without it, or with the other seven options', () => {
+    expect(deriveStats(ranger({ companion: companion([]) }), withCompanion, wix).maxHope).toBe(BASE_HOPE);
+    expect(
+      deriveStats(ranger({ companion: companion(['intelligent', 'resilient']) }), withCompanion, wix).maxHope,
+    ).toBe(BASE_HOPE);
+  });
+
+  it('still lets a scar cross the seventh slot out', () => {
+    const c = ranger({ companion: companion(['light-in-the-dark']), scars: ['a'] });
+    expect(deriveStats(c, withCompanion, wix).maxHope).toBe(BASE_HOPE);
+  });
+
+  it('is only counted on a sheet the Companion feature is granting a companion to', () => {
+    // A companion record left behind by a subclass change is not a Beastbound's.
+    const c = ranger({ subclassRefs: ['martial'], companion: companion(['light-in-the-dark']) });
+    expect(deriveStats(c, withCompanion, wix).maxHope).toBe(BASE_HOPE);
+  });
+
+  it('reaches the Hope track through syncCounters, so the seventh box is drawn', () => {
+    const c = ranger({ companion: companion(['light-in-the-dark']) });
+    const synced = syncCounters(c, deriveStats(c, withCompanion, wix));
+    expect(synced.hope.max).toBe(BASE_HOPE + 1);
   });
 });
 
@@ -509,5 +565,49 @@ describe('syncCounters', () => {
     expect(next.name).toBe('Vex');
     expect(next.notes).toBe('keep me');
     expect(next.id).toBe(c.id);
+  });
+});
+
+/**
+ * SRD 2 p12, Brawler, "I Am the Weapon": "You have a primary weapon called
+ * Brawler's Strike equipped while you have no other Active Weapons ... While
+ * this weapon is active, you gain a +1 bonus to your Evasion." A weaponless
+ * Brawler read 10 - the class's starting Evasion and nothing else - where the
+ * class is built around 11, because the register had no class lane and no row
+ * gated on the weapon slots.
+ */
+describe('the Brawler’s Evasion', () => {
+  const BRAWLER = makeClass({
+    id: 'brawler',
+    name: 'Brawler',
+    startingEvasion: 10,
+    classFeatures: [{ name: 'I Am the Weapon', text: 'Your barehanded attacks are as strong as any blade.' }],
+  });
+  const withBrawler = makeDataset({ classes: [BRAWLER, makeClass({ id: 'warrior', name: 'Warrior', startingEvasion: 10 })] });
+  const bix = indexDataset(withBrawler);
+  const brawler = (p: Partial<Character> = {}): Character =>
+    makeCharacter({ classRef: 'brawler', activePrimaryWeapon: null, activeSecondaryWeapon: null, ...p });
+
+  it('is 11 with both hands empty, and the ledger says why (p12)', () => {
+    const s = deriveStats(brawler(), withBrawler, bix);
+    expect(s.evasion).toBe(11);
+    expect(s.modifiers.evasion).toEqual([
+      { lane: 'class', ref: 'brawler', source: 'Brawler', feature: 'I Am the Weapon', amount: 1 },
+    ]);
+  });
+
+  it('is 10 the moment a weapon is in either hand', () => {
+    expect(deriveStats(brawler({ activePrimaryWeapon: 'w' }), withBrawler, bix).evasion).toBe(10);
+    expect(deriveStats(brawler({ activeSecondaryWeapon: 'w' }), withBrawler, bix).evasion).toBe(10);
+  });
+
+  it('reaches a Warrior who multiclassed into Brawler, and no other Warrior', () => {
+    const warrior = brawler({ classRef: 'warrior' });
+    expect(deriveStats(warrior, withBrawler, bix).evasion).toBe(10);
+    expect(deriveStats({ ...warrior, multiclassRef: 'brawler' }, withBrawler, bix).evasion).toBe(11);
+  });
+
+  it('still sits under a manual override', () => {
+    expect(deriveStats(brawler({ evasionOverride: 3 }), withBrawler, bix).evasion).toBe(3);
   });
 });

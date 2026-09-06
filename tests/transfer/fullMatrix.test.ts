@@ -1,10 +1,10 @@
 /**
  * The transfer layer over every character the game can make.
  *
- * `matrix.test.ts` proves the codec, the file and the frames on a ninety-three
- * row cross-section - every class at every level, plus three sheets no class
- * produces on its own. This file proves the same things on 3240: all eighteen
- * subclasses crossed with all eighteen ancestries at all ten levels, every one
+ * `matrix.test.ts` proves the codec, the file and the frames on a 133-row
+ * cross-section - every class at every level, plus three sheets no class
+ * produces on its own. This file proves the same things on 6240: all twenty-six
+ * subclasses crossed with all twenty-four ancestries at all ten levels, every one
  * of them started blank at level 1 and walked up through `validatePlan` and
  * `applyLevelUp` one level at a time, the way somebody actually plays.
  *
@@ -14,8 +14,8 @@
  * went. A codec branch that drops the companion's range, or the second ancestry
  * of a mixed sheet, or the note somebody wrote about the ring their mother left
  * them, does not show up in an aggregate: it is one Beastbound Ranger, one
- * player, one evening, and silence. Ninety-three sheets reach nine classes.
- * These 3240 reach every subclass, every ancestry, every weapon, every armor
+ * player, one evening, and silence. 133 sheets reach thirteen classes.
+ * These 6240 reach every subclass, every ancestry, every weapon, every armor
  * and every domain card the SRD holds - the only population over which "nothing
  * is lost" means what it sounds like it means.
  *
@@ -31,7 +31,7 @@
  * ever get there? - is answered below in numbers, over the whole population
  * rather than over a guess.
  *
- * Nothing is sampled and nothing is capped. Every one of the 3240 is encoded,
+ * Nothing is sampled and nothing is capped. Every one of the 6240 is encoded,
  * decoded, re-encoded, written to a `.dhchar`, included in one `.dhbackup`,
  * chunked into frames, shuffled with duplicates and reassembled. The measured
  * cost of that is printed with the results.
@@ -84,7 +84,7 @@ const AT = new Date('2026-08-15T21:30:00.000Z');
 
 /**
  * How many encodes are in flight at once. `encodeCharacter` builds a
- * `CompressionStream` per call, and firing all 3240 at once costs the better
+ * `CompressionStream` per call, and firing all 6240 at once costs the better
  * part of a gigabyte of resident memory to finish no sooner. Every row is still
  * encoded - they simply do not all start in the same tick.
  */
@@ -228,7 +228,7 @@ describe.skipIf(!hasDataset())('the transfer layer over every character the game
     buildMs = Date.now() - builtAt;
 
     // Encoded and decoded exactly once here and shared by every test below.
-    // 3240 climbs plus 3240 round trips is the cost of this file, and paying it
+    // 6240 climbs plus 6240 round trips is the cost of this file, and paying it
     // per test would be paying it six times over.
     const encodedAt = Date.now();
     const payloads = await inBatches(matrix, BATCH, (row) =>
@@ -366,7 +366,7 @@ describe.skipIf(!hasDataset())('the transfer layer over every character the game
      * would cost a new format number (see the header of `src/transfer/codec.ts`)
      * and is zeroed on both sides rather than compared.
      */
-    it('returns every one of the 3240 characters unchanged, and names the field if not', () => {
+    it('returns every one of the 6240 characters unchanged, and names the field if not', () => {
       const lost: string[] = [];
       for (const row of rows) {
         const diffs = differences(normalizeHandles(row.original), normalizeHandles(row.decoded));
@@ -416,7 +416,7 @@ describe.skipIf(!hasDataset())('the transfer layer over every character the game
      * is why this comparison is made against the sheet itself with nothing
      * normalised away.
      */
-    it('round-trips every one of the 3240 characters, ids and all', () => {
+    it('round-trips every one of the 6240 characters, ids and all', () => {
       const lost: string[] = [];
       for (const row of rows) {
         const back = parseCharacterFile(serializeCharacter(row.original, AT));
@@ -426,14 +426,14 @@ describe.skipIf(!hasDataset())('the transfer layer over every character the game
       nothingLost(lost);
     });
 
-    it('round-trips a whole library of 3240 characters in one backup', () => {
+    it('round-trips a whole library of 6240 characters in one backup', () => {
       const characters = rows.map((r) => r.original);
       const text = serializeBackup(characters, AT);
       const back = parseBackupFile(text);
 
       expect(back.length).toBe(characters.length);
       // Compared row by row rather than as one array: a `toStrictEqual` over
-      // 3240 characters produces a diff nobody can read, and "which sheet" is
+      // 6240 characters produces a diff nobody can read, and "which sheet" is
       // the first thing anybody fixing this would need to know.
       const lost: string[] = [];
       for (const [i, character] of characters.entries()) {

@@ -2,9 +2,9 @@
  * Handing the choice to the dice, on the two lists that can honour it.
  *
  * WEAPONS AND ARMOR, AND NOT LOOT OR CONSUMABLES. That is a fact about the
- * shipped dataset rather than a preference. In `data/srd-1.0.json` all 204
- * weapons and all 34 sets of armor carry a `tier`; not one of the 60 loot
- * entries and not one of the 60 consumables carries one, because the book does
+ * shipped dataset rather than a preference. In `data/srd-2.0.json` all 391
+ * weapons and all 85 sets of armor carry a `tier`; not one of the 120 loot
+ * entries and not one of the 120 consumables carries one, because the book does
  * not give them one. A "randomise by tier" control over loot would therefore
  * be offering a filter the data cannot answer, and a control that implies an
  * axis the dataset does not have is the same defect as a screen implying an
@@ -24,11 +24,11 @@
  * WHAT "BY TIER" MEANS HERE, because there are two readings and they are not
  * the same distribution. This draws uniformly over the *items* of the wanted
  * tiers, not a tier first and then an item inside it. Armor is why: the SRD
- * ships 4 sets at tier 1 and 10 at each of tiers 2, 3 and 4 (weapons run
- * 35/56/57/56). Rolling the tier first with TIER 1 and TIER 4 both lit would
- * give each tier-1 set 1/2 x 1/4 = 12.5% and each tier-4 set 1/2 x 1/10 = 5%,
- * so a Gambeson would come back two and a half times as often as any
- * particular tier-4 set. A player who lights two chips has said "either of
+ * ships 15 sets at tier 1, 24 at tier 2 and 23 at each of tiers 3 and 4
+ * (weapons run 96/101/93/101). Rolling the tier first with TIER 1 and TIER 4
+ * both lit would give each tier-1 set 1/2 x 1/15 = 3.3% and each tier-4 set
+ * 1/2 x 1/23 = 2.2%, so a Gambeson would come back one and a half times as
+ * often as any particular tier-4 set. A player who lights two chips has said "either of
  * these", and every row they can see should be equally likely to come back.
  *
  * NO TIER BOUNDARY IS WRITTEN DOWN. `tiersIn` reads the tiers off the pool it

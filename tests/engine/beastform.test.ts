@@ -3,7 +3,9 @@ import { deriveStats, indexDataset, rollModifier } from '@engine/character.ts';
 import {
   BEASTFORM_STRESS_COST,
   EVOLUTION_HOPE_COST,
+  beastformCost,
   beastformDamage,
+  beastformExtraStress,
   beastformOptions,
   dropFormOnLastHitPoint,
   enterBeastform,
@@ -47,7 +49,33 @@ const ds: Dataset = makeDataset({
     form(),
     form({ id: 'powerful-beast', name: 'Powerful Beast', tier: 2, traitBonus: { strength: 3 } }),
     form({ id: 'great-predator', name: 'Great Predator', tier: 3 }),
-    form({ id: 'mythic-hybrid', name: 'Mythic Hybrid', tier: 4 }),
+    /*
+     * SRD 2 p18, verbatim from the dataset's own feature text. The two Hybrid
+     * forms are the only Beastforms whose entry prices the transformation
+     * itself: "mark an additional Stress" and "mark 2 additional Stress".
+     */
+    form({
+      id: 'legendary-hybrid',
+      name: 'Legendary Hybrid',
+      tier: 3,
+      features: [
+        {
+          name: 'Hybrid Features',
+          text: 'To transform into this creature, mark an additional Stress. Choose any two Beastform options from Tiers 1-2.',
+        },
+      ],
+    }),
+    form({
+      id: 'mythic-hybrid',
+      name: 'Mythic Hybrid',
+      tier: 4,
+      features: [
+        {
+          name: 'Hybrid Features',
+          text: 'To transform into this creature, mark 2 additional Stress. Choose any three Beastform options from Tiers 1-3.',
+        },
+      ],
+    }),
   ],
 });
 
@@ -60,8 +88,8 @@ describe('beastformOptions', () => {
   it.each([
     [1, ['nimble-grazer']],
     [4, ['nimble-grazer', 'powerful-beast']],
-    [7, ['nimble-grazer', 'powerful-beast', 'great-predator']],
-    [10, ['nimble-grazer', 'powerful-beast', 'great-predator', 'mythic-hybrid']],
+    [7, ['nimble-grazer', 'powerful-beast', 'great-predator', 'legendary-hybrid']],
+    [10, ['nimble-grazer', 'powerful-beast', 'great-predator', 'legendary-hybrid', 'mythic-hybrid']],
   ])('offers a level-%i Druid their tier and below', (level, expected) => {
     expect(beastformOptions(level, ds).map((b) => b.id)).toEqual(expected);
   });
@@ -140,23 +168,45 @@ describe('the override', () => {
 
 describe('entering and leaving', () => {
   it('marks one Stress by default', () => {
-    const out = enterBeastform(druid(), 'nimble-grazer', 'stress');
+    const out = enterBeastform(druid(), 'nimble-grazer', 'stress', ix);
     expect(out.stressMarked).toBe(BEASTFORM_STRESS_COST);
     expect(out.character.stress.marked).toBe(1);
     expect(out.character.beastform?.ref).toBe('nimble-grazer');
     expect(out.hopeSpent).toBe(0);
+    expect(out.refused).toBe(false);
   });
 
-  it('spends Hit Points when Stress is already full', () => {
-    const c = druid({ stress: { marked: 6, max: 6 } });
-    const out = enterBeastform(c, 'nimble-grazer', 'stress');
+  /*
+   * SRD 2 p50: "A character can't use a move that requires them to mark Stress
+   * if all of their Stress is marked." Beastform is such a move by its own
+   * sentence ("Mark a Stress to magically transform"), so at a full track the
+   * Stress path is refused outright rather than paid in a Hit Point. This used
+   * to enter the form and mark a Hit Point; at 5/6 HP that was the last one,
+   * and `dropFormOnLastHitPoint` threw the form away in the same tap.
+   */
+  it('refuses the Stress path when every Stress is marked, and marks nothing (p50)', () => {
+    const c = druid({ stress: { marked: 6, max: 6 }, hp: { marked: 5, max: 6 } });
+    const cost = beastformCost(c, 'nimble-grazer', 'stress', ix);
+    expect(cost.allowed).toBe(false);
+    expect(cost.hpCost).toBe(0);
+    const out = enterBeastform(c, 'nimble-grazer', 'stress', ix);
+    expect(out.refused).toBe(true);
     expect(out.stressMarked).toBe(0);
-    expect(out.hpMarked).toBe(1);
+    expect(out.hpMarked).toBe(0);
+    expect(out.character).toBe(c);
+  });
+
+  it('still allows Evolution at a full Stress track, which costs no Stress', () => {
+    const c = druid({ stress: { marked: 6, max: 6 }, hope: { marked: 3, max: 6 } });
+    expect(beastformCost(c, 'nimble-grazer', 'evolution', ix).allowed).toBe(true);
+    const out = enterBeastform(c, 'nimble-grazer', 'evolution', ix);
+    expect(out.refused).toBe(false);
+    expect(out.character.beastform?.ref).toBe('nimble-grazer');
   });
 
   it('spends three Hope for Evolution and marks no Stress', () => {
     const c = druid({ hope: { marked: 5, max: 6 } });
-    const out = enterBeastform(c, 'nimble-grazer', 'evolution');
+    const out = enterBeastform(c, 'nimble-grazer', 'evolution', ix);
     expect(out.hopeSpent).toBe(EVOLUTION_HOPE_COST);
     expect(out.character.hope.marked).toBe(2);
     expect(out.character.stress.marked).toBe(0);
@@ -164,14 +214,14 @@ describe('entering and leaving', () => {
 
   it('never spends Hope it does not have', () => {
     const c = druid({ hope: { marked: 1, max: 6 } });
-    const out = enterBeastform(c, 'nimble-grazer', 'evolution');
+    const out = enterBeastform(c, 'nimble-grazer', 'evolution', ix);
     expect(out.hopeSpent).toBe(1);
     expect(out.character.hope.marked).toBe(0);
   });
 
   it('is lossless: dropping out restores every number', () => {
     const before = druid({ traits: traits({ agility: 2, strength: 1 }) });
-    const after = leaveBeastform(enterBeastform(before, 'nimble-grazer', 'evolution').character);
+    const after = leaveBeastform(enterBeastform(before, 'nimble-grazer', 'evolution', ix).character);
     expect(after.traits).toEqual(before.traits);
     expect(after.beastform).toBeNull();
     expect(stats(after).evasion).toBe(stats(before).evasion);
@@ -180,8 +230,80 @@ describe('entering and leaving', () => {
 });
 
 /**
+ * SRD 2 p18. Legendary Hybrid: "To transform into this creature, mark an
+ * additional Stress." Mythic Hybrid: "mark 2 additional Stress." On top of the
+ * Druid feature's own Stress (p14), that is 2 and 3. The app charged a flat 1
+ * for every form and the picker said MARK 1 STRESS beside the sentence that
+ * contradicted it.
+ */
+describe('the Hybrid surcharge', () => {
+  it('reads the surcharge off the two Hybrid sentences and nothing else', () => {
+    expect(beastformExtraStress(ix.beastforms.get('nimble-grazer'))).toBe(0);
+    expect(beastformExtraStress(ix.beastforms.get('legendary-hybrid'))).toBe(1);
+    expect(beastformExtraStress(ix.beastforms.get('mythic-hybrid'))).toBe(2);
+    expect(beastformExtraStress(undefined)).toBe(0);
+  });
+
+  it('does not read a Stress the form charges for something OTHER than transforming', () => {
+    // Tier 4's Devastating Strikes: "you can mark a Stress to force them to
+    // mark an additional Hit Point" - a Stress spent in play, not on entry.
+    const form = ix.beastforms.get('nimble-grazer')!;
+    const striker = {
+      ...form,
+      features: [
+        {
+          name: 'Devastating Strikes',
+          text: 'When you deal Severe damage to a target within Melee range, you can mark a Stress to force them to mark an additional Hit Point.',
+        },
+      ],
+    };
+    expect(beastformExtraStress(striker)).toBe(0);
+  });
+
+  it('charges 2 Stress for a Legendary Hybrid and 3 for a Mythic Hybrid (p18)', () => {
+    const legendary = enterBeastform(druid(), 'legendary-hybrid', 'stress', ix);
+    expect(legendary.stressMarked).toBe(2);
+    expect(legendary.hpMarked).toBe(0);
+    const mythic = enterBeastform(druid(), 'mythic-hybrid', 'stress', ix);
+    expect(mythic.stressMarked).toBe(3);
+    expect(beastformCost(druid(), 'mythic-hybrid', 'stress', ix).stressCost).toBe(3);
+  });
+
+  it('keeps the surcharge on the Evolution path, which waives only the base Stress', () => {
+    // "Spend 3 Hope to transform into a Beastform without marking a Stress" is
+    // the Druid feature's Stress; the Hybrid's "additional Stress" is the
+    // creature's own price.
+    const c = druid({ hope: { marked: 6, max: 6 } });
+    const out = enterBeastform(c, 'mythic-hybrid', 'evolution', ix);
+    expect(out.hopeSpent).toBe(EVOLUTION_HOPE_COST);
+    expect(out.stressMarked).toBe(2);
+    expect(beastformCost(c, 'mythic-hybrid', 'evolution', ix).stressCost).toBe(2);
+  });
+
+  it('marks what fits and ONE Hit Point for the rest when some Stress is free (p50)', () => {
+    // 5/6 Stress, a cost of 3: one Stress and one Hit Point - the move is
+    // usable because a Stress can still be marked, and the unpayable
+    // remainder is one HP whatever its size.
+    const c = druid({ stress: { marked: 5, max: 6 }, hp: { marked: 0, max: 6 } });
+    const cost = beastformCost(c, 'mythic-hybrid', 'stress', ix);
+    expect(cost.allowed).toBe(true);
+    expect(cost.affordable).toBe(false);
+    expect(cost.hpCost).toBe(1);
+    const out = enterBeastform(c, 'mythic-hybrid', 'stress', ix);
+    expect(out.stressMarked).toBe(1);
+    expect(out.hpMarked).toBe(1);
+  });
+
+  it('refuses a Hybrid on the Evolution path too when every Stress is marked', () => {
+    const c = druid({ stress: { marked: 6, max: 6 }, hope: { marked: 6, max: 6 } });
+    expect(beastformCost(c, 'legendary-hybrid', 'evolution', ix).allowed).toBe(false);
+    expect(enterBeastform(c, 'legendary-hybrid', 'evolution', ix).refused).toBe(true);
+  });
+});
+
+/**
  * *"When you make an attack while transformed, you use the creature's listed
- * range, trait, and damage dice, but you use your Proficiency."* Folio 12,
+ * range, trait, and damage dice, but you use your Proficiency."* Folio 15,
  * which the dataset now carries as `beastform-options`.
  *
  * The rule is the same shape as a weapon's and a companion's, so the arithmetic
@@ -240,10 +362,12 @@ describe('dropping out on the last Hit Point', () => {
   });
 
   it('drops it when a Stress that overflowed did the marking', () => {
-    // The route that makes this reachable in one tap: entering a form marks a
-    // Stress, and a full Stress track spends a Hit Point instead.
-    const before = druid({ ...at(5), stress: { marked: 6, max: 6 }, beastform: null });
-    const entered = enterBeastform(before, 'nimble-grazer', 'stress');
+    // The route that makes this reachable in one tap: a Hybrid costs 2 Stress
+    // (p18), one Stress is free, and the remainder is a Hit Point (p50). A
+    // full track no longer gets here - the move is refused (p50).
+    const before = druid({ ...at(5), stress: { marked: 5, max: 6 }, beastform: null });
+    const entered = enterBeastform(before, 'legendary-hybrid', 'stress', ix);
+    expect(entered.stressMarked).toBe(1);
     expect(entered.hpMarked).toBe(1);
     expect(dropFormOnLastHitPoint(before, entered.character).beastform).toBeNull();
   });
@@ -259,7 +383,7 @@ describe('dropping out on the last Hit Point', () => {
 
   it('lets a character on their last Hit Point transform', () => {
     const before = druid({ ...at(6), beastform: null });
-    const after = enterBeastform(before, 'nimble-grazer', 'evolution').character;
+    const after = enterBeastform(before, 'nimble-grazer', 'evolution', ix).character;
     expect(dropFormOnLastHitPoint(before, after).beastform).not.toBeNull();
   });
 

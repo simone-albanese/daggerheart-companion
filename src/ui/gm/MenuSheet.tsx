@@ -341,8 +341,8 @@ export function MenuSheet({
           ))}
         </div>
         <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-          These two are otherwise the content of a session row, so improvising a fight meant
-          writing a row for it first. {whereTheOthersAre(prefs)}
+          Open the builder or the scene without adding a row to tonight's plan.{' '}
+          {whereTheOthersAre(prefs)}
         </p>
       </div>
 
@@ -359,7 +359,7 @@ export function MenuSheet({
         </button>
         <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The tables you would otherwise be turning pages for, read out of the SRD this app ships
-          rather than retyped from it — so a rules layer that changes one changes what you see.
+          rather than retyped from it — what you see is what the book says.
         </p>
       </div>
 

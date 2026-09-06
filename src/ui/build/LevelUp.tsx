@@ -39,16 +39,19 @@ import {
   type Tier,
   type Trait,
 } from '../../../shared/types.ts';
-import { MAX_LEVEL, deriveStats, tierOf, type DerivedStats } from '../../engine/character.ts';
+import { MAX_LEVEL, MAX_LOADOUT, deriveStats, tierOf, type DerivedStats } from '../../engine/character.ts';
 import {
   applyLevelUp,
   availableOptions,
+  nextSubclassCard,
   slotUsage,
   slotsPerTaking,
   tierAchievementFor,
   validatePlan,
   type AdvancementOption,
+  type CardPlacement,
   type LevelUpPlan,
+  type SubclassCard,
 } from '../../engine/levelUp.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
@@ -91,6 +94,15 @@ export function LevelUp({
   const [exchangeFrom, setExchangeFrom] = useState<Ref | null>(null);
   const [exchangeTo, setExchangeTo] = useState<Ref | null>(null);
   const [experienceName, setExperienceName] = useState('');
+  /*
+   * Where the level's cards go, defaulting to the free move folio 8 grants:
+   * the loadout while it has room, the vault once it is full. A choice, not a
+   * rule - folio 54 says "loadout or vault" - so it is state the player can
+   * flip, read off the sheet as it is when the screen opens.
+   */
+  const [placement, setPlacement] = useState<CardPlacement>(() =>
+    (character?.loadout.length ?? MAX_LOADOUT) < MAX_LOADOUT ? 'loadout' : 'vault',
+  );
 
   if (!character) return null;
 
@@ -129,9 +141,74 @@ export function LevelUp({
     return card === 'specialization' || card === 'mastery' ? { subclass: ref, tier: card } : null;
   };
 
+  /**
+   * The picks with each upgraded-subclass card resolved, in plan order.
+   *
+   * Which card a subclass pick hands over is not a choice - folio 54 says it
+   * is "the next card for your subclass", and `nextSubclassCard` reads it off
+   * that subclass's history plus the picks before this one. It used to be
+   * written into the detail on the tap, off a count of every subclass entry
+   * on the sheet, so a second subclass with only a foundation was offered a
+   * mastery and two subclass picks in one level both said "specialization".
+   * Resolving it here, every render, means the record cannot go stale when
+   * the pick above it moves to another subclass - the same reason
+   * `grantCardRef` is re-read below rather than trusted.
+   */
+  const resolvedPicks: Pick[] = [];
+  for (const p of picks) {
+    const option = options.find((o) => o.id === p.optionId && o.tier === p.optionTier);
+    const ref = p.detail['subclassRef'];
+    if (option?.kind === 'subclass' && typeof ref === 'string') {
+      const card = nextSubclassCard(character, ref, resolvedPicks);
+      const detail = { ...p.detail };
+      if (card === null) delete detail['card'];
+      else detail['card'] = card;
+      resolvedPicks.push({ ...p, detail });
+    } else {
+      resolvedPicks.push(p);
+    }
+  }
+  /** What the subclass rows under a pick offer: the next card, per subclass. */
+  const nextCardFor =
+    (pick: Pick) =>
+    (subclassRef: Ref): SubclassCard | null =>
+      nextSubclassCard(character, subclassRef, resolvedPicks.slice(0, picks.indexOf(pick)));
+
+  /**
+   * The traits a trait pick may not take, and why - exactly what `validatePlan`
+   * refuses, so the grid never greys out a choice the validator would accept.
+   *
+   * *"At level 5, you gain a new Experience at +2, permanently increase your
+   * Proficiency by 1, and clear any marked traits."* Folio 53, and the same at
+   * level 8. The marks are cleared BEFORE the advancements are chosen, so at
+   * those two levels every trait is on offer again. The grid used to read
+   * `character.traitMarks` - the pre-level sheet - and withheld the traits
+   * marked last tier while the banner three sections up said TRAIT MARKS
+   * CLEAR.
+   *
+   * A trait an earlier trait pick in this same plan takes is marked too, as the
+   * validator counts it. That half is reachable: `toggle` refuses a second
+   * taking of the same option out of the same tier's boxes, but from level 5
+   * on `availableOptions` lists the trait option once per tier the character
+   * has reached, so a level-5-to-10 plan can hold a tier 2 trait pick and a
+   * tier 3 (or 4) one, and the second grid must grey out what the first took.
+   */
+  const markedBefore = (pick: Pick): ReadonlyMap<Trait, 'sheet' | 'plan'> => {
+    const marks = new Map<Trait, 'sheet' | 'plan'>();
+    if (achievement?.clearTraitMarks !== true) {
+      for (const t of TRAITS) if ((character.traitMarks[t] ?? 0) > 0) marks.set(t, 'sheet');
+    }
+    for (const p of picks.slice(0, picks.indexOf(pick))) {
+      const option = options.find((o) => o.id === p.optionId && o.tier === p.optionTier);
+      if (option?.kind !== 'trait') continue;
+      for (const t of (p.detail['traits'] as Trait[] | undefined) ?? []) marks.set(t, 'plan');
+    }
+    return marks;
+  };
+
   // Index for index with `picks`, so each picker appears under the advancement
   // that earned it rather than in one anonymous pile at the bottom.
-  const grants = levelUpCardGrants(picks.map(subclassCardTaken), dataset);
+  const grants = levelUpCardGrants(resolvedPicks.map(subclassCardTaken), dataset);
   const grantFor = (pick: Pick): CardGrant | null => grants[picks.indexOf(pick)] ?? null;
 
   /**
@@ -158,13 +235,14 @@ export function LevelUp({
       exchangeFrom !== null && exchangeTo !== null
         ? { fromRef: exchangeFrom, toRef: exchangeTo }
         : null,
-    picks: picks.map((p, i) => {
+    picks: resolvedPicks.map((p, i) => {
       const detail = { ...p.detail };
       if (!grants[i]) delete detail['grantCardRef'];
       if (i === 0 && achievement !== null) detail['achievementExperience'] = experienceName.trim();
       return { ...p, detail };
     }),
     newCardRef,
+    placement,
   };
 
   // Every "after" number on this screen is the engine's answer for the sheet
@@ -188,6 +266,7 @@ export function LevelUp({
   const validation = validatePlan(character, plan, {
     cards: index.cards,
     domains: after.domains,
+    cardLevelCap: after.cardLevelCap,
   });
 
   const usage = new Map(slotUsage(character).map((u) => [`${u.optionId}@${u.tier}`, u]));
@@ -211,7 +290,7 @@ export function LevelUp({
    * Cards already spoken for elsewhere in this plan.
    *
    * Step four, the "additional domain card" advancement and a subclass
-   * feature's granted card are separate pickers writing into one vault, and
+   * feature's granted card are separate pickers writing into one sheet, and
    * without this each is happy to take the card another took - `applyLevelUp`
    * then pushes the same ref twice and the character owns two copies of it.
    *
@@ -440,6 +519,8 @@ export function LevelUp({
                               stats={after}
                               toLevel={toLevel}
                               grant={grantFor(pick)}
+                              nextCardFor={nextCardFor(pick)}
+                              marked={markedBefore(pick)}
                               claimed={claimedApartFrom}
                               onChange={(d) => setDetail(pick, d)}
                             />
@@ -474,6 +555,8 @@ export function LevelUp({
                           stats={after}
                           toLevel={toLevel}
                           grant={grantFor(pick)}
+                          nextCardFor={nextCardFor(pick)}
+                          marked={markedBefore(pick)}
                           claimed={claimedApartFrom}
                           onChange={(d) => setDetail(pick, d)}
                         />
@@ -487,6 +570,11 @@ export function LevelUp({
 
           {/* Step four, both of its sentences. */}
           <Section label="A new domain card" hint="NOT AN ADVANCEMENT — IT COMES WITH THE LEVEL">
+            <PlacementRow
+              placement={placement}
+              room={Math.max(0, MAX_LOADOUT - character.loadout.length)}
+              onChange={setPlacement}
+            />
             <CardPicker
               stats={after}
               value={newCardRef}
@@ -727,6 +815,8 @@ function PickDetail({
   stats,
   toLevel,
   grant,
+  nextCardFor,
+  marked,
   claimed,
   onChange,
 }: {
@@ -737,6 +827,14 @@ function PickDetail({
   toLevel: number;
   /** The subclass feature this pick just triggered, if it hands out a card. */
   grant: CardGrant | null;
+  /** The next card each subclass would take from this pick, or null when it holds both. */
+  nextCardFor: (subclassRef: Ref) => SubclassCard | null;
+  /**
+   * The traits this pick may not take: marked on the sheet as this level reads
+   * it, or by a trait pick above this one. What `validatePlan` refuses, so the
+   * grid and the validator cannot disagree about a trait.
+   */
+  marked: ReadonlyMap<Trait, 'sheet' | 'plan'>;
   /** Cards this plan has claimed, minus whichever ref is passed in. */
   claimed: (mine: unknown) => string[];
   onChange: (detail: Record<string, unknown>) => void;
@@ -762,9 +860,9 @@ function PickDetail({
       <DetailShell label="Choose two unmarked traits">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 7 }}>
           {TRAITS.map((t) => {
-            const marked = (character.traitMarks[t] ?? 0) > 0;
+            const markedBy = marked.get(t) ?? null;
             const on = picked.includes(t);
-            const blocked = marked || (!on && picked.length >= 2);
+            const blocked = markedBy !== null || (!on && picked.length >= 2);
             return (
               <button
                 key={t}
@@ -795,7 +893,11 @@ function PickDetail({
                   {on ? ' → ' : ''}
                   {on ? `${character.traits[t] + 1 >= 0 ? '+' : '−'}${Math.abs(character.traits[t] + 1)}` : ''}
                 </span>
-                {marked && <span className="t-meta" style={{ color: 'var(--dim)' }}>MARKED</span>}
+                {markedBy !== null && (
+                  <span className="t-meta" style={{ color: 'var(--dim)' }}>
+                    {markedBy === 'sheet' ? 'MARKED' : 'MARKED ABOVE'}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -870,10 +972,16 @@ function PickDetail({
     const owned = character.subclassRefs
       .map((r) => dataset.subclasses.find((s) => s.id === r))
       .filter((s): s is NonNullable<typeof s> => s !== undefined);
-    const upgrades = character.levelUpHistory.filter((h) => h.kind === 'subclass').length;
-    const nextCard = upgrades === 0 ? 'specialization' : 'mastery';
+    /*
+     * One row per subclass, and each row names ITS next card. "If you have
+     * only the foundation card, take a specialization; if you have a
+     * specialization already, take a mastery" (folio 54) is a sentence about
+     * one subclass, and a sheet can hold two - so the label above the rows no
+     * longer names a card, the rows do, and a subclass holding both is a dead
+     * row with the reason on it rather than a mastery offered a third time.
+     */
     return (
-      <DetailShell label={`Take the ${nextCard} card`}>
+      <DetailShell label="Take the next card for a subclass">
         {owned.length === 0 ? (
           <span className="t-hint" style={{ color: 'var(--dim)' }}>
             No subclass on this character yet.
@@ -881,14 +989,22 @@ function PickDetail({
         ) : (
           <div className="stack" style={{ gap: 8 }}>
             {owned.map((s) => {
-              const features = nextCard === 'specialization' ? s.specializationFeatures : s.masteryFeatures;
+              const next = nextCardFor(s.id);
+              const features =
+                next === 'specialization'
+                  ? s.specializationFeatures
+                  : next === 'mastery'
+                    ? s.masteryFeatures
+                    : [];
               return (
                 <Choice
                   key={s.id}
                   selected={pick.detail['subclassRef'] === s.id}
-                  onClick={() => onChange({ subclassRef: s.id, card: nextCard })}
+                  disabled={next === null}
+                  reason={next === null ? 'Both upgraded cards are already held' : undefined}
+                  onClick={() => onChange({ subclassRef: s.id, card: next })}
                   title={s.name}
-                  meta={nextCard.toUpperCase()}
+                  meta={next === null ? 'SPECIALIZATION AND MASTERY HELD' : next.toUpperCase()}
                   body={features.map((f) => `${f.name}. ${f.text}`).join('\n\n')}
                   clamp={4}
                 />
@@ -1067,7 +1183,7 @@ function GrantedCard({
  * Step four's SECOND sentence: one card given up for one card taken.
  *
  * *"You can also exchange one domain card you've previously acquired for a
- * different domain card of the same level or lower."* Folio 53.
+ * different domain card of the same level or lower."* Folio 54.
  *
  * ## Why it is inside step four's own Section and not beside it
  *
@@ -1179,6 +1295,103 @@ function CardExchangeRow({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Where the level's cards go
+// ---------------------------------------------------------------------------
+
+/**
+ * Loadout or vault, for every card this level takes.
+ *
+ * *"...and add it to your loadout or vault. If your loadout is already full,
+ * you can't add the new card to it until you move another into your vault."*
+ * Folio 54. *"When you gain a new domain card at level-up, you can immediately
+ * move it into your loadout for free."* Folio 8. This screen used to offer
+ * neither half: every card went to the vault, and the only free way out of it
+ * was the Rest screen - a player who levelled mid-session paid the card's
+ * Recall Cost in Stress to use what the level had just handed them.
+ *
+ * ## Why it sits above the list and not beside each card
+ *
+ * One choice for the level, for the reason `LevelUpPlan.placement` gives, and
+ * it is read before the card is chosen because it changes what choosing means:
+ * a card into a full loadout is a card into the vault, and the pill says so
+ * with its count before the thumb reaches the list. The overflow, when a level
+ * takes more cards than the loadout has room for, is a warning `validatePlan`
+ * writes into the callout below rather than a refusal - the level is legal,
+ * and the book's own remedy is to move a card out afterwards.
+ *
+ * ## The measurements
+ *
+ * Two targets, each `--tap` (44px) tall and half the row wide - on a 360px
+ * phone that is about 160px each, with a 6px gutter between them, so a thumb
+ * choosing between the two has the same gap every other pair on this screen
+ * gives it. The row is at the top of step four's section, inside the scrolling
+ * region, well above the bottom thumb arc the pinned Cancel/Apply bar owns.
+ * The count on the LOADOUT pill is the read half: it is what tells a player
+ * whether the free move applies before they tap.
+ *
+ * Disabled, with the reason on it, when the loadout is full: the book says the
+ * card cannot go there, and a pill that could be pressed to no effect would be
+ * this screen saying otherwise.
+ */
+function PlacementRow({
+  placement,
+  room,
+  onChange,
+}: {
+  placement: CardPlacement;
+  /** Free loadout slots on the sheet as it is now. */
+  room: number;
+  onChange: (placement: CardPlacement) => void;
+}): React.JSX.Element {
+  const pill = (value: CardPlacement, label: string, disabled: boolean, reason?: string) => {
+    const on = placement === value;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(value)}
+        disabled={disabled}
+        aria-pressed={on}
+        title={reason}
+        className="row"
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          gap: 8,
+          minHeight: 'var(--tap)',
+          padding: '0 10px',
+          borderRadius: 'var(--r2)',
+          border: `1px solid ${on ? 'var(--line)' : 'var(--line-soft)'}`,
+          background: on ? 'var(--raised)' : 'var(--panel)',
+          opacity: disabled ? 0.4 : 1,
+        }}
+      >
+        <Mark on={on} size={14} />
+        <span className="t-meta" style={{ letterSpacing: '0.12em' }}>
+          {label}
+        </span>
+      </button>
+    );
+  };
+  return (
+    <div className="stack" style={{ gap: 7 }}>
+      <span className="t-dense" style={{ color: 'var(--dim)' }}>
+        Add it to your loadout or vault. Moving it into the loadout now is free; from the vault later it
+        costs the card's Recall Cost.
+      </span>
+      <div className="row" style={{ gap: 6 }}>
+        {pill(
+          'loadout',
+          `LOADOUT · ${room} FREE`,
+          room === 0,
+          room === 0 ? `Loadout is full (${MAX_LOADOUT}) - move a card to the vault first` : undefined,
+        )}
+        {pill('vault', 'VAULT', false)}
+      </div>
     </div>
   );
 }

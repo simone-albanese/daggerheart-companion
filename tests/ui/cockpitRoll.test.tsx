@@ -1446,7 +1446,11 @@ describe('the roll after the roll', () => {
     const character = seed(patch);
     act(() => useHeldDice.setState({ byCharacter: {} }));
     for (const n of sides) {
-      act(() => useHeldDice.getState().add(character.id, n as (typeof DIE_SIZES)[number]));
+      // A negative size is a Help an Ally die of that size, for the one test
+      // that needs the tray to hold one beside the plain dice.
+      act(() =>
+        useHeldDice.getState().add(character.id, Math.abs(n) as (typeof DIE_SIZES)[number], n < 0),
+      );
     }
     useApp.setState({ prefs: { ...DEFAULT_PREFS, ...prefs } });
     render(
@@ -2011,6 +2015,32 @@ describe('the roll after the roll', () => {
     expect(detail(), 'the advantage die is not named in the line it is inside').toContain(
       '(ADV d6)',
     );
+    const { sum, claimed } = addendsClose(detail());
+    expect(sum, `the log line does not add up: ${detail()}`).toBe(claimed);
+    expect(claimed).toBe(5 + 8 + 4 + 3 + modifier());
+  });
+
+  it('adds only the highest of ADV and a Help an Ally die, and says which it was (p49)', () => {
+    /*
+     * SRD 2 p49: "the player making the action roll adds only the highest
+     * result of all advantage dice rolled (including their own) and ignores the
+     * rest." Own advantage 2, Help d6 4, Rally d8 3: the total takes the 4 and
+     * the 3, not the 2 - and the line names every face while adding one.
+     */
+    mount(TYPED, [8, -6]);
+    click(byText('ADV'));
+    click(byLabelStart('d8 held die'));
+    click(byLabelStart('Help an Ally d6 held die'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 8);
+    typeExtra('advantage', 2);
+    const [rally, help] = [...container.querySelectorAll<HTMLButtonElement>('button[data-die^="bonus:"]')];
+    click(rally!);
+    click([...container.querySelector<HTMLElement>('div[role="group"]')!.querySelectorAll('button')][3 - 1]!);
+    click(help!);
+    click([...container.querySelector<HTMLElement>('div[role="group"]')!.querySelectorAll('button')][4 - 1]!);
+    expect(total()).toBe(String(5 + 8 + 4 + 3 + modifier()));
+    expect(detail()).toContain('(highest of ADV d6 2, HELP d6 4)');
     const { sum, claimed } = addendsClose(detail());
     expect(sum, `the log line does not add up: ${detail()}`).toBe(claimed);
     expect(claimed).toBe(5 + 8 + 4 + 3 + modifier());

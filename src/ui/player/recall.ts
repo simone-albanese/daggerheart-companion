@@ -54,7 +54,7 @@ export function useRecall(): (card: DomainCard) => void {
        *
        * This line used to read "Free during downtime" for every recall that
        * cost nothing, and nothing here has ever been a downtime - so the only
-       * way to reach it was one of the 31 SRD cards whose Recall Cost is 0, in
+       * way to reach it was one of the 33 SRD cards whose Recall Cost is 0, in
        * the middle of a scene. The log then said a downtime happened that had
        * not. Two zeroes, two reasons, two sentences, and the rest's own zero is
        * written by the rest, in the entry that records it.

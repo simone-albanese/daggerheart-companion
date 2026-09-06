@@ -166,7 +166,7 @@ function openGearFold(): void {
   const fold = buttons().find(
     (b) =>
       b.getAttribute('aria-expanded') === 'false' &&
-      (b.textContent ?? '').startsWith('Weapons & armour'),
+      (b.textContent ?? '').startsWith('Weapons & armor'),
   );
   if (fold !== undefined) click(fold);
 }

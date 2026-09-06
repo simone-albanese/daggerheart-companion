@@ -22,10 +22,18 @@ import {
   TRAIT_VERBS,
   type Ancestry,
   type CharClass,
+  type Character,
+  type Dataset,
   type Ref,
   type Trait,
 } from '../../../shared/types.ts';
-import { deriveStats, newCharacter, syncCounters } from '../../engine/character.ts';
+import {
+  deriveStats,
+  newCharacter,
+  syncCounters,
+  type DatasetIndex,
+} from '../../engine/character.ts';
+import type { Contribution } from '../../engine/modifiers.ts';
 import { ignoresBurden } from '../../engine/burden.ts';
 import { CHARACTER_NAMES, judgeName } from '../../store/names.ts';
 import { cryptoRng } from '../../engine/dice.ts';
@@ -114,7 +122,7 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * to `Choice`'s `body` under a `clamp` - three lines for the class, *two* for
  * the other two - which at `.t-dense`'s 11.5px/1.38 is a 15.87px line box, so
  * 48px of window for the class and 32px for the other two. Measured in Chrome
- * at 375x667 before the change: 95-158px hidden on each of the nine class
+ * at 375x667 before the change, on SRD 1.0's lists: 95-158px hidden on each of the nine class
  * cards, 111-285 on each of the eighteen ancestries, 158-253 on each of the
  * nine communities. The two longer lists were under the tighter clamp.
  *
@@ -136,7 +144,7 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * The reader is a `Fold` and not a bigger clamp, a `title` or an overlay:
  *
  *   - a bigger clamp is the same defect with a different number, and no number
- *     fits thirty-six descriptions that run 509-1243 characters;
+ *     fits fifty-two descriptions that run 509-1469 characters;
  *   - it cannot go *inside* the `Choice`, whose root is a `<button>`
  *     (parts.tsx) - a button inside a button is invalid HTML and this repo has
  *     already been bitten by it twice, recorded at parts.tsx and
@@ -161,7 +169,8 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * wrote the rule this follows: a screen may grow underneath a hand, never
  * beneath it.
  *
- * What the shut card costs, measured at 393x852, one column: 104.8px, against
+ * What the shut card costs, measured at 393x852, one column, on SRD 1.0's
+ * lists: 104.8px, against
  * 108.38 for a three-line clamp and 92.52 for a two-line one. So the class step
  * came out 33px SHORTER (1497 -> 1464 of scroll) and the two two-line steps
  * came out longer - ancestry 2179 -> 2401 (+222 over eighteen cards), community
@@ -294,7 +303,7 @@ export function Wizard({
     // The starting HP, Stress, Hope and armor slots are not written down here:
     // `newCharacter` seeds the Hit Point track from the class - which is what
     // the index is for - and syncCounters settles every maximum against the
-    // engine, the way a level up and an armor change already do.
+    // engine, the way a level up and a gear change already do.
     const sheet = newCharacter(assemble(draft, klass, dataset.consumables), index);
     void create(syncCounters(sheet, deriveStats(sheet, dataset, index))).then(
       () => {
@@ -529,7 +538,7 @@ function StepBody({
     case 'traits':
       return <StepTraits draft={draft} set={set} />;
     case 'record':
-      return <StepRecord klass={klass} armorRef={draft.armor} />;
+      return <StepRecord draft={draft} klass={klass} />;
     case 'equipment':
       return <StepEquipment draft={draft} set={set} klass={klass} />;
     case 'background':
@@ -870,7 +879,7 @@ function StepClass({
 
 /**
  * A screen of its own, because it used to be the bottom half of the class
- * screen: nine class cards and a block of feature text stood between the
+ * screen: the class cards (nine then) and a block of feature text stood between the
  * heading and the second of that screen's two required choices, which on a
  * phone put it about two screens below the words that promised it. A choice
  * nobody scrolls to is a choice nobody makes.
@@ -936,8 +945,9 @@ function AncestryFeature({ ancestry, which }: { ancestry: Ancestry; which: 0 | 1
 /**
  * Ancestry and community are the SRD's one heritage step, and they are two
  * screens here for the same reason the class and its subclass are: eighteen
- * ancestry cards stood between the top of the page and the nine communities,
- * so the second of the step's required choices was a long scroll past the
+ * ancestry cards - SRD 1.0's count; SRD 2.0's is twenty-four - stood between
+ * the top of the page and the nine communities, fifteen now, so the second
+ * of the step's required choices was a long scroll past the
  * point where the page looked finished.
  */
 function StepAncestry({
@@ -1254,12 +1264,52 @@ function Readout({
   );
 }
 
-function StepRecord({
+/**
+ * The sheet the wizard previews, which is the sheet Create will write.
+ *
+ * `assemble` is the one function that turns a draft into a character, and
+ * `finish` hands its result to `newCharacter` and `syncCounters`. The two
+ * preview steps used to build their own sheet out of the class and the armor
+ * alone, and `deriveStats`' modifier register reads everything else: Simiah's
+ * Nimble (+1 Evasion), Giant's Endurance (+1 HP), Human's High Stamina (+1
+ * Stress), a Tower Shield's Barrier (+2 Armor Score, -1 Evasion), Galapa's
+ * Shell and Mage Robes' Enchanted on the thresholds. So the Level, Evasion &
+ * HP step told a Simiah Warrior EVASION 11 under a caption saying the class
+ * decides it, and the sheet Create wrote said 12. One constructor for both, and
+ * it is Create's.
+ *
+ * `newCharacter` with no class ref is the fallback for a draft with no class
+ * yet - `assemble` needs one - and it is only reached by the equipment step,
+ * which can be opened out of order from the rail.
+ */
+function previewSheet(
+  draft: Draft,
+  klass: CharClass | undefined,
+  dataset: Dataset,
+  index: DatasetIndex,
+): Character {
+  return klass === undefined
+    ? newCharacter({ classRef: '', level: 1, activeArmor: draft.armor })
+    : newCharacter(assemble(draft, klass, dataset.consumables), index);
+}
+
+/**
+ * Who moved a readout, in the space the note has: `FROM WARRIOR · +1 SIMIAH`.
+ *
+ * The ledger names the source and the amount; a note that credited the class
+ * alone was true of the base and false of the number printed above it.
+ */
+const credits = (base: string, rows: readonly Contribution[]): string =>
+  [base, ...rows.map((r) => `${r.amount >= 0 ? '+' : '−'}${Math.abs(r.amount)} ${r.source.toUpperCase()}`)].join(
+    ' · ',
+  );
+
+export function StepRecord({
+  draft,
   klass,
-  armorRef,
 }: {
+  draft: Draft;
   klass: CharClass | undefined;
-  armorRef: Ref | null;
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
@@ -1273,21 +1323,31 @@ function StepRecord({
     );
   }
 
-  // Every number here is the engine's, read off a sheet built from the choices
-  // made so far - not the book transcribed a second time. Anything typed in
-  // this component would be a number that could disagree with Play.
-  const sheet = newCharacter({ classRef: klass.id, activeArmor: armorRef, level: 1 });
+  // Every number here is the engine's, read off the sheet Create will write
+  // from the choices made so far - not the book transcribed a second time.
+  // Anything typed in this component would be a number that could disagree
+  // with Play.
+  const sheet = previewSheet(draft, klass, dataset, index);
   const stats = deriveStats(sheet, dataset, index);
-  const armor = armorRef === null ? undefined : index.armors.get(armorRef);
+  const armor = draft.armor === null ? undefined : index.armors.get(draft.armor);
+  const from = `FROM ${klass.name.toUpperCase()}`;
 
   return (
     <>
-      <Section label="Recorded at level 1" hint="Read only — the class decides these">
+      <Section label="Recorded at level 1" hint="Read only — worked out from every choice so far">
         <Columns min={150}>
           <Readout label="LEVEL" value={String(sheet.level)} note="EVERY CAMPAIGN STARTS HERE" />
-          <Readout label="EVASION" value={String(stats.evasion)} note={`FROM ${klass.name.toUpperCase()}`} />
-          <Readout label="HIT POINTS" value={String(stats.maxHp)} note={`FROM ${klass.name.toUpperCase()}`} />
-          <Readout label="STRESS" value={String(stats.maxStress)} note="EVERY PC STARTS THE SAME" />
+          <Readout label="EVASION" value={String(stats.evasion)} note={credits(from, stats.modifiers.evasion)} />
+          <Readout label="HIT POINTS" value={String(stats.maxHp)} note={credits(from, stats.modifiers.maxHp)} />
+          <Readout
+            label="STRESS"
+            value={String(stats.maxStress)}
+            note={
+              stats.modifiers.maxStress.length === 0
+                ? 'EVERY PC STARTS THE SAME'
+                : credits('SIX TO START', stats.modifiers.maxStress)
+            }
+          />
           <Readout
             label="HOPE"
             value={`${sheet.hope.marked} / ${stats.maxHope}`}
@@ -1335,12 +1395,11 @@ export function StepEquipment({
   const [open, setOpen] = useState<Slot | null>(null);
 
   // The picker's numbers have to come from somewhere and there is no character
-  // yet, so one is assembled from what has been decided so far and handed to
-  // the same engine the finished sheet will use. Nothing is transcribed twice.
-  const sheet = useMemo(
-    () => newCharacter({ classRef: klass?.id ?? '', level: 1, activeArmor: draft.armor }),
-    [klass, draft.armor],
-  );
+  // yet, so the sheet Create would write is assembled from the whole draft and
+  // handed to the same engine the finished sheet will use - see `previewSheet`
+  // for the shield and the ancestry this used to leave out. Nothing is
+  // transcribed twice.
+  const sheet = useMemo(() => previewSheet(draft, klass, dataset, index), [draft, klass, dataset, index]);
   const stats = useMemo(() => deriveStats(sheet, dataset, index), [sheet, dataset, index]);
 
   const primary = draft.primary === null ? undefined : index.weapons.get(draft.primary);
@@ -1374,6 +1433,7 @@ export function StepEquipment({
               primary,
               level: sheet.level,
               ignoresBurden: ignoring,
+              spellcastTrait: stats.spellcastTrait,
             })}
             empty={`Search ${dataset.weapons.length} weapons`}
             onOpen={() => setOpen('primary')}
@@ -1410,6 +1470,7 @@ export function StepEquipment({
               primary,
               level: sheet.level,
               ignoresBurden: ignoring,
+              spellcastTrait: stats.spellcastTrait,
             })}
             empty="Optional"
             onOpen={() => setOpen('secondary')}
@@ -1598,8 +1659,8 @@ function StepConnections({
  * one: the caution against a too-broad Experience was a paraphrase of a rule -
  * which is how a house rule gets written by accident, and is the thing
  * `shared/ruleText.ts` exists to stop - and the five examples beside it were
- * five names out of about ninety, transcribed into a `.tsx` file. The SRD
- * carries the rule and all ninety, and the app ships the SRD.
+ * five names out of seventy-nine, transcribed into a `.tsx` file. The SRD
+ * carries the rule and all seventy-nine, and the app ships the SRD.
  *
  * So the rule is read out of `character-creation` at render time and the
  * examples are behind a fold. Note what does *not* change: this is not a second

@@ -110,7 +110,7 @@ describe('withCompanion', () => {
 });
 
 /**
- * The box on folio 18 that no module had a copy of, because `parseRules` did
+ * The box on folio 22 that no module had a copy of, because `parseRules` did
  * not reach the folio: *"When your companion would take any amount of damage,
  * they mark a Stress. When they mark their last Stress, they drop out of the
  * scene... They remain unavailable until the start of your next long rest,

@@ -2,8 +2,10 @@
  * The death move.
  *
  * The whole model was already here and unused: `scars` rides the transfer
- * codec, `maxHope` is `BASE_HOPE - scars.length`, and `hasFallen` was called
- * only from tests. So the sheet could tell you your last Hit Point was marked
+ * codec, `maxHope` is the sheet's Hope slots (`BASE_HOPE`, plus one for a
+ * companion's Light in the Dark) less `scars.length`, and `hasFallen` was
+ * called only from tests. So the sheet could tell you your last Hit Point was
+ * marked
  * and said nothing at all.
  *
  * It is a door, not an interruption. Nothing opens by itself: a scene where

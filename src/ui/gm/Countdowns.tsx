@@ -138,9 +138,9 @@
  *
  * It said "Advances across downtime and between sessions." The trouble with it
  * was never that it was the app's own sentence instead of the book's - it was
- * that it described the wrong thing. `between sessions` occurs twice in all 69
- * shipped sections and both are in the Hope and Fear prose; it is nowhere in
- * the clocks. What the `countdowns` section says about this kind is that it
+ * that it described the wrong thing. `between sessions` occurs three times in
+ * all 82 shipped sections and all three are in the Hope and Fear prose
+ * (`hope-and-fear`, `using-fear`); it is nowhere in the clocks. What the `countdowns` section says about this kind is that it
  * advances after rests instead of action rolls. So the hint was handing the
  * clocks a property the book gives to another resource, on the screen whose
  * first paragraph is about not telling a GM something the app does not know.
@@ -148,14 +148,22 @@
  * That is a different defect from the one the section above refuses to fix. A
  * hint that describes the wrong thing and a hint that describes the right thing
  * in the app's words rather than the book's are not the same complaint, and
- * only the first is being repaired. The other three are left because there is
- * nothing wrong with them, not because one was picked out of four.
+ * only the first kind is repaired. On 2026-08-25 the other three were left
+ * because nothing was wrong with them - and that was wrong of two of them, as
+ * the audit of 2026-09-04 (S8c-2) measured against p91: "Standard countdowns
+ * advance every time a player makes an action roll", where the hint handed
+ * the trigger to the fiction; dynamic countdowns "advance according to this
+ * chart", where the hint handed the amount to the GM, one line above the very
+ * chart the row folds open. Both now describe the right thing, and the loop
+ * hint changed with S8c-1 because the clock itself did: it reaches 0 and shows
+ * it, and the next advance returns it to its start (p91: reset "after their
+ * countdown effect is triggered"). None of the four quotes the book.
  *
- * The replacement is the app's own words too - `Advances when the party rests,
- * not when a roll lands.` - because quoting the SRD here would break the very
- * rule this section states, and the owner's decision of 2026-08-25 says so in
- * those terms: correct it, with the app's words, and do not revoke this
- * paragraph to do it.
+ * The replacements are the app's own words too - `Advances when the party
+ * rests, not when a roll lands.` and the three beside it - because quoting the
+ * SRD here would break the very rule this section states, and the owner's
+ * decision of 2026-08-25 says so in those terms: correct it, with the app's
+ * words, and do not revoke this paragraph to do it.
  *
  * Both copies of it. The same sentence sat in `AddSheet.tsx`'s
  * `COUNTDOWN_KINDS`, which is the list a GM reads *before* choosing a kind;
@@ -179,9 +187,9 @@ import { countdownsIn } from '../../../shared/campaigns.ts';
 import { SRD_LABEL } from '../../store/dataset.ts';
 
 const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
-  { id: 'standard', label: 'Standard', hint: 'Advances when the fiction says it does.' },
-  { id: 'dynamic', label: 'Dynamic', hint: 'Advances by the outcome of a roll — you decide by how much.' },
-  { id: 'loop', label: 'Loop', hint: 'Returns to its starting value the moment it runs out.' },
+  { id: 'standard', label: 'Standard', hint: 'Advances on every action roll — move it by hand.' },
+  { id: 'dynamic', label: 'Dynamic', hint: 'Advances by the roll result — the chart under the row says how much.' },
+  { id: 'loop', label: 'Loop', hint: 'Runs out and shows it; the next advance returns it to its start.' },
   { id: 'long-term', label: 'Long-term', hint: 'Advances when the party rests, not when a roll lands.' },
 ];
 
@@ -213,7 +221,7 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
 
       {/* Directly under the pool it feeds, and above the clocks, because the
           one gesture a long rest offers is on a clock and the number it offers
-          first is Fear. Both halves of `downtime` p.41 are in this tool
+          first is Fear. Both halves of `downtime` p.52 are in this tool
           already; the rest is what connects them. */}
       <RestControl phone={phone} />
 

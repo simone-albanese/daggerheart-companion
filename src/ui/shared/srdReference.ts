@@ -10,10 +10,10 @@
  *
  * ## The rule this file exists to keep
  *
- * Every string these functions return came out of `data/srd-1.0.json` at
+ * Every string these functions return came out of `data/srd-2.0.json` at
  * runtime. Not one rules sentence, table heading, row name or column name is
  * typed into this repository. `Manuali/` is gitignored precisely because that
- * wording belongs to Darrington Press, and an app that stamps `SRD 1.0 · P.73`
+ * wording belongs to Darrington Press, and an app that stamps `SRD 2.0 · P.95`
  * over text it typed itself is claiming a provenance it does not have - which
  * is the same defect as a screen reporting a save that never reached the disk,
  * pointed at a licence instead of at a disk.
@@ -123,7 +123,7 @@ function benchmarkTable(rules: RulesSection[], id: string): BenchmarkTable {
 }
 
 /**
- * `rules['adversary-stat-block-benchmarks']`, p.73 - what to give an adversary
+ * `rules['adversary-stat-block-benchmarks']`, p.95 - what to give an adversary
  * you are inventing at the table, or re-tiering one you are not.
  */
 export function adversaryBenchmarks(rules: RulesSection[]): BenchmarkTable {
@@ -131,9 +131,9 @@ export function adversaryBenchmarks(rules: RulesSection[]): BenchmarkTable {
 }
 
 /**
- * `rules['adapting-environments']`, p.102. The same question for the room the
- * fight is in, and the SRD keeps it in a different chapter thirty pages away -
- * which is exactly the kind of hand-search a reference screen is for.
+ * `rules['adapting-environments']`, p.159. The same question for the room the
+ * fight is in, and the SRD keeps it in a different chapter sixty-four pages
+ * away - which is exactly the kind of hand-search a reference screen is for.
  */
 export function environmentBenchmarks(rules: RulesSection[]): BenchmarkTable {
   return benchmarkTable(rules, 'adapting-environments');
@@ -177,7 +177,7 @@ export interface FearGuidance {
 const NO_FEAR: FearGuidance = { title: '', parts: [], page: null };
 
 /**
- * `rules['using-fear']`, p.65 - the pool's own rules, what to spend it on, and
+ * `rules['using-fear']`, p.87 - the pool's own rules, what to spend it on, and
  * how much a scene is worth.
  *
  * The scene table is the reason this exists: the app has carried a Fear counter
@@ -276,7 +276,7 @@ const NO_COUNTDOWNS: CountdownGuidance = {
 };
 
 /**
- * `rules['countdowns']`, p.69, the five-row roll-result chart.
+ * `rules['countdowns']`, p.91, the five-row roll-result chart.
  *
  * Found as *the first block in the section that carries a table*, not by its
  * heading: `## DYNAMIC COUNTDOWN ADVANCEMENT` is the SRD's wording and typing
@@ -448,7 +448,7 @@ function rangeParts(text: string): RangePart[] {
 }
 
 /**
- * `rules['maps-range-and-movement']`, p.40 - what Close and Far actually mean,
+ * `rules['maps-range-and-movement']`, p.51 - what Close and Far actually mean,
  * on a map and off one.
  *
  * The section is returned whole and in the book's order, because it is one
@@ -501,7 +501,7 @@ export function feetRange(feet: [number, number]): string {
  * `rangeReference` returns the whole section for a screen that is reading it.
  * This is for a screen that is not: the player sheet prints a weapon's range as
  * a word and nothing on it ever said what the word means, so a table that had
- * not memorised p.40 had a reach it could not act on. One lookup, off the same
+ * not memorised p.51 had a reach it could not act on. One lookup, off the same
  * bullets `RangeReference` draws, so a rules layer that redefines Far moves
  * both at once.
  *
@@ -570,7 +570,7 @@ export interface DifficultyGuidance {
 const NO_DIFFICULTY: DifficultyGuidance = { title: '', lead: [], ladder: {}, page: null };
 
 /**
- * `rules['difficulty-benchmarks']`, p.66 - six tables of worked examples, one
+ * `rules['difficulty-benchmarks']`, p.88 - six tables of worked examples, one
  * per trait, at 5, 10, 15, 20, 25 and 30.
  *
  * ## No adjectives
@@ -647,8 +647,8 @@ export type BlockPart =
  * ends with a pipe - so a lead sentence run into the top of a table is prose by
  * the same rule, rather than a table that has quietly eaten a sentence.
  *
- * Measured against `data/srd-1.0.json`: all twelve table paragraphs and all
- * sixty-four bullet paragraphs in the shipped file are already pure, so
+ * Measured against `data/srd-2.0.json`: all twelve table paragraphs and all
+ * seventy-four bullet paragraphs in the shipped file are already pure, so
  * neither test costs the dataset a thing today. Both are here for the layer
  * that is not this file. (It read "seventy" while the dataset carried
  * seventy-five sections, and was right then; folios 12 and 18 added four more
@@ -736,13 +736,13 @@ export interface CompanionUpgrade {
 }
 
 /**
- * The eight level-up options for a companion, from folio 18.
+ * The eight level-up options for a companion, from folio 22.
  *
  * These were eight string literals in `src/engine/companion.ts` until the rules
  * stream reached the folio they are printed on. Licensed text typed into `src/`
- * is the thing this file exists to stop: the app stamps `SRD 1.0 · P.18` beside
+ * is the thing this file exists to stop: the app stamps `SRD 2.0 · P.22` beside
  * what it draws, and that stamp is only honest about text it read out of
- * `data/srd-1.0.json`. It also means a layer that rewrites the sheet is now
+ * `data/srd-2.0.json`. It also means a layer that rewrites the sheet is now
  * obeyed rather than ignored.
  *
  * BEASTBOUND'S EXPERT TRAINING AND ADVANCED TRAINING
@@ -786,9 +786,9 @@ export function companionUpgrades(rules: RulesSection[]): CompanionUpgrade[] {
  * The five sections of the SRD that tell a GM what to actually do, in the order
  * this app draws them.
  *
- * Principles and practices are the pair the book keeps together on p.63; then
- * the mechanism on p.64; then the shorter restatement from the combat chapter
- * on p.37, which is the one that adds the Fear Feature note and which had no
+ * Principles and practices are the pair the book keeps together on p.85; then
+ * the mechanism on p.86; then the shorter restatement from the combat chapter
+ * on p.48, which is the one that adds the Fear Feature note and which had no
  * home anywhere in this app; then the pitfalls, last, as the SRD has them.
  *
  * A section the dataset does not carry is skipped rather than drawn empty.
@@ -833,7 +833,7 @@ export interface ExperienceExamples {
 const NO_EXAMPLES: ExperienceExamples = { title: '', lead: null, items: [], page: null };
 
 /**
- * `rules['using-adversaries']`, p.71 - the eighteen Experiences the SRD offers
+ * `rules['using-adversaries']`, p.93 - the eighteen Experiences the SRD offers
  * a GM improvising an adversary.
  *
  * Found as **the first block in the section that is nothing but bare bullets**,
@@ -915,7 +915,7 @@ export interface PlayerExperiences {
 const NO_PLAYER_EXAMPLES: PlayerExperiences = { lead: null, title: '', groups: [], page: null };
 
 /**
- * `rules['character-creation']`, p.4 - step 7's rule, and the ninety-odd
+ * `rules['character-creation']`, p.4 - step 7's rule, and the seventy-nine
  * examples under it.
  *
  * Found as **the first block that is nothing but labelled bullets**. The
@@ -968,8 +968,8 @@ export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
  * returns them in is invisible until it is labelled.
  *
  * `heading` arrived with the multi-term matcher below, and it is not
- * decoration. This book keeps its own answers under `## ` subheads - **156 of
- * them, across 36 of its 69 sections** - and a matcher that reads a body line
+ * decoration. This book keeps its own answers under `## ` subheads - **179 of
+ * them, across 41 of its 82 sections** - and a matcher that reads a body line
  * together with its section's title lands on those subheads constantly, because
  * a subhead is where the SRD writes the words a GM half-remembers: it is the
  * subhead, not the section title, that says FALLING AND COLLISION DAMAGE. A subhead names a rule the way a title does, so it
@@ -1032,6 +1032,54 @@ const STOPWORDS: ReadonlySet<string> = new Set([
   'those', 'you', 'your', 'they', 'their', 'can', 'could', 'should', 'would', 'if', 'but',
   'not', 'no', 'so', 'up', 'out', 'get', 'got',
 ]);
+
+/**
+ * Fold what a phone keyboard cannot type.
+ *
+ * SRD 2.0 sets ten card names with a NON-BREAKING hyphen, U+2011: the nine
+ * `*‑Touched` cards and `Battle‑Hardened`. SRD 1.0 had none. A player types
+ * `Arcana-Touched` with the ASCII hyphen their keyboard offers and the app
+ * answers *"Nothing in this dataset carries that"* — about a card it ships and
+ * draws. Measured on the real Search screen: 0 of 10 found by the hyphen, all
+ * 10 found by a space.
+ *
+ * THE APOSTROPHE IS THE SAME DEFECT, AND IT IS BIGGER. Measured over
+ * `data/srd-2.0.json`: every apostrophe-bearing record name but one is set with
+ * U+2019, the typographic ’ - sixty top-level records, `Soldier’s Pike`,
+ * `Nature’s Tongue`, `Patron’s Pact` - and the one exception, `Keeper's
+ * Staff`, is ASCII. 407 record bodies and 60 of the 82 rules sections carry ’
+ * too, while five rules bodies spell theirs ASCII. An Android or desktop
+ * keyboard types `'`; iOS with smart punctuation types `’`. Unfolded, each
+ * half of the readership found only the half of the book its keyboard agreed
+ * with: `soldier's pike` returned nothing and `keeper’s staff` returned
+ * nothing, about two weapons the app ships. U+2018 and U+02BC are folded with
+ * it - a keyboard that types ’ offers ‘ beside it, and ʼ is what the
+ * same glyph is in some fonts' copy-paste.
+ *
+ * Folded here rather than at extraction, because the NAME is right: the book
+ * prints U+2011 so a card would not break across a line, prints ’ because it
+ * is typeset, and rewriting either would be the app inventing a spelling. What
+ * is wrong is the comparison - and so the fold is applied on BOTH sides of it,
+ * needle and haystack, by `searchRules` below, by `searchSrd` in `srdIndex.ts`
+ * and by the Cards screen's own filter. A needle turned into an ASCII hyphen
+ * still misses a haystack that kept U+2011.
+ *
+ * The soft hyphen and zero-width space are folded too. They buy nothing on
+ * either book — measured, one U+00AD and four U+200B in 224 pages, none in a
+ * name — and they cost one character class here.
+ *
+ * Declared in this file and not in `srdIndex.ts`, where it began, because that
+ * file imports from this one and the reverse would be a cycle. `srdIndex.ts`
+ * re-exports it, so nothing that reached it there had to move.
+ */
+export const foldQuery = (s: string): string =>
+  s
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u00AD\u200B]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 
 /**
  * The query as the set of words a section will have to carry, lower-cased.
@@ -1148,7 +1196,8 @@ export function wholeWordIn(low: string, term: string): boolean {
  *
  * ## There is no index, and that is a measurement rather than an opinion
  *
- * Measured on this machine against the shipped `data/srd-1.0.json`, on the Node
+ * Measured on this machine against the then-shipped `data/srd-1.0.json` (the
+ * figures below are that run's, not re-taken on SRD 2.0), on the Node
  * major `.nvmrc` names, 3000 iterations a query after 500 of warm-up, worst of
  * six queries: **0.244 ms** for the whole of what this function does, and the
  * worst of the six is now the query that matches nothing, because a query that
@@ -1157,9 +1206,9 @@ export function wholeWordIn(low: string, term: string): boolean {
  * recorded 0.172 ms in this docblock when it was taken on its own day, which is
  * the size of the noise between two runs on one machine and the reason a single
  * figure from either is not worth arguing with. The dataset under both is
- * **sixty-nine** sections - **107,884** bytes of JSON, **35,936** of it gzipped
- * at zlib's default level - inside a chunk `index.html` already preloads, the
- * Witherwild frame having been dropped.
+ * SRD 1.0's **sixty-nine** sections - **107,884** bytes of JSON, **35,936** of
+ * it gzipped at zlib's default level - inside a chunk `index.html` already
+ * preloads, the Witherwild frame having been dropped.
  *
  * The multi-term matcher is the slower of the two and it is worth saying where
  * the time went, because it is not the AND. It is the **line split**: the cheap
@@ -1182,10 +1231,11 @@ export function wholeWordIn(low: string, term: string): boolean {
  * enough to be worth re-taking: they counted the Witherwild frame this dataset
  * no longer carries. **Collapsing the body's whitespace before matching costs
  * 2.14 ms** - nine times the whole scan - because it allocates a rewritten copy
- * of all **100,165** body characters on every keystroke, and it buys nothing:
- * not one of the **869** non-empty body lines in the shipped file carries two
- * spaces in a row, a tab, a carriage return or trailing space, and the
- * paragraphs are one line each, hard-wrapped nowhere. (It read 1.05 ms over
+ * of all **100,165** body characters on every keystroke (the milliseconds were
+ * taken on SRD 1.0's 100,165, not re-taken on SRD 2.0's 113,840), and it buys
+ * nothing: not one of the **961** non-empty body lines in the shipped file
+ * carries two spaces in a row, a tab, a carriage return or trailing space, and
+ * the paragraphs are one line each, hard-wrapped nowhere. (It read 1.05 ms over
  * 122,437 characters and 969 lines before the frame was dropped. The
  * conclusion did not need re-taking; the three numbers did.) The query is
  * collapsed, because a person types the double space; the book is not, because
@@ -1268,7 +1318,10 @@ export function wholeWordIn(low: string, term: string): boolean {
  * line of code.
  */
 export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
-  const needle = query.trim().replace(/\s+/g, ' ').toLowerCase();
+  // `foldQuery` on the needle and on every haystack below: the rules search
+  // folded nothing for one round and a typed ' found none of the sixty
+  // sections that spell it ’. The docblock over `foldQuery` has the count.
+  const needle = foldQuery(query);
   if (needle === '') return [];
   const terms = ruleTerms(needle);
 
@@ -1278,7 +1331,7 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
 
   for (const section of rules) {
     const page = section.sourcePage ?? null;
-    const title = section.title.toLowerCase();
+    const title = foldQuery(section.title);
     const seen = { id: section.id, title: section.title, page, partial: false };
 
     if (terms.every((t) => title.includes(t))) {
@@ -1287,7 +1340,7 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
     }
     // The cheap reject, once per term. Most sections lose here on any real
     // query and never pay for the line split below.
-    const body = section.body.toLowerCase();
+    const body = foldQuery(section.body);
     if (!terms.every((t) => body.includes(t) || title.includes(t))) continue;
 
     // Every word, in this line or in the header three lines above it on the
@@ -1299,11 +1352,11 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
     const quote = quoteFrom(
       section.body,
       (text) => {
-        const low = text.toLowerCase();
+        const low = foldQuery(text);
         return terms.every((t) => low.includes(t) || title.includes(t));
       },
       (text) => {
-        const low = text.toLowerCase();
+        const low = foldQuery(text);
         return terms.every((t) => wholeWordIn(low, t) || title.includes(t));
       },
     );
@@ -1333,14 +1386,14 @@ export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
 function someOf(rules: RulesSection[], terms: string[]): RuleHit[] {
   const out: RuleHit[] = [];
   for (const section of rules) {
-    const title = section.title.toLowerCase();
+    const title = foldQuery(section.title);
     const carries = (text: string): boolean => {
-      const low = text.toLowerCase();
+      const low = foldQuery(text);
       return terms.some((t) => low.includes(t));
     };
     if (!carries(section.title) && !carries(section.body)) continue;
     const sharply = (text: string): boolean => {
-      const low = text.toLowerCase();
+      const low = foldQuery(text);
       return terms.some((t) => wholeWordIn(low, t));
     };
     const quote = quoteFrom(section.body, carries, sharply) ?? { line: null, where: 'title' as const };

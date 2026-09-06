@@ -155,7 +155,7 @@ const rules = dataset.rules;
 
 /**
  * The book beyond the rules, as the screen builds it: the whole index with the
- * 69 sections taken out, because those are searched by `searchRules` and drawn
+ * 82 sections taken out, because those are searched by `searchRules` and drawn
  * with a landing this list has no equivalent of.
  *
  * Built here from the same dataset the screen is handed, so a count derived
@@ -262,7 +262,7 @@ const type = (text: string): void => {
  * between the app's own words and the book's.
  *
  * **`:not([data-kind])` is the same seam a second time, and it had to be added
- * rather than assumed.** The search now covers the 780 records the rules
+ * rather than assumed.** The search now covers the 1369 records the rules
  * sections' own search cannot reach, and a record row is a third `<section>` of
  * this shape - so without it `hitTitles()` answered `countdown` with
  * thirty-three rows where `searchRules` found seven, and every `toEqual` in
@@ -365,7 +365,7 @@ const PHRASINGS: ReadonlyArray<{ q: string; want: string }> = [
 describe('searchRules, over the shipped SRD', () => {
   it('answers an empty query with nothing rather than with everything', () => {
     // `''` is a substring of every string alive. Without the guard this is not
-    // an empty result, it is all sixty-nine sections - which is what a GM
+    // an empty result, it is all eighty-two sections - which is what a GM
     // would see the instant the sheet opened.
     expect(searchRules(rules, '')).toEqual([]);
     expect(searchRules(rules, '   ')).toEqual([]);
@@ -562,7 +562,7 @@ describe('searchRules, over the shipped SRD', () => {
      * nothing but stopwords keeps the words it was given rather than being
      * answered with silence. The trap is the other direction: `terms.every()`
      * over an empty list is vacuously true, so dropping every word would make
-     * every section a *title* hit - all sixty-nine of them, on the first
+     * every section a *title* hit - all eighty-two of them, on the first
      * keystroke, which is the same defect the empty guard exists to stop
      * arriving by a different road.
      */
@@ -577,7 +577,7 @@ describe('searchRules, over the shipped SRD', () => {
   it('collapses the spaces the GM typed and not the ones the book did not type', () => {
     // A person typing a phrase into a field on a phone puts two spaces in it.
     // The book has none: not one of the shipped bodies carries a double space,
-    // which is why the scan never rewrites 100,165 characters to find out.
+    // which is why the scan never rewrites 113,840 characters to find out.
     // (122,437 stood here, and it counted the Witherwild frame this dataset no
     // longer carries - `srdReference.ts` re-took it against the file that
     // ships and this line was left behind in the same commit.)
@@ -650,9 +650,9 @@ describe('preview', () => {
   });
 
   it('windows the longest lines the shipped SRD actually has', () => {
-    // 255 of the 869 non-empty body lines are longer than the 150 characters
+    // 296 of the 961 non-empty body lines are longer than the 150 characters
     // this keeps, counting a line the way the book writes it. Counted the way
-    // `preview` is actually handed them it is 227 of 769: `quoteFrom` takes the
+    // `preview` is actually handed them it is 268 of 861: `quoteFrom` takes the
     // `## ` and `- ` off the front, and it skips a pipe row outright rather
     // than stripping it, so the book's hundred table rows are not in the
     // population at all. The bullet below is one of the long ones, and it is
@@ -1697,7 +1697,7 @@ describe('the results', () => {
      * The residual of the owner's decision of 2026-08-25 §8, pinned rather than
      * left in a docblock to age. §8 lights the landing block and not the open
      * section; where the SRD draws a section as one block those are the same
-     * thing, and `using-fear` is the widest of the 34 - one block of twelve
+     * thing, and `using-fear` is the widest of the 42 - one block of twelve
      * parts, ten of which carry a word of `spend a fear`.
      *
      * The query `fear` on its own is *not* this case, which is worth having
@@ -1955,7 +1955,7 @@ describe('the results', () => {
     openShow();
     type('kobolds riding a velocipede');
     expect(hits()).toEqual([]);
-    // And nothing out in the other 780 either, which is now the second half of
+    // And nothing out in the other 1369 either, which is now the second half of
     // what the sentence claims. The silence is only honest while both are empty:
     // the paragraph says *nothing in this dataset*, and a card carrying the word
     // under a paragraph saying no such thing exists would be the app
@@ -2165,7 +2165,7 @@ describe('the questions above the sections', () => {
   it('answers a phrase this book does not carry with a question instead of silence', () => {
     /*
      * The case the catalogue exists for, and it is measured rather than
-     * assumed: `surrender` is in none of the sixty-nine sections, so the search
+     * assumed: `surrender` is in none of the eighty-two sections, so the search
      * alone answers a real table question with a correct and useless silence.
      */
     openShow();
@@ -2176,7 +2176,7 @@ describe('the questions above the sections', () => {
      * Two bands now, and the second is the rest of the book doing its job:
      * SRD 2.0's Raiding Party environment prints the word in its own text, so
      * the record search answers where the SECTION search still cannot. The
-     * claim being made is unchanged - the sixty-nine sections carry none of
+     * claim being made is unchanged - the eighty-two sections carry none of
      * these words, so the catalogue is what saves the query - and the extra
      * band is evidence for it rather than against.
      */

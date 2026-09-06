@@ -30,6 +30,10 @@
  * | 63 | RUNNING AN ADVENTURE |
  * | 119 | APPENDIX |
  *
+ * Those are SRD 1.0's folios, and the PDF named is SRD 1.0's; the shipped
+ * book is SRD 2.0, whose contents page puts the five at 3 / 4 / 7 / 46 / 85 -
+ * `tests/ui/chapters.test.ts` carries them and says where they were read.
+ *
  * Nothing else in the book is set above 20pt. `CONTENTS` and `APPENDIX` hold
  * no rules section, so the five below are every chapter the eighty-two fall
  * into, and a section's chapter is the last opener at or before its
@@ -59,7 +63,7 @@
  *   with no rank at all.
  * - Three real openers are not drops. `INTRODUCTION` and `CHARACTER CREATION`
  *   are kept as sections, and `CORE MATERIALS` never reaches `SPECS` because
- *   folios 7-11 and 13-17 are outside `RANGES`.
+ *   folios 7-12, 14 and 16-20 are outside `rules.ts`'s `ISLANDS`.
  *
  * The parser matches heading *text*; chapters are a matter of heading *rank*.
  * So a hand-authored table is required, and the guard that keeps it honest is
@@ -87,7 +91,7 @@
  *   `Ref` simply does not name it, and the index then leaves a layer's section
  *   out of the chapter breakdown - which is the truth.
  * - **Blast radius against readership.** It would change `shared/types.ts`,
- *   `shared/parsers/rules.ts`, `data/srd-1.0.json` and the byte-for-byte
+ *   `shared/parsers/rules.ts`, `data/srd-2.0.json` and the byte-for-byte
  *   re-derivation, to add a grouping exactly one screen reads.
  *
  * **`data/chapters.json`** is refused for `moments.ts`'s own reason, unchanged:
@@ -103,7 +107,7 @@
  * never in the haystack*, and no preview line may quote one. It governs the
  * search corpus and the quotable text, not every string under `src/`. The app
  * already addresses the book by its own words here - `stamp()` prints
- * `SRD 1.0 · P.35`, `SRD_KIND_LABELS` prints the book's names for its
+ * `SRD 2.0 · P.46`, `SRD_KIND_LABELS` prints the book's names for its
  * collections, and `moments.ts` is keyed on the book's own slugs.
  *
  * Four of the five headings below are **already** typed in this repository, as
@@ -125,7 +129,7 @@
  *   a rule.
  * - **Invent this app's own name for each chapter.** Worse on the licence's own
  *   terms: the app renaming the book, printed on a surface where every row
- *   beside it carries an `SRD 1.0 · P.n` stamp the reader can check. A false
+ *   beside it carries an `SRD 2.0 · P.n` stamp the reader can check. A false
  *   claim about the source is a worse failure than a true one.
  * - **Type the book's heading.** Taken, and held by
  *   `tests/ui/chapters.test.ts`, which asserts that no value of
@@ -228,7 +232,7 @@ export const SECTION_CHAPTER: Readonly<Record<Ref, SrdChapter>> = {
   'companion-taking-damage': 'core-materials',
   'leveling-up-your-companion': 'core-materials',
 
-  // CORE MECHANICS — folio 35
+  // CORE MECHANICS — folio 46 (35 in SRD 1.0)
   'flow-of-the-game': 'core-mechanics',
   'player-principles-and-best-practices': 'core-mechanics',
   'core-gameplay-loop': 'core-mechanics',
@@ -255,8 +259,8 @@ export const SECTION_CHAPTER: Readonly<Record<Ref, SrdChapter>> = {
   /*
    * Folios 44-61 / 55-83: the equipment chapter, eight rows, and every one of
    * them DERIVED rather than chosen. `EQUIPMENT` is 20pt, a sibling of `GOLD`
-   * and of `FLOW OF THE GAME`, and the last 28pt opener at or before folio 44
-   * is CORE MECHANICS - so there is no Equipment chapter for these to go in,
+   * and of `FLOW OF THE GAME`, and the last 28pt opener at or before folio 55
+   * (44 in SRD 1.0) is CORE MECHANICS - so there is no Equipment chapter for these to go in,
    * and the recomputation in `chapters.test.ts` is what says so on every run.
    *
    * These eight were unreachable prose until `shared/parsers/rules.ts` grew an
@@ -274,12 +278,12 @@ export const SECTION_CHAPTER: Readonly<Record<Ref, SrdChapter>> = {
   armor: 'core-mechanics',
   loot: 'core-mechanics',
   consumables: 'core-mechanics',
-  // Folio 62. `GOLD` is 20pt, a sibling of `EQUIPMENT` on folio 44, and the
-  // next 28pt opener is RUNNING AN ADVENTURE on folio 63 - so there is no
+  // Folio 84. `GOLD` is 20pt, a sibling of `EQUIPMENT` on folio 55, and the
+  // next 28pt opener is RUNNING AN ADVENTURE on folio 85 - so there is no
   // Equipment chapter to put it in either.
   gold: 'core-mechanics',
 
-  // RUNNING AN ADVENTURE — folio 63
+  // RUNNING AN ADVENTURE — folio 85 (63 in SRD 1.0)
   'running-an-adventure': 'running-an-adventure',
   'gm-guidance': 'running-an-adventure',
   'gm-principles': 'running-an-adventure',

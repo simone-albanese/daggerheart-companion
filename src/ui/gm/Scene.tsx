@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 import type { Adversary } from '../../../shared/types.ts';
 import { countdownsIn } from '../../../shared/campaigns.ts';
 import type { Countdown } from '../../engine/encounter.ts';
-import { combatantHit, isVulnerableAt, SEVERITY_LABEL } from '../../engine/damage.ts';
+import { combatantHit, isVulnerableAt, SEVERITY_LABEL, severeIsNone } from '../../engine/damage.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
@@ -95,6 +95,10 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   const spotlit = combatants.filter((c) => c.spotlighted).length;
   /*
    * What Ambushed and Ambushers mean by `Difficulty: Special`, for the band.
+   * Duel prints the same word with a different rule - the challenger's, whom
+   * this board cannot know - and the band declines to draw this for it; that
+   * choice is the band's (`derivesFromStrongest` in `StatBlock.tsx`), so the
+   * runner computes the maximum for every open scene and lets the band decide.
    *
    * It reads the combatants' own `difficulty` rather than the adversaries' -
    * `makeCombatant` copies it at spawn and the card prints that copy, so this
@@ -321,7 +325,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         or over 44. The floor is real - `minHeight: 44`, written on that button
         a few lines up this file - but only the three-line jump clears it, and
         three lines is not reachable at the wording that ships: the string runs
-        57 characters at its shortest and 118 at its longest over the whole
+        53 characters at its shortest and 124 at its longest over the whole
         book (the budget is worked out below), which is one line or two. So
         what the gate actually moved the grid by was up to 41.74px - 95% of a
         whole touch target, not more than one.
@@ -377,20 +381,22 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         at 400, at about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
         characters, and 63 even at a pessimistic 5.75 (367/5.75 = 63.8; it read
         64 while the column read 369). The longest string this can build over
-        the shipped book is 118: a three-digit count and `Burning Heart of the
-        Woods`, the longest of the 19 environment names. 118 is inside both
-        2 x 65 and 2 x 63, so it is still two lines at either figure, the
-        permanent cost is still 31.74px and 41.74 with the gap, and it still
+        the shipped book is 124: a three-digit count and `Convergence, the
+        City of Portals`, the longest of the 47 environment names. 124 is
+        inside both 2 x 65 and 2 x 63 - by two characters at the pessimistic
+        figure - so it is still two lines at either figure, the permanent cost
+        is still 31.74px and 41.74 with the gap, and it still
         never becomes three. The two pixels moved the character budget and left
         every conclusion drawn from it standing.
 
         Two lines is what the wording buys. The old sentence gave the
         environment its own clause - "X stays the environment. Fear and the
         countdowns stay as they are." - which over the same worst case (a
-        three-digit count and the same environment name) is 152 characters,
+        three-digit count and the same environment name) is 158 characters,
         past 2 x 65 and past 2 x 63 alike, so three lines at either figure.
-        ("151" stood here and was one character short.) Naming it inside the
-        list of what stays says the same thing in 118. The band directly above
+        ("152" stood here, measured over SRD 1.0's 19 names; "151" before it
+        was one character short.) Naming it inside the list of what stays says
+        the same thing in 124. The band directly above
         is labelled Environment and carries that name, so the list needs no
         second label for it.
 
@@ -742,9 +748,10 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * A Minion group is the only combatant carrying a number no other card carries:
  * how many bodies are still standing. It had a row of its own - a `Stepper`
  * from the encounter builder, 60 tall, plus the card's 10px gap - and that put
- * the shut card at "541.00", 43 past the panel, on 16 of the book's 129
- * adversaries. That figure was written down here rather than fixed, because
- * choosing where the control went was a decision this lane had not been given.
+ * the shut card at "541.00", 43 past the panel, on 16 of SRD 1.0's 129
+ * adversaries (28 of SRD 2.0's 264 are Minions). That figure was written down
+ * here rather than fixed, because choosing where the control went was a
+ * decision this lane had not been given.
  *
  * IT WAS GIVEN ON 2026-08-25: the count joins DIF and the thresholds instead of
  * taking a row. The reason is conceptual before it is geometric - how many are
@@ -811,7 +818,6 @@ function CombatantCard({
   const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
   const [incoming, setIncoming] = useState('');
   const c = combatant;
-  const down = c.hp.marked >= c.hp.max;
   /*
    * Read into a const so the narrowing survives into the handlers.
    * `c.minionsRemaining !== undefined` narrows the property for the JSX around
@@ -821,6 +827,21 @@ function CombatantCard({
    * `−`/`+` close over.
    */
   const minions = c.minionsRemaining;
+  /*
+   * DEFEATED IS THE COUNT ON A MINION CARD, AND THE HP TRACK ON EVERY OTHER.
+   *
+   * A Minion card is a group - the band prints how many bodies are standing -
+   * and its HP track is the one box each body has. This read the track alone,
+   * and the engine filled that box on the first hit, so one point of damage on
+   * a group of four dimmed the card, striped it red and wrote DEFEATED in the
+   * meta line while MINIONS 3 sat beside it; and stepping the count down to 0
+   * by hand left the box empty and the card never said it. `combatantHit`
+   * no longer marks a counted group's track (`engine/damage.ts`, "A counted
+   * group loses bodies"), and this reads the same number the band does. The
+   * card's counter is still drawn and still tappable - it is the body's box,
+   * and a GM who marks it is recording a wound, not a defeat.
+   */
+  const down = minions !== undefined ? minions <= 0 : c.hp.marked >= c.hp.max;
   // Derived, so it can never disagree with the track the GM is tapping - and
   // it is the same test the player's sheet reads. See the band below.
   const vulnerable = isVulnerableAt(c.stress.marked, c.stress.max);
@@ -864,7 +885,7 @@ function CombatantCard({
           </span>
           <span className="t-meta" style={{ letterSpacing: '0.08em' }}>
             {adversary === undefined
-              ? 'NOT IN THIS DATASET'
+              ? 'NOT IN THIS BOOK'
               : `T${adversary.tier} · ${adversary.role.toUpperCase()}`}
             {down ? ' · DEFEATED' : ''}
           </span>
@@ -1005,7 +1026,7 @@ function CombatantCard({
        * DEFEATS the instant a number is typed into it, and the `Minion (N)`
        * feature under the fold carries the SRD's own sentence at length. A
        * combatant with no thresholds and no Minion group - which the shipped
-       * book does not contain, all 16 null-threshold adversaries being Minions
+       * book does not contain, all 28 null-threshold adversaries being Minions
        * - still gets the sentence, because there the slot IS empty.
        *
        * Keeping it as a second band line was costed rather than waved off: the
@@ -1041,12 +1062,12 @@ function CombatantCard({
           background: 'var(--app)',
         }}
       >
-        <span className="t-meta">DIF</span>
+        <span className="t-meta">DIFF</span>
         <span className="t-num" style={{ fontSize: 15 }}>
           {c.difficulty}
         </span>
         {/*
-          VULNERABLE SITS ON DIF, BECAUSE DIF IS THE NUMBER IT CHANGES.
+          VULNERABLE SITS ON DIFF, BECAUSE DIFF IS THE NUMBER IT CHANGES.
 
           The condition reads "all rolls targeting them have advantage", so
           what it costs a GM is not a fact about the monster - it is a fact
@@ -1058,7 +1079,7 @@ function CombatantCard({
           the same two-number test the player's own sheet reads through
           `isVulnerableFromStress`, so a full Stress track means the same thing
           on both sides of the screen - which is the whole of the owner's
-          decision 17 of 2026-08-26, and a reading of p.71 rather than a
+          decision 17 of 2026-08-26, and a reading of p.93 rather than a
           quotation.
 
           IT COSTS NO ROW, AND THAT IS MEASURED RATHER THAN HOPED. The band is
@@ -1096,7 +1117,7 @@ function CombatantCard({
             </span>
             <span className="t-meta">SEVERE</span>
             <span className="t-num" style={{ fontSize: 15 }}>
-              {c.thresholds[1]}
+              {severeIsNone(c.thresholds[1]) ? 'NONE' : c.thresholds[1]}
             </span>
           </>
         ) : (
@@ -1280,23 +1301,23 @@ function CombatantCard({
         below for why it is still built.
 
         The argument used to be that the SRD alone did not fix what is in here:
-        the book ships motives and features on all 129 adversaries, so
+        the book ships motives and features on all 264 adversaries, so
         `MOTIVES & FEATURES` is what a GM sees, but a Core Rulebook layer could
         add an adversary the SRD does not have, and that one might carry only
         the one field. Every step of that is now gone. Nothing can import a
         rulebook, no new layer can be made, and version 3 deletes the layers
         devices were still carrying, so `s.dataset.adversaries` is exactly the
-        129 - verified, and none of the 129 has an empty `motives` or an empty
+        264 - verified, and none of the 264 has an empty `motives` or an empty
         `features`. Both single-word arms are dead, and so is the outer guard's
         false side.
 
         Kept because collapsing them would be a bet on the dataset, and there
-        is a known change to it in flight: the SRD 2 work brings 311 statblocks
-        against these 148, on parsers that do not exist yet. A branch that is
-        unreachable because of what the data happens to hold is not the same as
-        one that is unreachable by construction, and this is the first kind.
-        Deleting it would have to be undone by whoever finds the first statblock
-        that carries one field.
+        was a known change to it in flight when this was written: the SRD 2
+        work was to bring 311 statblocks against SRD 1.0's 148, on parsers
+        that did not exist yet. A branch that is unreachable because of what
+        the data happens to hold is not the same as one that is unreachable by
+        construction, and this is the first kind. Deleting it would have to be
+        undone by whoever finds the first statblock that carries one field.
 
         A fold labelled for what is not inside it is worse than one word longer.
         The guard is the same shape: no motives and no features, no fold.
@@ -1369,7 +1390,7 @@ function CombatantCard({
             The conclusion survives without it. The stack is short of the column
             by at least 80px of declared chrome plus the chip's widest label -
             nine characters, since pressed it reads SPOTLIT and gives two back -
-            and the motives line runs to 92 characters (below) where the name
+            and the motives line runs to 123 characters (below) where the name
             above it is already `whiteSpace: 'nowrap'` with an ellipsis. A
             sentence that long wants the widest column on the card, which is the
             full 341 and not the remainder of a shared row. Inside the fold it
@@ -1399,8 +1420,8 @@ function CombatantCard({
             `tests/ui/gmGeometryProse.test.ts` keeps a guard over the files
             behind it.
 
-            The label plus the motives measures 37 characters at its shortest,
-            58 at the median and 92 at its longest over all 129 adversaries in
+            The label plus the motives measures 34 characters at its shortest,
+            63 at the median and 123 at its longest over all 264 adversaries in
             the book, every one of which carries motives. `.t-meta` was 10px IBM
             Plex Mono at 0.06em when this was measured (12px at 0.04em on a
             phone since the readability ramp, 7.68 a character by the same
@@ -1409,8 +1430,8 @@ function CombatantCard({
             `ReferenceTables.tsx` uses for this class - so 341 holds 51
             characters a line, which is exactly what 343 held: 51 characters
             want 336.6px and 52 want 343.2, and both columns fall in that gap.
-            No conclusion moves with the width: 37 is one line, 58 and 92 are
-            both two. Two lines at 1.5 is 30px.
+            No conclusion moves with the width: 34 is one line, 63 is two and
+            123 is three. Three lines at 1.5 is 45px.
 
             "Whether two cards still read on one screen after that is
             PROGETTO-GM §7 item 3, and it has not been in a browser" ended this
@@ -1423,7 +1444,7 @@ function CombatantCard({
             The undefined arm needs nothing: a combatant whose adversary is not
             in this dataset has no motives to print, no features either, and so
             draws no fold at all - and the meta line in the header already says
-            NOT IN THIS DATASET rather than leaving the absence unexplained.
+            NOT IN THIS BOOK rather than leaving the absence unexplained.
           */}
           {adversary.motives.length > 0 && (
             <span className="t-meta" style={{ lineHeight: 1.5 }}>

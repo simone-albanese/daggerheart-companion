@@ -19,7 +19,7 @@
  * Marking an Armor Slot moves the result down one rung, and can take a Minor
  * hit all the way to nothing. ONE slot, for one incoming damage - and
  * "incoming damage" is the SRD's own unit: "the total damage from a single
- * attack or source, before Armor Slots are marked" (Additional Rules, p42).
+ * attack or source, before Armor Slots are marked" (Additional Rules, p53).
  *
  * ## The cap is a parameter, and its default is one
  *
@@ -47,18 +47,21 @@
  * how many slots may be spent, and belong to a different parameter that this
  * engine does not model yet.
  *
- * ## Why nothing on screen may cite a rulebook for the cap
+ * ## Where the cap may be cited from, and where it could not be
  *
- * `data/srd-1.0.json` is the only rules text this app may quote, because it is
- * the only one the user can open inside the app - and it does not carry this
- * sentence. Its rules chapters never explain that marking an Armor Slot
- * reduces damage at all; they only presuppose it ("Direct damage is damage
- * that can't be reduced by marking Armor Slots"). The nearest thing to the cap
- * is Additional Rules' SPENDING RESOURCES, and it enumerates Hope and Stress,
- * not Armor Slots. The four cards above are strong internal evidence - a card
- * that grants "an additional Armor Slot" is meaningless unless the default is
- * one - but evidence is not a quotation. So: enforce the cap, and say what the
- * app does. Do not print a citation the reader cannot go and check.
+ * The shipped dataset is the only rules text this app may quote, because it is
+ * the only one the user can open inside the app. `data/srd-1.0.json` did not
+ * carry this sentence: its rules chapters never explained that marking an
+ * Armor Slot reduces damage at all, they only presupposed it ("Direct damage
+ * is damage that can't be reduced by marking Armor Slots"), and the nearest
+ * thing to the cap, Additional Rules' SPENDING RESOURCES, enumerates Hope and
+ * Stress. The four cards above were the evidence - a card that grants "an
+ * additional Armor Slot" is meaningless unless the default is one - and
+ * evidence is not a quotation, so no surface printed a citation. The shipped
+ * `data/srd-2.0.json` carries the sentence, in `armor` (p72): *"you can mark
+ * one Armor Slot to reduce the severity"*. A surface that wants to cite the
+ * cap now has a section to point at; one that does not still says what the
+ * app does, and nothing here quotes anything.
  *
  * ## What a surface must do with this
  *
@@ -260,26 +263,36 @@ export function markDamage(c: Character, outcome: DamageOutcome): Character {
 }
 
 /**
- * Marking Stress when every Stress slot is full costs 1 HP instead. Returns
- * the character and what actually happened, so the UI can say so.
+ * Mark Stress, and one Hit Point for whatever part of it cannot be marked.
+ *
+ * SRD 2 p50, Stress: *"When a character must mark 1 or more Stress but can't,
+ * they mark 1 HP instead."* The sentence replaces the whole obligation with
+ * one Hit Point: a cost of 3 at a full track is 1 HP, and a cost of 3 at 5/6
+ * is 1 Stress and 1 HP. This used to loop once per point and mark a Hit Point
+ * for each Stress it could not mark, which is a harsher rule than the book
+ * states and one nothing had chosen on purpose - `tests/engine/damage.test.ts`
+ * pinned it, `loadout.ts` costed recalls by it, and the buttons said
+ * "MARK 3 HP?" where the book's price is one.
+ *
+ * The SAME paragraph's next sentence - *"A character can't use a move that
+ * requires them to mark Stress if all of their Stress is marked"* - is not
+ * decided here. This function is the involuntary path too (damage, a GM move),
+ * where the character has no choice and marks the Hit Point; whether a given
+ * caller is a "move" the book refuses is that caller's to say, and
+ * `canAddToLoadout` and `beastformCost` each answer it for themselves.
+ *
+ * Returns the character and what actually happened, so the UI can say so.
  */
 export function markStress(
   c: Character,
   amount = 1,
 ): { character: Character; stressMarked: number; hpMarked: number } {
-  let stress = c.stress.marked;
-  let hp = c.hp.marked;
-  let stressMarked = 0;
-  let hpMarked = 0;
-  for (let i = 0; i < amount; i++) {
-    if (stress < c.stress.max) {
-      stress++;
-      stressMarked++;
-    } else if (hp < c.hp.max) {
-      hp++;
-      hpMarked++;
-    }
-  }
+  const free = Math.max(0, c.stress.max - c.stress.marked);
+  const stressMarked = Math.max(0, Math.min(amount, free));
+  const unpaid = Math.max(0, amount - stressMarked);
+  const hpMarked = unpaid > 0 && c.hp.marked < c.hp.max ? 1 : 0;
+  const stress = c.stress.marked + stressMarked;
+  const hp = c.hp.marked + hpMarked;
   return {
     character: {
       ...c,
@@ -315,7 +328,7 @@ export function markStress(
  * under DAMAGE THRESHOLDS, HIT POINTS, AND STRESS: "These systems function the
  * same way they do for PCs."
  *
- * So this is a reading of p.71 and not a quotation, exactly like the Massive
+ * So this is a reading of p.93 and not a quotation, exactly like the Massive
  * Damage argument above, and the owner took it the same way and for the same
  * reason on 2026-08-26 (`DECISIONI-2026-08-25.md` section 17): a table that
  * sees a rule applied to their own PCs and not to the monsters, with nothing on
@@ -362,10 +375,26 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  *
  * `severityFor(amount, thresholds: [number, number], massiveDamageRule)` does
  * not take `null`, and that is not an oversight to work around: the SRD does
- * not give Minions a severity at all. Its sixteen no-threshold adversaries are
- * all and only Minions, and what it says about them is that any damage defeats
- * one. So the no-thresholds branch is the caller's, it returns `severity: null`
- * rather than an invented rung, and it marks the whole track.
+ * not give Minions a severity at all. SRD 2.0's 28 no-threshold adversaries
+ * (SRD 1.0's 16) are all and only Minions, and what it says about them is that
+ * any damage defeats one. So the no-thresholds branch is the caller's, it
+ * returns `severity: null` rather than an invented rung, and what it marks
+ * depends on whether anybody is counting bodies.
+ *
+ * ## A counted group loses bodies, not Hit Points
+ *
+ * A Minion card on the scene is a GROUP - `minionsRemaining` is the party's
+ * worth of bodies, and the band on the card prints it - while its HP track is
+ * the one box each body has. "Defeated when they take any damage" (p94) is a
+ * sentence about a body: the body that took the hit leaves the count, and the
+ * ones still standing are unhurt. So for a combatant whose bodies are counted
+ * the no-thresholds branch marks NO Hit Points and `defeated` is the count
+ * reaching 0. Marking the track filled the group's one box on the first hit,
+ * and the card read DEFEATED with three Minions still standing beside it -
+ * and never read it when the count did reach 0, because the box was empty.
+ * A no-threshold combatant nobody is counting - a manual's, or one an older
+ * scene persisted without a count - is still one body, and any damage still
+ * marks its whole track.
  *
  * Nothing at or below zero does anything. An empty field, a minus sign, a
  * pasted word - these arrive from a text input on a card, and a NaN that walked
@@ -375,7 +404,7 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  *
  * `prefs.massiveDamageRule` is off by default and a table turns it on
  * deliberately. Whether it also applies against an adversary is a reading, not
- * a quotation - the SRD says at p.71 that thresholds, HP and Stress "function
+ * a quotation - the SRD says at p.93 that thresholds, HP and Stress "function
  * the same way they do for PCs", and the Massive text itself sits in the PC
  * chapter - and the owner took it on 2026-08-25: yes, the same preference, on
  * both sides. So this takes the flag and never a default, because the failure
@@ -389,11 +418,34 @@ export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.h
  * range the attack would succeed against" - so one hit defeats
  * `1 + floor(amount / N)` of them, and `amount === N` defeats two rather than
  * one. The divisor lives on the `Adversary` record and not on the combatant,
- * so a combatant whose `adversaryRef` this dataset cannot resolve has none, and
- * then there is no Minion arithmetic at all rather than a guessed divisor.
- * `minionsRemaining` caps it: a card must never offer to defeat bodies that are
- * not standing.
+ * so a combatant whose `adversaryRef` this dataset cannot resolve has none.
+ * Without one there is no OVERKILL arithmetic rather than a guessed divisor -
+ * but the `1` is not the divisor's: it is p94's "any damage" body, so a counted
+ * group with no divisor still loses exactly one. `minionsRemaining` caps both:
+ * a card must never offer to defeat bodies that are not standing.
  */
+/**
+ * `Thresholds: 3/None` - a Severe rung the book says damage never reaches.
+ *
+ * Five SRD 2.0 blocks print it, all tier 1 and all with two Hit Points: Octopus
+ * 3/None and Tiny Green Ooze 4/None (folio 105), Tiny Red Ooze 5/None and
+ * Phantom 5/None (106), Poltergeist 4/None (107). `Adversary.thresholds` is
+ * `[number, number]` and has no way to say None, so
+ * `shared/parsers/adversaries.ts` stores that Severe as `Number.MAX_SAFE_INTEGER`
+ * - out of reach rather than fabricated. The ladder needs no special case for
+ * it (`severityFor` compares, and nothing a GM types reaches the sentinel), but
+ * anything that PRINTS the pair does: sixteen digits on a stat block is not a
+ * threshold a GM can apply, and both GM screens were printing them. This is the
+ * one test for that value, so the two screens and the explanation below cannot
+ * disagree about what it means.
+ */
+export const severeIsNone = (severe: number): boolean =>
+  !Number.isFinite(severe) || severe >= Number.MAX_SAFE_INTEGER;
+
+/** The pair as the book writes it: `7/12`, or `3/None` where Severe is out of reach. */
+export const thresholdsText = (thresholds: [number, number]): string =>
+  `${thresholds[0]}/${severeIsNone(thresholds[1]) ? 'None' : thresholds[1]}`;
+
 export interface CombatantHit {
   /** What the GM typed, after the guard above. */
   amount: number;
@@ -430,7 +482,7 @@ export function combatantHit(
       severity: thresholds === null ? null : 'none',
       hp: 0,
       marked: hp.marked,
-      defeated: hasFallenAt(hp.marked, hp.max),
+      defeated: standing === undefined ? hasFallenAt(hp.marked, hp.max) : standing <= 0,
       minionsDefeated: 0,
       minionsRemaining: standing,
       explanation: 'no damage',
@@ -442,22 +494,29 @@ export function combatantHit(
   let marks: number;
   if (thresholds === null) {
     severity = null;
-    marks = Math.max(0, hp.max - hp.marked);
-    parts.push('no thresholds -> defeated');
+    // A counted group loses a body, not its one box - see the docblock.
+    marks = standing === undefined ? Math.max(0, hp.max - hp.marked) : 0;
+    parts.push(standing === undefined ? 'no thresholds -> defeated' : 'no thresholds -> a body falls');
   } else {
     severity = severityFor(clean, thresholds, options.massiveDamageRule);
     marks = SEVERITY_HP[severity];
-    parts.push(`vs ${thresholds[0]}/${thresholds[1]} -> ${SEVERITY_LABEL[severity]}`);
+    parts.push(`vs ${thresholdsText(thresholds)} -> ${SEVERITY_LABEL[severity]}`);
   }
   const marked = Math.min(hp.max, hp.marked + marks);
 
   const divisor = options.minionGroup;
+  const hasDivisor = divisor !== undefined && Number.isFinite(divisor) && divisor > 0;
+  const overkill = hasDivisor ? Math.floor(clean / divisor) : 0;
   let minionsDefeated = 0;
   let minionsRemaining = standing;
-  if (divisor !== undefined && Number.isFinite(divisor) && divisor > 0) {
-    const raw = 1 + Math.floor(clean / divisor);
-    minionsDefeated = standing === undefined ? raw : Math.min(raw, Math.max(0, standing));
-    if (standing !== undefined) minionsRemaining = Math.max(0, standing - minionsDefeated);
+  if (standing !== undefined) {
+    // The 1 is p94's "any damage" body; the overkill is the divisor's, when there is one.
+    minionsDefeated = Math.min(1 + overkill, Math.max(0, standing));
+    minionsRemaining = Math.max(0, standing - minionsDefeated);
+  } else if (hasDivisor) {
+    minionsDefeated = 1 + overkill;
+  }
+  if (minionsDefeated > 0) {
     parts.push(`${minionsDefeated} minion${minionsDefeated === 1 ? '' : 's'} defeated`);
   }
 
@@ -466,7 +525,7 @@ export function combatantHit(
     severity,
     hp: marks,
     marked,
-    defeated: hasFallenAt(marked, hp.max),
+    defeated: standing === undefined ? hasFallenAt(marked, hp.max) : (minionsRemaining ?? 0) <= 0,
     minionsDefeated,
     minionsRemaining,
     explanation: parts.join(' · '),

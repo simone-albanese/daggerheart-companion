@@ -1160,7 +1160,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
     );
 
     const arm = labelled(
-      'Drop Favored — tap again to confirm. This sheet has no picker to put it back.',
+      'Drop Favored — tap again to confirm. It cannot be added back on this screen.',
     );
     expect(arm, 'the control armed without renaming itself').toBeDefined();
     // The footprint is unchanged between the two taps, which is what stops the
@@ -1251,7 +1251,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
     expect(said.style.flex, 'the sentence shares a line with the ✕').toBe('0 0 100%');
 
     // And it goes again when the arming does.
-    press(labelled('Drop Favored — tap again to confirm. This sheet has no picker to put it back.'));
+    press(labelled('Drop Favored — tap again to confirm. It cannot be added back on this screen.'));
     expect(labelled('Drop Favored'), 'the stance survived its own confirmation').toBeUndefined();
   });
 
@@ -1291,7 +1291,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
 
     press(labelled('Drop Favored'));
     expect(
-      labelled('Drop Favored — tap again to confirm. This sheet has no picker to put it back.'),
+      labelled('Drop Favored — tap again to confirm. It cannot be added back on this screen.'),
       'the first sheet did not arm, so this proves nothing',
     ).toBeDefined();
 
@@ -1504,7 +1504,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
      */
     const ghost = unresolvedRef(15_999);
     mount(sheet({ classRef: 'test-class', stanceRefs: [ghost] }), makeDataset());
-    expect(container.textContent).toContain('STANCE NOT IN THIS BUILD');
+    expect(container.textContent).toContain('STANCE NOT IN THIS BOOK');
     expect(container.textContent).toContain(ghost);
 
     press(named2('Drop it'));
@@ -1513,7 +1513,7 @@ describe('adding, removing and moving Focus on the sheet', () => {
     });
     expect(active().stanceRefs, 'one tap threw away a ref nothing can re-enter').toEqual([ghost]);
     expect(named2('Drop it')!.getAttribute('aria-label')).toBe(
-      'Drop it — tap again to confirm. This ref cannot be added back.',
+      'Drop it — tap again to confirm. It cannot be added back on this screen.',
     );
     expect(named2('Drop it')!.textContent).toContain('tap again');
 

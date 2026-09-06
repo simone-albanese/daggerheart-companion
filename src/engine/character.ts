@@ -33,7 +33,8 @@ import type {
   Transformation,
   Weapon,
 } from '../../shared/types.ts';
-import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
+import { hasCompanionFeature } from './companion.ts';
+import { applyProficiency, formatDamage, parseDamage, type DamageDice } from './dice.ts';
 import { collectModifiers, sumOf, traitDeltas, type Ledger } from './modifiers.ts';
 
 export const MAX_HP = 12;
@@ -41,6 +42,15 @@ export const MAX_STRESS = 12;
 export const MAX_ARMOR_SCORE = 12;
 export const MAX_LOADOUT = 5;
 export const BASE_HOPE = 6;
+/**
+ * The one slot the rules add to the Hope track. SRD 2 p22, a Beastbound
+ * companion's level-up option: *"Light in the Dark: Use this as an additional
+ * Hope slot your character can mark."* One option, taken at most once, so the
+ * ceiling is `BASE_HOPE + 1` and `deriveStats` adds it when the companion
+ * sheet carries the tick.
+ */
+export const LIGHT_IN_THE_DARK = 'light-in-the-dark';
+export const MAX_HOPE = BASE_HOPE + 1;
 export const MAX_LEVEL = 10;
 
 /**
@@ -53,15 +63,17 @@ export const MAX_LEVEL = 10;
  * `normalizeIncoming` refuses to clamp against one. These are the rules'
  * ceilings instead. Hit Points and Stress are capped at twelve by the
  * advancement tables above, Armor Score by the same cap in `deriveStats`, and
- * Hope at six before scars start crossing slots out. No layer, no homebrew and
- * no class from a future book makes a thirteenth Hit Point box legal, so a
- * maximum above one of these did not come from a device with content this build
- * has not met - it is not a number at all. That is what lets the codec refuse
- * one and the store clamp one without either of them destroying a real reading.
+ * Hope at seven: six before scars start crossing slots out, plus the one slot
+ * the book adds anywhere - a Beastbound companion's *Light in the Dark* (SRD 2
+ * p22), `MAX_HOPE` above. No layer, no homebrew and no class from a future
+ * book makes a thirteenth Hit Point box legal, so a maximum above one of these
+ * did not come from a device with content this build has not met - it is not
+ * a number at all. That is what lets the codec refuse one and the store clamp
+ * one without either of them destroying a real reading.
  *
  * The companion's Stress track takes the character's ceiling because it is a
  * Stress track and the engine has exactly one; the arithmetic agrees anyway -
- * three slots on the folio 18 sheet plus one Resilient per level-up from 2 to
+ * three slots on the folio 21 sheet plus one Resilient per level-up from 2 to
  * 10 is twelve.
  *
  * These are ceilings and never answers. Nothing here should be shown to a
@@ -70,7 +82,7 @@ export const MAX_LEVEL = 10;
 export const COUNTER_CEILINGS = {
   hp: MAX_HP,
   stress: MAX_STRESS,
-  hope: BASE_HOPE,
+  hope: MAX_HOPE,
   focus: MAX_FOCUS,
   favor: MAX_FAVOR,
   armorSlots: MAX_ARMOR_SCORE,
@@ -605,6 +617,23 @@ function advancementCount(c: Character, kind: string): number {
   return c.levelUpHistory.filter((a) => a.kind === kind).length;
 }
 
+/**
+ * How many Hope slots this sheet has before any scar is struck through: the
+ * six every character starts with, plus the one a Beastbound's companion adds
+ * with Light in the Dark. `deriveStats` subtracts the scars from this; the
+ * printed sheet caps the struck-out diamonds on it, so seven scars on a
+ * seven-slot track cross out seven and never draw a slot the sheet never had.
+ */
+export function hopeSlots(c: Character, ix: DatasetIndex): number {
+  const lightInTheDark =
+    c.companion !== null &&
+    c.companion.upgrades.includes(LIGHT_IN_THE_DARK) &&
+    hasCompanionFeature(c, ix)
+      ? 1
+      : 0;
+  return BASE_HOPE + lightInTheDark;
+}
+
 export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): DerivedStats {
   const ix = index ?? indexDataset(ds);
   const klass = ix.classes.get(c.classRef);
@@ -670,7 +699,7 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * `syncCounters` writes this number straight into `armorSlots.max` and pulls
    * `marked` down with it, so answering "no slots" for an unresolvable ref
    * empties the Armor track of a character who is wearing armor - permanently,
-   * at the next level-up or armor change, on a sheet that was only ever passing
+   * at the next level-up or gear change, on a sheet that was only ever passing
    * through this build. The slot maximum the sheet already carries was written
    * by a build that *could* name the armor, so it is kept rather than replaced.
    */
@@ -680,8 +709,9 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * FEEDBACK LOOP THAT INFLATES A SHEET EVERY TIME IT IS SAVED.
    *
    * `syncCounters` below writes `armorSlots.max = stats.armorScore`, and
-   * `store/state.ts` calls it on every level-up, armour change and death move -
-   * so this number leaves the engine, lands in persisted state, and goes out in
+   * `store/state.ts` calls it on every level-up, armour or weapon change and
+   * death move - so this number leaves the engine, lands in persisted state,
+   * and goes out in
    * `.dhchar`, `.dhbackup` and the QR payload. The second branch then reads it
    * BACK as its base. So a sheet wearing armour this build cannot name, with a
    * Tower Shield in the off-hand, would go 5 -> 7 -> 9 -> 11 -> 12, two points
@@ -790,8 +820,17 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     MAX_STRESS,
     BASE_STRESS + advancementCount(c, 'stress') + sumOf(modifiers, 'maxStress'),
   );
-  // A scar permanently crosses out a Hope slot.
-  const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
+  /*
+   * A scar permanently crosses out a Hope slot, and one companion option adds
+   * one. SRD 2 p22, *"Light in the Dark: Use this as an additional Hope slot
+   * your character can mark"* - the tick lives on the companion sheet, and it
+   * counts only while the Companion feature is actually granting that sheet:
+   * a record left behind by a subclass change is not a Beastbound's. This was
+   * the one companion option whose effect lands on a track the character's
+   * own sheet owns, and the only one a player could not record by hand,
+   * because `syncCounters` wrote this number back over the track.
+   */
+  const maxHope = Math.max(0, hopeSlots(c, ix) - c.scars.length);
 
   const domains: DomainId[] = [...(klass?.domains ?? [])];
   if (c.multiclassDomain && !domains.includes(c.multiclassDomain)) {
@@ -856,7 +895,7 @@ export function rollModifier(
 export function weaponDamage(
   weapon: Weapon,
   stats: DerivedStats,
-): { spec: string; count: number; sides: number; modifier: number } | null {
+): ({ spec: string } & DamageDice) | null {
   const parsed = parseDamage(weapon.damage);
   if (!parsed) return null;
   const scaled = applyProficiency(parsed, stats.proficiency);

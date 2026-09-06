@@ -2,7 +2,7 @@
  * The transfer layer over the whole game, not over one wizard.
  *
  * `codec.test.ts` proves the format on the sheet the architecture measured.
- * This file proves it on ninety-three: every class at every level, walked up
+ * This file proves it on 133: every class at every level, walked up
  * through the real level-up path by `tools/sampleCharacters.ts`, wearing the
  * fields a fixture forgets - a companion, a Beastform, scars, trait marks,
  * inventory notes, connections, parked references, and free text in scripts
@@ -19,7 +19,7 @@
  * a file instead, and the only way to know whether a real character gets near
  * that line is to measure every real character.
  *
- * `fullMatrix.test.ts` runs the same sweep over all 3240 - every subclass at
+ * `fullMatrix.test.ts` runs the same sweep over all 6240 - every subclass at
  * every ancestry at every level - and is where the fifteen-frame question is
  * answered over the whole population. This file keeps the three sheets that
  * matrix cannot produce, and with them the degraded-import and reserved-id

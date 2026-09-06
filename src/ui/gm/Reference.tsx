@@ -1,7 +1,7 @@
 /**
  * The rules at hand: the tables a GM stops the table to look up.
  *
- * Everything on this screen is read out of `data/srd-1.0.json` at the moment it
+ * Everything on this screen is read out of `data/srd-2.0.json` at the moment it
  * is drawn. Nothing is transcribed. Where the app adds a number of its own it
  * says so on the same line as the number.
  *

@@ -81,7 +81,8 @@ import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaign
 import { publishCampaignSource, type CampaignSnapshot } from '../../store/campaignSource.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
 import { CAMPAIGN_NAMES, freeName } from '../../store/names.ts';
-import type { QuarantinedRecord } from '../../store/db.ts';
+import { useApp } from '../../store/state.ts';
+import { beforeClearAll, type QuarantinedRecord } from '../../store/db.ts';
 import { publishCampaignAlert, type CampaignRetry } from '../shell/campaignAlert.ts';
 import {
   tracksFromSheet,
@@ -424,6 +425,14 @@ function clampFear(n: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(MAX_FEAR, Math.round(n))) : 0;
 }
 
+/**
+ * The Fear a campaign opens with: SRD 2 p87, "You start a campaign with 1 Fear
+ * per PC in the party". The party size is the preference the rest control
+ * already reads, never `party.length` - the roster is a thing the GM fills in
+ * over time, and a campaign is minted before it exists.
+ */
+const openingFear = (): number => clampFear(useApp.getState().prefs.gmPartySize);
+
 // ---------------------------------------------------------------------------
 // Writing
 // ---------------------------------------------------------------------------
@@ -695,6 +704,38 @@ function scheduleAside(id: string): void {
   armFlush();
 }
 
+/**
+ * Throw the unwritten board away, for the one caller allowed to: the reset.
+ *
+ * `dirty` and `aside` are left standing on every failure above so the next
+ * `pagehide` tries again, and About's "Erase everything" reloads the page -
+ * which fires `pagehide`. Until this existed that flush found the `campaigns`
+ * store empty, succeeded, and put the campaign back on the device the GM had
+ * just wiped. Dropped twice for the reason `state.ts` gives: once now, and
+ * once behind the batch that may be in flight, since `writeActive` leaves
+ * `dirty` true *after* its await fails. The sentence goes with the work: what
+ * it warned about is no longer unwritten, it is gone, and a read failure
+ * (`'read'`) is not this function's to clear.
+ */
+function abandon(): Promise<void> {
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  const drop = (): void => {
+    dirty = false;
+    aside.clear();
+    if (useGm.getState().writeRetry === 'write') {
+      useGm.setState({ writeError: null, writeRetry: null });
+    }
+  };
+  drop();
+  queue = queue.then(drop, drop);
+  return queue;
+}
+
+beforeClearAll(abandon);
+
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
     void flushGm();
@@ -792,7 +833,7 @@ export function hydrateGm(): Promise<void> {
     let firstWriteFailed = false;
     if (campaigns.length === 0) {
       const at = new Date().toISOString();
-      const first = newCampaign(FIRST_CAMPAIGN_NAME, at, crypto.randomUUID());
+      const first = newCampaign(FIRST_CAMPAIGN_NAME, at, crypto.randomUUID(), openingFear());
       try {
         await putCampaign(first);
       } catch (error) {
@@ -1390,6 +1431,7 @@ export const useGm = create<GmState>((set, get) => {
         freeName((name ?? '').trim() || FIRST_CAMPAIGN_NAME, get().campaigns, CAMPAIGN_NAMES),
         at,
         crypto.randomUUID(),
+        openingFear(),
       );
       let failed = false;
       try {

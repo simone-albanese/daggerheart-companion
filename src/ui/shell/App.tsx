@@ -81,7 +81,7 @@ import { UpdateBanner } from './UpdateBanner.tsx';
 // Search is split with them and not with Play, and it is the one that sits
 // across the stated line: it *is* opened at the table, which is the whole
 // argument for it existing, and it also pulls something heavy of its own -
-// `RuleSearch.tsx`, the 849-record index, and the character ref walk out of
+// `RuleSearch.tsx`, the 1451-record index, and the character ref walk out of
 // the transfer codec. Eager, all of that would land on first paint for every
 // player, including the ones who never open it; and the shared chunk it
 // already has in common with the GM screen would be pulled onto the boot path

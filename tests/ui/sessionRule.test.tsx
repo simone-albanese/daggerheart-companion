@@ -84,7 +84,7 @@ describe('a rules section linked from a GM session', () => {
   });
 
   it('draws a pipe table as a table, with the pipes gone', async () => {
-    // `giving-out-gold-equipment-and-loot`, p.69 - the Average Costs table. The
+    // `giving-out-gold-equipment-and-loot`, p.91 - the Average Costs table. The
     // item asking for it is `HANDOFF-2026-08-18.md`'s number 10, not anything in
     // `BACKLOG.md`, which names neither this table nor an item 10. Twelve rows,
     // two columns.

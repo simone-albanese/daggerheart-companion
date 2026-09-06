@@ -19,8 +19,8 @@ import type { SlugSource } from '../../tools/buildRegistry.ts';
 // Measuring a transfer
 //
 // `matrix.test.ts` and `fullMatrix.test.ts` both weigh payloads and both
-// reassemble frames out of order, over a 93-row cross-section and over all
-// 3240 respectively. They shared these four helpers by copy until the numbers
+// reassemble frames out of order, over a 133-row cross-section and over all
+// 6240 respectively. They shared these four helpers by copy until the numbers
 // they print were reconciled; they share them by import now, so that a byte
 // counted in one file is a byte counted the same way in the other.
 // ---------------------------------------------------------------------------

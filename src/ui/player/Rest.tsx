@@ -1362,7 +1362,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
  * A name and an accent rather than a `DomainCard`, because a ref this build
  * cannot read is still something the sheet is holding and still has to be
  * drawn. It gets the raw ref as its name - the only thing anybody has to go on
- * - a dashed edge instead of a domain stripe, and NOT IN BUILD where the colour
+ * - a dashed edge instead of a domain stripe, and NOT IN THIS BOOK where the colour
  * would have said which domain it is. `act` is null when there is nothing to be
  * done to it: a vault ghost cannot be recalled, because nothing here knows what
  * it is, and a row with no control is a readout rather than a dead button -
@@ -1405,7 +1405,7 @@ function SwapRow({
       >
         {ghost && (
           <span className="t-meta" style={{ flex: 'none', color: 'var(--damage)' }}>
-            NOT IN BUILD
+            NOT IN THIS BOOK
           </span>
         )}
         <span

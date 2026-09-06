@@ -6,21 +6,22 @@
  * taken. `AdversaryBlock` printed MOTIVES & TACTICS on the bestiary card while
  * `CombatantCard` - the one on screen during the fight - printed none;
  * `EnvironmentBlock` drew impulses and potential adversaries while
- * `EnvironmentBand`, the other half of the same file, drew neither; and the two
+ * `EnvironmentBand`, the other half of the same file, drew neither; and the
  * environments that print `Difficulty: Special` had their readout suppressed
  * with nothing put in its place, so the field read as absent rather than as
  * special.
  *
- * These read `data/srd-1.0.json` rather than a fixture, the way
+ * These read `data/srd-2.0.json` rather than a fixture, the way
  * `tests/gm/bestiaryFilter.test.tsx` does, and for its reason: every claim here
  * is a claim about the book this app ships. A fixture written in this file
  * could be given motives, impulses and a zero Difficulty to order, and would go
  * on passing after a dataset rebuild moved any of them.
  *
- * The Difficulty tests carry their own premise. `it('is Ambushed and Ambushers
- * ...')` asserts which environments print Special before anything asserts what
- * the band does about it, because every other test in that block is only
- * interesting while that is still true of the shipped file.
+ * The Difficulty tests carry their own premise. `it('is Ambushed, Ambushers and
+ * Duel ...')` asserts which environments print Special, and which of the two
+ * Relative Strength rules each carries, before anything asserts what the band
+ * does about it, because every other test in that block is only interesting
+ * while that is still true of the shipped file.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
@@ -46,8 +47,20 @@ declare global {
 const dataset = srd as unknown as Dataset;
 const index = indexDataset(dataset);
 
-/** The two the parser stores as 0, found by the property rather than by id. */
+/** The three the parser stores as 0, found by the property rather than by id. */
 const special = (): Environment[] => dataset.environments.filter((e) => e.difficulty <= 0);
+
+/** The Relative Strength sentence a Special block carries, or '' when it has none. */
+const relativeStrength = (e: Environment): string =>
+  e.features.find((f) => f.name === 'Relative Strength')?.text ?? '';
+
+/** The Specials whose rule is the strongest adversary present (p161): the two ambushes. */
+const strongestRule = (): Environment[] =>
+  special().filter((e) => /highest Difficulty/.test(relativeStrength(e)));
+
+/** The Specials whose rule is somebody the app cannot know (p168): the challenger. */
+const challengerRule = (): Environment[] =>
+  special().filter((e) => /issued the challenge/.test(relativeStrength(e)));
 
 /** A place with all three fields filled, for the fields that are not Special. */
 const marketplace = (): Environment =>
@@ -196,7 +209,7 @@ describe('what the card says the thing wants, and where it says it', () => {
   });
 
   it('prints them for every adversary the book ships, not just the first', () => {
-    // 129 of 129 carry motives, which is what makes this one line rather than
+    // 264 of 264 carry motives, which is what makes this one line rather than
     // a line plus an empty arm nobody would ever see.
     expect(dataset.adversaries.filter((a) => a.motives.length > 0)).toHaveLength(
       dataset.adversaries.length,
@@ -246,7 +259,7 @@ describe('what the card says the thing wants, and where it says it', () => {
     ]);
     // The card already explains the absence; a MOTIVES label with nothing
     // after it would be the app inventing a second explanation for it.
-    expect(text()).toContain('NOT IN THIS DATASET');
+    expect(text()).toContain('NOT IN THIS BOOK');
     expect(text()).not.toContain('MOTIVES & TACTICS');
     // And no fold either. A header a GM can press onto an empty section is the
     // same invented explanation one control louder.
@@ -258,7 +271,7 @@ describe('what the card says the thing wants, and where it says it', () => {
  * WHERE A MINION GROUP'S COUNT LIVES, AND WHAT MOVED OUT OF THE WAY FOR IT.
  *
  * The owner settled it on 2026-08-25: how many are still standing is a figure
- * of the creature, like Difficulty, so it sits in the strip with DIF and the
+ * of the creature, like Difficulty, so it sits in the strip with DIFF and the
  * thresholds instead of taking a row of its own. `Scene.tsx`'s band comment
  * argues it and costs it; these hold the two consequences a docblock cannot -
  * that the control is still there and still writes to the combatant it counts,
@@ -286,7 +299,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     return found;
   };
 
-  it('is the same sixteen adversaries that carry all three Minion facts', () => {
+  it('is the same twenty-eight adversaries that carry all three Minion facts', () => {
     const byRole = dataset.adversaries.filter((a) => a.role === 'Minion');
     expect(byRole.length).toBeGreaterThan(0);
     expect(
@@ -301,7 +314,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     ).toHaveLength(byRole.length);
   });
 
-  it('draws the count in the band with DIF, and drops the sentence for an empty slot', () => {
+  it('draws the count in the band with DIFF, and drops the sentence for an empty slot', () => {
     const a = minionAdversary();
     scene([makeCombatant(a, 0, 4)]);
 
@@ -310,7 +323,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     // word in `textContent` would pass on a card that drew no control at all.
     const strip = stepper('Decrease').closest('div');
     expect(strip, 'the Minion control is not inside a band').not.toBeNull();
-    expect(strip!.textContent).toContain('DIF');
+    expect(strip!.textContent).toContain('DIFF');
     expect(strip!.textContent).toContain('MINIONS');
     // The slot is not empty any more, so the sentence that existed to explain
     // an emptiness is not drawn. The rule it stated is still on the card: the
@@ -411,20 +424,24 @@ describe('what the band says about the place', () => {
 });
 
 describe('the Difficulty of a place that prints none', () => {
-  it('is Ambushed and Ambushers, and only those two', () => {
+  it('is Ambushed, Ambushers and Duel, and only those three', () => {
     // The premise every other test in this block stands on. If a rebuild adds
-    // a third or renames one of these, the substitute is being drawn for
-    // something nobody reasoned about.
-    // Three on the shipped book: SRD 2.0 adds Duel to the two SRD 1.0 wrote
-    // as Special. The premise is the same - every one of them prints no
-    // number - and the substitute below is drawn for all three.
+    // a fourth or renames one of these, a substitute is being drawn - or
+    // withheld - for something nobody reasoned about.
+    // Three on the shipped book: SRD 2.0 adds Duel (p168) to the two SRD 1.0
+    // wrote as Special (both p161 in SRD 2.0). All three print no number, but
+    // they do NOT share a rule: the two ambushes read "the adversary with the
+    // highest Difficulty", Duel reads "the adversary who issued the
+    // challenge", and the substitute below is drawn for the first rule only.
     expect(special().map((e) => e.name).sort()).toEqual(['Ambushed', 'Ambushers', 'Duel']);
     for (const e of special()) expect(e.difficulty).toBe(0);
+    expect(strongestRule().map((e) => e.name).sort()).toEqual(['Ambushed', 'Ambushers']);
+    expect(challengerRule().map((e) => e.name)).toEqual(['Duel']);
   });
 
   it('prints the book’s own word instead of leaving the field absent', () => {
     band(special()[0]!);
-    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).toContain('DIFF SPECIAL');
   });
 
   it('derives it from the strongest adversary in the open scene, and says the app did the arithmetic', () => {
@@ -439,12 +456,39 @@ describe('the Difficulty of a place that prints none', () => {
       [strong, weak],
     ]) {
       scene([makeCombatant(pair[0]!, 0, 4), makeCombatant(pair[1]!, 1, 4)], special()[0]!.id);
-      expect(text()).toContain(`≈ DIF ${strong.difficulty} · FROM THE STRONGEST ADVERSARY HERE`);
+      expect(text()).toContain(`≈ DIFF ${strong.difficulty} · FROM THE STRONGEST ADVERSARY HERE`);
       expect(text()).toContain('COMPUTED BY THIS APP');
-      expect(text()).not.toContain(`≈ DIF ${weak.difficulty}`);
+      expect(text()).not.toContain(`≈ DIFF ${weak.difficulty}`);
       // And the header still says what the book says, beside the substitute.
-      expect(text()).toContain('DIF SPECIAL');
+      expect(text()).toContain('DIFF SPECIAL');
     }
+  });
+
+  /*
+   * Duel's rule is not the ambushes' rule, and the app cannot apply it.
+   *
+   * p168, Relative Strength: "The Difficulty of this environment equals that
+   * of the adversary who issued the challenge." Who issued it is a fact about
+   * the fiction the GM is holding, not about the cards on the board, and the
+   * strongest card is only sometimes the same person. So the band draws no
+   * substitute for Duel - the header still says SPECIAL, the feature is still
+   * verbatim behind the fold - where it used to print the ambush arithmetic
+   * with the ambush attribution, "≈ DIFF 15 · FROM THE STRONGEST ADVERSARY
+   * HERE", for a challenger who might be the 12.
+   */
+  it('claims no number for Duel, whose rule names the challenger and not the strongest', () => {
+    const strong = dataset.adversaries.find((a) => a.difficulty === 15)!;
+    const weak = dataset.adversaries.find((a) => a.difficulty === 12)!;
+    const duel = challengerRule()[0]!;
+
+    scene([makeCombatant(weak, 0, 4), makeCombatant(strong, 1, 4)], duel.id);
+    expect(text()).toContain('DIFF SPECIAL');
+    expect(text()).not.toContain('≈ DIFF');
+    expect(text()).not.toContain('FROM THE STRONGEST ADVERSARY HERE');
+    expect(text()).not.toContain('COMPUTED BY THIS APP');
+    // The rule itself is still on the screen, one fold down.
+    openTheBand();
+    expect(text()).toContain('the adversary who issued the challenge');
   });
 
   /*
@@ -468,12 +512,12 @@ describe('the Difficulty of a place that prints none', () => {
 
     scene([stale], special()[0]!.id);
 
-    expect(text()).toContain('≈ DIF 18 · FROM THE STRONGEST ADVERSARY HERE');
-    expect(text()).not.toContain(`≈ DIF ${a.difficulty}`);
+    expect(text()).toContain('≈ DIFF 18 · FROM THE STRONGEST ADVERSARY HERE');
+    expect(text()).not.toContain(`≈ DIFF ${a.difficulty}`);
     // The card is the other half of the claim: the two agree because they read
     // the same field, which is the whole reason the field was chosen.
     const card = container.querySelector('article.panel');
-    expect(card?.textContent).toContain('DIF18');
+    expect(card?.textContent).toContain('DIFF18');
   });
 
   it('reads it off a combatant whose adversary this dataset does not have', () => {
@@ -497,9 +541,9 @@ describe('the Difficulty of a place that prints none', () => {
       special()[0]!.id,
     );
 
-    expect(text()).toContain('NOT IN THIS DATASET');
-    expect(text()).toContain('≈ DIF 15 · FROM THE STRONGEST ADVERSARY HERE');
-    expect(text()).not.toContain('≈ DIF 0');
+    expect(text()).toContain('NOT IN THIS BOOK');
+    expect(text()).toContain('≈ DIFF 15 · FROM THE STRONGEST ADVERSARY HERE');
+    expect(text()).not.toContain('≈ DIFF 0');
   });
 
   it('claims no number while browsing, where there is no fight to read', () => {
@@ -511,14 +555,14 @@ describe('the Difficulty of a place that prints none', () => {
     });
     band(special()[0]!);
 
-    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).toContain('DIFF SPECIAL');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
-    expect(text()).not.toContain('≈ DIF');
+    expect(text()).not.toContain('≈ DIFF');
   });
 
   it('claims no number in a scene with nothing in it', () => {
     scene([], special()[0]!.id);
-    expect(text()).toContain('DIF SPECIAL');
+    expect(text()).toContain('DIFF SPECIAL');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
   });
 
@@ -545,8 +589,8 @@ describe('the Difficulty of a place that prints none', () => {
   it('leaves a place that prints a Difficulty alone', () => {
     const e = marketplace();
     scene([makeCombatant(dataset.adversaries[0]!, 0, 4)], e.id);
-    expect(text()).toContain(`DIF ${e.difficulty}`);
-    expect(text()).not.toContain('DIF SPECIAL');
+    expect(text()).toContain(`DIFF ${e.difficulty}`);
+    expect(text()).not.toContain('DIFF SPECIAL');
     expect(text()).not.toContain('COMPUTED BY THIS APP');
   });
 });
@@ -696,7 +740,8 @@ describe('END SCENE names what the second tap takes', () => {
  * to get wrong from either end alone.
  *
  * WHAT STOOD HERE FIRST: "`Scene.tsx` only ever resolves adversaries out of
- * that dataset", meaning `data/srd-1.0.json`.
+ * that dataset", meaning the shipped SRD file (`data/srd-1.0.json` then,
+ * `data/srd-2.0.json` now).
  *
  * WHY THAT WAS CORRECTED: `Scene` reads `useApp((s) => s.dataset.adversaries)`,
  * and `state.ts` filled `dataset` from `resolveDataset` - the SRD merged field
@@ -718,9 +763,9 @@ describe('END SCENE names what the second tap takes', () => {
  * `content` and `art` from the device - so the overlay data this paragraph used
  * to reason about is not sitting on a phone somewhere, it is gone. `loadDataset`
  * returns `baseDataset` unchanged, `state.ts` sets `dataset` once in `init` and
- * nothing writes it again, so `s.dataset.adversaries` IS `data/srd-1.0.json`'s
+ * nothing writes it again, so `s.dataset.adversaries` IS `data/srd-2.0.json`'s
  * and can be nothing else. Measured against the shipped dataset rather than
- * counted from memory: 129 adversaries, 0 with an empty `motives`, 0 with an
+ * counted from memory: 264 adversaries, 0 with an empty `motives`, 0 with an
  * empty `features`. `Scene.tsx`'s own fold comment carries the same finding for
  * the label it builds out of those two fields.
  *
@@ -801,9 +846,9 @@ describe('a full Stress track says so on the band, on the GM side too', () => {
      */
     scene([withStress(3, 3)]);
     const bands = [...container.querySelectorAll('div.row')].filter((d) =>
-      (d.textContent ?? '').trim().startsWith('DIF'),
+      (d.textContent ?? '').trim().startsWith('DIFF'),
     );
-    expect(bands, 'the band no longer starts with DIF').toHaveLength(1);
+    expect(bands, 'the band no longer starts with DIFF').toHaveLength(1);
     const band = bands[0]!;
     const dividers = [...band.children].filter(
       (el) => (el as HTMLElement).style.width === '1px' && (el as HTMLElement).style.height === '13px',
@@ -817,7 +862,7 @@ describe('a full Stress track says so on the band, on the GM side too', () => {
 
     scene([withStress(2, 3)]);
     const plain = [...container.querySelectorAll('div.row')].filter((d) =>
-      (d.textContent ?? '').trim().startsWith('DIF'),
+      (d.textContent ?? '').trim().startsWith('DIFF'),
     )[0]!;
     expect(
       [...plain.children].filter(

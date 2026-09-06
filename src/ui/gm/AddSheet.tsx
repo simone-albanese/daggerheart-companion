@@ -203,9 +203,9 @@ export const ADD_FORMS: Record<SessionItemKind, AddChoice> = {
 
 /** The four countdown kinds, in the words the countdowns board uses. */
 const COUNTDOWN_KINDS: Array<{ id: CountdownKind; label: string }> = [
-  { id: 'standard', label: 'Standard — advances when the fiction says it does' },
-  { id: 'dynamic', label: 'Dynamic — advances by the outcome of a roll' },
-  { id: 'loop', label: 'Loop — returns to its start the moment it runs out' },
+  { id: 'standard', label: 'Standard — advances on every action roll' },
+  { id: 'dynamic', label: 'Dynamic — advances by the roll result, per the chart' },
+  { id: 'loop', label: 'Loop — runs out, then the next advance returns it to its start' },
   { id: 'long-term', label: 'Long-term — advances when the party rests, not when a roll lands' },
 ];
 
@@ -662,8 +662,7 @@ function CountdownForm({ onDone }: { onDone: () => void }): React.JSX.Element {
         />
       </Field>
       <p className="t-hint" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-        A countdown is the one row that needs a name: it is what the top bar prints when it is
-        pinned, and what its − button is called out loud.
+        A countdown needs a name: the top bar shows it when pinned.
       </p>
       <Field label="KIND">
         <select

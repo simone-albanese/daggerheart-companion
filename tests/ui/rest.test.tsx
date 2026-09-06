@@ -721,7 +721,7 @@ describe('the free swap', () => {
     // row rather than a count: it fills a slot, and moving it out is the only
     // way a full loadout recalls anything.
     expect(text()).toContain('card-from-a-newer-bundle');
-    expect(text()).toContain('NOT IN BUILD');
+    expect(text()).toContain('NOT IN THIS BOOK');
     // And no cross-reference. At 1180px and up the loadout is a bare column in
     // the cockpit, not a Disclosure, so "MOVE THEM IN THE LOADOUT FOLD" named a
     // control that does not exist on that screen.

@@ -52,6 +52,7 @@ import {
   type Ref,
   type Trait,
   damageKindLong,
+  dealsMagic,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatDamage } from '../../engine/dice.ts';
@@ -71,6 +72,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { FeatureText } from '../shared/FeatureText.tsx';
 import { feetRange, rangeDistances } from '../shared/srdReference.ts';
 import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
@@ -83,6 +85,7 @@ import {
   sourceName,
   spellcastDamage,
   spellcastSource,
+  brawlerSource,
   unarmedSource,
   type Arming,
   type AttackSource,
@@ -168,7 +171,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * The weapon is looked for in the character's own two hands and not in
    * `index.weapons`, and that is the difference between the sentence above
    * being true and it being a wish. `index.weapons` is the whole shipped
-   * catalogue - 204 weapons - so asking it about a ref answers "does this
+   * catalogue - 391 weapons - so asking it about a ref answers "does this
    * weapon exist", when the question here is "is this character holding it".
    * It answered yes for a Battleaxe taken off in Build and yes for a Battleaxe
    * belonging to a different sheet, and the offer stood at 2d10+3 either way.
@@ -176,6 +179,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   const source = useMemo<AttackSource | null>(() => {
     if (declared === null) return null;
     if (declared.kind === 'unarmed') return unarmedSource(stats);
+    // Re-derived every render like the rest: a weapon picked up in Build takes
+    // the strike away, because it is equipped only "while you have no other
+    // Active Weapons" (SRD 2 p12).
+    if (declared.kind === 'brawler') return character === null ? null : brawlerSource(character, stats, index);
     // A spell's count comes off the trait every render for the same reason: a
     // Beastform or a level-up that moves the Spellcast trait moves the number
     // of dice, and at +0 `spellcastSource` returns null and the offer goes.
@@ -270,7 +277,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const arm = (declaration: Declaration | null): void => {
     setDeclared(declaration);
-    if (declaration === null || declaration.kind === 'unarmed') return;
+    // Nor for Brawler's Strike, whose trait is "of your choice" (SRD 2 p12):
+    // the chip stays where the player put it, and picking one completes the
+    // declaration the way Strength or Finesse completes an unarmed one.
+    if (declaration === null || declaration.kind === 'unarmed' || declaration.kind === 'brawler') return;
     // Not through `chooseTrait`: that one is the route for picking a trait *by
     // hand*, and it withdraws the declaration that specified one. A spell sent
     // through it would be put down by the same tap that armed it.
@@ -339,7 +349,13 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
      * that does not cover it.
      */
     setDeclared((d) =>
-      d?.kind === 'unarmed' && (t === 'strength' || t === 'finesse') ? d : null,
+      d?.kind === 'unarmed' && (t === 'strength' || t === 'finesse')
+        ? d
+        : // Brawler's Strike "uses a trait of your choice" (SRD 2 p12): any of
+          // the six completes it; Spellcast is not a trait and puts it down.
+          d?.kind === 'brawler' && t !== 'spellcast'
+          ? d
+          : null,
     );
   };
 
@@ -444,7 +460,7 @@ function GhostRow({ refId, onVault }: { refId: Ref; onVault?: () => void }): Rea
         }}
       >
         <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
-          CARD NOT IN THIS BUILD
+          CARD NOT IN THIS BOOK
         </span>
         <span
           className="t-meta"
@@ -541,12 +557,12 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * the hint under the trait grid, which a player reads while choosing a trait
  * rather than while asking what their character is. (It said "on every subclass
  * page", which the next paragraph contradicts and which the book contradicts
- * too: the heading is printed fourteen times against eighteen subclasses, and
- * the four without it run straight from the blurb into FOUNDATION FEATURES.)
+ * too: the heading is printed twenty times against twenty-six subclasses, and
+ * the six without it run straight from the blurb into FOUNDATION FEATURES.)
  *
- * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Four of the
- * eighteen shipped subclasses carry no Spellcast trait at all - both Guardian
- * subclasses and both Warrior ones - and for those characters the whole
+ * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Six of the
+ * twenty-six shipped subclasses carry no Spellcast trait at all - both Guardian
+ * subclasses, both Warrior ones and both Brawler ones - and for those characters the whole
  * Spellcast row is simply absent from `Equipped`. An absence explains nothing;
  * a line saying the class has none explains the absence.
  *
@@ -841,8 +857,8 @@ function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] 
       <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.05em' }}>
         {feature.source.toUpperCase()}
       </span>
-      <span className="t-read" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
-        {feature.text}
+      <span className="t-read" style={{ color: 'var(--text-2)' }}>
+        <FeatureText text={feature.text} />
       </span>
     </div>
   );
@@ -1538,7 +1554,7 @@ function Defenses({
       {unknownThresholds ? (
         <div className="panel stack" style={{ padding: tight ? '4px 6px' : '8px 6px', gap: 3, minWidth: 0 }}>
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
-            ARMOR NOT IN THIS BUILD
+            ARMOR NOT IN THIS BOOK
           </span>
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {stats.unresolvedArmor}
@@ -1740,15 +1756,18 @@ function derivationOf(total: number, rows: readonly Contribution[]): string | un
  *
  * WIDTH. The meta line is `.t-meta` - 10px mono - at `letter-spacing: 0.05em`,
  * so about 6.5px a character, inside a panel that is the column less 22 of
- * padding. Taken over all 204 shipped weapons the longest line this can now
- * produce is `ARMED · STRENGTH · VERY CLOSE 5-10 FT · PHYSICAL` - 48 characters
- * and about 312px, and it is the *shortest* distance that makes it, because
- * VERY CLOSE is the longest range name. The 393px phone has 347 and the cockpit
- * more, so it is one line there; at 320 the column is 296 and the panel 274,
- * and that worst case wraps to a second 10px line. It is allowed to: this block
- * scrolls, the row's floor is `var(--tap)` and a wrapped meta line grows the
- * row rather than clipping it, and the alternative was to keep the number off
- * the screen at every width in order to protect the narrowest one.
+ * padding. Taken over all 391 shipped weapons the longest line this can now
+ * produce is 48 characters, and 36 of the 391 reach it - `ARMED · STRENGTH ·
+ * VERY CLOSE 5-10 FT · PHYSICAL` (the Halberd) and `ARMED · AGILITY · VERY FAR
+ * 100-300 FT · PHYSICAL` (the Longbow) among them - and about 312px; the
+ * *shortest* distance makes it because VERY CLOSE is the longest range name,
+ * and the longest makes it back with a trait one letter shorter. The 393px
+ * phone has 347 and the cockpit more, so it is one line there; at 320 the
+ * column is 296 and the panel 274, and that worst case wraps to a second 10px
+ * line. It is allowed to: this block scrolls, the row's floor is `var(--tap)`
+ * and a wrapped meta line grows the row rather than clipping it, and the
+ * alternative was to keep the number off the screen at every width in order to
+ * protect the narrowest one.
  */
 /**
  * What a piece of gear is worth to the numbers, taken from the sum itself.
@@ -1889,7 +1908,7 @@ function VanishedWeapon({
     >
       <span className="spread">
         <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
-          WEAPON NOT IN THIS BUILD
+          WEAPON NOT IN THIS BOOK
         </span>
         <span
           className="t-meta"
@@ -1957,6 +1976,8 @@ function Equipped({
    */
   const missing = unresolvedWeapons(character, index);
   const unarmed = arming.declared?.kind === 'unarmed';
+  const strike = brawlerSource(character, stats, index);
+  const armedStrike = arming.declared?.kind === 'brawler';
   const worn = stats.beastform;
   const beast = beastformSource(stats);
   const armedBeast = arming.declared?.kind === 'beastform';
@@ -2071,6 +2092,24 @@ function Equipped({
               {reach} · {damageKindLong(w.damageType).toUpperCase()}
             </span>
             {/*
+             * SRD 2 p55: "Weapons that deal magic damage can only be wielded
+             * by characters with a Spellcast trait." Said here, where the
+             * weapon is armed, because arming one on a sheet with no such
+             * trait used to roll at +0 under a bare SPELLCAST chip for the four
+             * spellcast-trait weapons and arm a named trait for the other 136
+             * with nothing on screen disagreeing. The same sentence
+             * `weaponNote` prints in the Build slot; see `magicNote` in
+             * `build/gear.ts` for why it is said and not refused.
+             */}
+            {dealsMagic(w.damageType) && stats.spellcastTrait === null && (
+              <span
+                className="t-meta"
+                style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em', color: 'var(--text-2)' }}
+              >
+                MAGIC WEAPONS NEED A SPELLCAST TRAIT — THIS SHEET HAS NONE
+              </span>
+            )}
+            {/*
              * THE WEAPON'S OWN FEATURE, WHICH THIS ROW HAS NEVER DRAWN.
              *
              * A Greatsword said `2d10+3` and nothing else, so *"Massive: -1 to
@@ -2096,6 +2135,42 @@ function Equipped({
           </button>
         );
       })}
+      {/*
+       * The Brawler's own weapon, drawn only while both hands are empty.
+       *
+       * SRD 2 p12, *I Am the Weapon*: "You have a primary weapon called
+       * Brawler's Strike equipped while you have no other Active Weapons. It
+       * uses a trait of your choice, has Melee range, and deals d8+d6 physical
+       * damage using your Proficiency." It is not in the dataset because it is
+       * not an item, so `brawlerSource` answers null for every other sheet and
+       * for a Brawler holding anything. The Unarmed row below stays: p50's
+       * [Proficiency]d4 is everyone's, and this is the class's.
+       */}
+      {strike !== null && (
+        <button
+          type="button"
+          aria-pressed={armedStrike}
+          onClick={() => arming.arm(armedStrike ? null : { kind: 'brawler' })}
+          className="panel"
+          style={{
+            borderLeft: `3px solid ${armedStrike ? 'var(--hope)' : 'var(--edge)'}`,
+            background: armedStrike ? 'var(--hope-wash)' : undefined,
+            padding: '10px 11px',
+            textAlign: 'left',
+            minHeight: 'var(--tap)',
+          }}
+        >
+          <span className="spread">
+            <span style={{ font: '700 14px/1.15 var(--sans)' }}>{sourceName(strike)}</span>
+            <span className="t-num" style={{ color: 'var(--hope)' }}>
+              {formatDamage(strike.damage)}
+            </span>
+          </span>
+          <span className="t-meta" style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}>
+            {armedStrike ? 'ARMED · ' : ''}A TRAIT OF YOUR CHOICE · MELEE · PHYSICAL
+          </span>
+        </button>
+      )}
       {/*
        * Empty-handed, as a row you can declare.
        *
@@ -2167,14 +2242,14 @@ function Equipped({
  * Spellcast damage, which is the one attack the sheet cannot work out alone.
  *
  * *"Any time an effect says to deal damage using your Spellcast trait, you roll
- * a number of dice equal to your Spellcast trait."* 77 of the 189 shipped
- * domain cards mention Spellcast and 43 carry a dice formula, and not one of
- * them was rollable in this app.
+ * a number of dice equal to your Spellcast trait."* 87 of the 210 shipped
+ * domain cards mention Spellcast and 41 of those print a die (`d` and a size)
+ * in their text, and not one of them was rollable in this app.
  *
  * WHO SUPPLIES WHAT, which is the whole design of this panel. A `DomainCard`
- * carries free prose and nothing else - only three cards in the SRD say the
- * exact phrase "using your Spellcast trait", and only one of those pairs it
- * with a formula - so parsing a pool out of card text would mean the app
+ * carries free prose and nothing else - only six cards in the SRD say the
+ * exact phrase "using your Spellcast trait", and five of those print their own
+ * formula beside it - so parsing a pool out of card text would mean the app
  * silently rewriting a card that prints its own `2d8+4`. Nothing is parsed. The
  * app supplies the one number that is genuinely on the sheet, the die count,
  * and the player taps the die and types the modifier that are in their hand.
@@ -2658,7 +2733,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
             }}
           >
             <span className="t-meta" style={{ color: 'var(--damage)' }}>
-              NOT IN BUILD
+              NOT IN THIS BOOK
             </span>
             <span
               className="t-meta"
@@ -2810,7 +2885,7 @@ function RecallButton({
       className="stack"
       style={{
         flex: 'none',
-        // Wider once it is armed: "MARK 2 HP" and "TAP AGAIN" both have to be
+        // Wider once it is armed: "MARK 1 HP" and "TAP AGAIN" both have to be
         // readable in one line each, and a target that grows under the thumb
         // grows away from its neighbour rather than over it.
         minWidth: armed ? 104 : 72,
@@ -3177,7 +3252,7 @@ function PlayDesktop({
               }}
             >
               <span className="t-meta" style={{ color: 'var(--damage)' }}>
-                CARD NOT IN THIS BUILD
+                CARD NOT IN THIS BOOK
               </span>
               <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
                 {refId}
@@ -3845,7 +3920,7 @@ function PlayPhone({
        *
        * Two folds share this row because both have a short name and a short
        * summary at 360 - `2 WORN` and `2` - which is the test a fold has to
-       * pass to be paired at all. `Weapons & armour` leads because Giorgio's
+       * pass to be paired at all. `Weapons & armor` leads because Giorgio's
        * message does: "E fare entrare le armi e le experience."
        *
        * If the character has no Experiences the fold is not drawn, the pair has
@@ -3859,7 +3934,7 @@ function PlayPhone({
           <Disclosure
             id="equipped"
             characterId={character.id}
-            label="Weapons & armour"
+            label="Weapons & armor"
             /*
              * What is armed rides on the closed header, the way the modifier
              * row's does. A declaration you cannot see is not a declaration, and

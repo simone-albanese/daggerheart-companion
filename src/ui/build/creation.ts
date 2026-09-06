@@ -152,10 +152,11 @@ const named = (e: Experience[]): number => e.filter((x) => x.name.trim() !== '')
  * The order of creation, and the only declaration of it.
  *
  * Two of these are splits. The class and its subclass were one screen, which
- * put the second of the step's two mandatory choices below nine class cards
- * and a block of feature text - on a phone, roughly two screens under the
+ * put the second of the step's two mandatory choices below the class cards
+ * (nine then, thirteen in SRD 2) and a block of feature text - on a phone, roughly two screens under the
  * heading that promised it. Ancestry and community were likewise one screen,
- * with the community's nine cards under eighteen ancestries. Both splits give a
+ * with the community's cards under the ancestries (nine under eighteen then,
+ * fifteen under twenty-four now). Both splits give a
  * mandatory choice the top of a screen. Nothing else is split: the six trait
  * panels and the six domain cards also run past the fold, but each is one
  * decision with a live counter, and cutting one decision across two screens

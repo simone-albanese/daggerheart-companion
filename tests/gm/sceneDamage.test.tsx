@@ -11,11 +11,12 @@
  * that ships switched off while the engine's unit tests stay green.
  *
  * The Minion case is the one that matters most and it is the trap this repo has
- * already written down: one line carrying two behaviours. `applyHit` marks HP
- * *and* takes bodies off the stepper, and a test that read only the HP would
- * pass on a card that had forgotten the second half entirely.
+ * already written down: one line carrying two behaviours. `applyHit` writes
+ * the HP track *and* takes bodies off the stepper - on a Minion group the
+ * track stays where it was and the bodies move - and a test that read only
+ * one of the two would pass on a card that had forgotten the other entirely.
  *
- * These read `data/srd-1.0.json` rather than a fixture, for `sceneTruth.test
+ * These read `data/srd-2.0.json` rather than a fixture, for `sceneTruth.test
  * .tsx`'s reason: every claim here is a claim about the book this app ships. A
  * fixture written in this file could be given a threshold pair and a Minion
  * divisor to order and would go on passing after a rebuild moved either.
@@ -172,7 +173,7 @@ describe('the damage field on the combatant card', () => {
    * only the first would pass on a card that never wired the stepper, which is
    * exactly the "one line, two behaviours" trap.
    */
-  it('marks the whole track of a Minion and takes the overkill off the stepper', () => {
+  it('takes the overkill off a Minion group’s stepper and leaves its HP track alone', () => {
     const a = minion();
     const c = makeCombatant(a, 0, 4);
     expect(c.thresholds).toBeNull();
@@ -193,10 +194,77 @@ describe('the damage field on the combatant card', () => {
     expect(container.textContent).toContain('2 MINIONS');
 
     press('APPLY');
-    expect(hpOf(c.id).marked).toBe(a.hp);
+    // 0, where this pinned `a.hp` (the whole track). The track is the one box
+    // each body has and the hit is a group's: p94's "defeated when they take
+    // any damage" is the body leaving the count, not a wound on the ones
+    // still standing. Filling the box here is what made the card read
+    // DEFEATED with two Minions left.
+    expect(hpOf(c.id).marked).toBe(0);
     // Exactly two: `1 + floor(N / N)`. One would be the `+ 1` gone, three an
     // off-by-one the other way.
     expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(2);
+  });
+
+  /*
+   * The DEFEATED state of a Minion card, which is the count and not the box.
+   *
+   * Both halves of the same defect: a hit that left bodies standing put the
+   * card in the defeated state (meta line, 0.72 opacity, red stripe) because
+   * the engine filled its one HP box; and the count stepped down to 0 by hand
+   * never did, because the box was empty. `card()` reads the article the way
+   * the GM does - the meta line and the two styles `down` sets.
+   */
+  const card = (): { meta: string; opacity: string; stripe: string } => {
+    const article = container.querySelector<HTMLElement>('article.panel')!;
+    const meta = article.querySelector<HTMLElement>('.t-meta')!;
+    return { meta: meta.textContent ?? '', opacity: article.style.opacity, stripe: article.style.borderLeft };
+  };
+
+  it('keeps a Minion card standing after a hit that leaves bodies standing', () => {
+    const a = minion();
+    const c = makeCombatant(a, 0, 4);
+    scene([c]);
+    expect(card().meta).not.toContain('DEFEATED');
+
+    type(a.name, '1');
+    press('APPLY');
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(3);
+    expect(hpOf(c.id).marked).toBe(0);
+    expect(card().meta).toContain('MINION');
+    expect(card().meta).not.toContain('DEFEATED');
+    expect(card().opacity).toBe('1');
+    expect(card().stripe).not.toContain('var(--damage)');
+  });
+
+  it('reads a Minion card as DEFEATED when the count reaches 0, by hand or by damage', () => {
+    const a = minion();
+    scene([{ ...makeCombatant(a, 0, 4), minionsRemaining: 1 }]);
+    expect(card().meta).not.toContain('DEFEATED');
+
+    // By aria-label, not by glyph: the HP counter above the band draws the same −.
+    act(() => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Decrease Minions standing"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(0);
+    expect(card().meta).toContain('DEFEATED');
+    expect(card().opacity).toBe('0.72');
+    expect(card().stripe).toContain('var(--damage)');
+
+    // And by damage: a hit big enough for the whole group.
+    scene([{ ...makeCombatant(a, 1, 4), minionsRemaining: 2 }]);
+    expect(card().meta).not.toContain('DEFEATED');
+    type(a.name, String(a.minionGroup! * 10));
+    press('APPLY');
+    expect(card().meta).toContain('DEFEATED');
+  });
+
+  it('still reads an ordinary card as DEFEATED off its HP track', () => {
+    const a = withThresholds();
+    scene([{ ...makeCombatant(a, 0, 4), hp: { marked: a.hp, max: a.hp } }]);
+    expect(card().meta).toContain('DEFEATED');
+    expect(card().opacity).toBe('0.72');
   });
 
   it('never takes more Minions off the stepper than are standing', () => {
@@ -210,7 +278,7 @@ describe('the damage field on the combatant card', () => {
 
   /*
    * A combatant whose adversary this dataset cannot resolve. The card already
-   * says NOT IN THIS DATASET; what it must not do is invent a divisor, and what
+   * says NOT IN THIS BOOK; what it must not do is invent a divisor, and what
    * it must still do is apply the HP, because the thresholds are on the
    * combatant's own copy and are the GM's own number.
    */

@@ -750,6 +750,7 @@ function ConditionsDialog({
   const addNamed = useConditions((s) => s.addNamed);
   const renameNamed = useConditions((s) => s.renameNamed);
   const removeNamed = useConditions((s) => s.removeNamed);
+  const toggleNamed = useConditions((s) => s.toggleNamed);
   const clear = useConditions((s) => s.clear);
   const [draft, setDraft] = useState('');
   /** Waiting for the deliberate second tap. See the docblock above. */
@@ -947,6 +948,52 @@ function ConditionsDialog({
 
             {conditions.named.map((n) => (
               <div key={n.id} className="row" style={{ gap: 8 }}>
+                {/*
+                 * The switch, and the reason it is in this row at all.
+                 *
+                 * On the phone the strip above is mounted `onlyWhenOn`, so the
+                 * chip in it - which was the only control in `src/` calling
+                 * `toggleNamed` - vanishes the moment it is tapped off. The
+                 * state then still exists, is listed here by name, and had
+                 * nothing on the glass to light it again: the one route back
+                 * was REMOVE and re-type, which loses the label. This row now
+                 * carries the same switch the strip does, so a state the store
+                 * keeps is a state every layout can put back on.
+                 *
+                 * Same two faces as the three cards above - SET off, ACTIVE on
+                 * - and the same `aria-pressed`, so the dialog has one
+                 * vocabulary for "is this on". Its accessible name is the
+                 * strip chip's, so a screen reader hears the same control in
+                 * both places.
+                 *
+                 * ERGONOMICS. **Target size:** `Chip` carries the 44 floor on
+                 * both axes and `wide` is off, so SET is 44x44 rather than the
+                 * 42.81 the cards' own control once measured. **Thumb arc:**
+                 * it is at the LEFT of the row and REMOVE at the right, with
+                 * the input between them. REMOVE is the one destructive tap in
+                 * this block, and the loss it causes - the typed label - is
+                 * exactly the loss this switch exists to avoid, so the two are
+                 * separated by the widest thing in the row rather than sat
+                 * side by side where an overshoot lands on the wrong one. The
+                 * input gives up 52px for it: at 393 the row is 335 (369 less
+                 * the scroll's 16 either side, less the dialog's 1px border),
+                 * REMOVE is 13px x 6 glyphs plus `--s5` either side, and what
+                 * is left is over 180px for a label capped at `MAX_LABEL`
+                 * characters. **Read versus touch:** the state's name is the
+                 * input, read after the switch, which is how the strip reads
+                 * too - the lit chip is the fact and the label is what it is
+                 * about.
+                 */}
+                <Chip
+                  label={n.on ? 'ACTIVE' : 'SET'}
+                  tone={n.on ? 'named' : 'off'}
+                  title={`${n.label} — your own note. The app tracks the chip and nothing else.`}
+                  ariaLabel={`${n.label}, a state you named`}
+                  onClick={() => {
+                    setArmed(false);
+                    toggleNamed(character.id, n.id);
+                  }}
+                />
                 <input
                   value={n.label}
                   maxLength={MAX_LABEL}

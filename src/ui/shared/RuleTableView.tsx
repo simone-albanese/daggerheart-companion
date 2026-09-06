@@ -14,8 +14,8 @@
  *
  * ## Two shapes, decided by the table's own width
  *
- * **One value column** - the Average Costs table on p.69 and the objectives
- * roll on p.112 - is drawn as a two-column grid, header row included, because
+ * **One value column** - the Average Costs table on p.91 and the objectives
+ * roll on p.183 - is drawn as a two-column grid, header row included, because
  * that is what it is and it fits.
  *
  * **The width this used to name was wrong, and the route it was named for still

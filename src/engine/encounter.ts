@@ -169,15 +169,19 @@ export function computeBudget(
 /** Moved beside the shapes it bounds; the campaign reader clamps `fear` too. */
 export { MAX_FEAR } from '../../shared/types.ts';
 
-/** Countdowns advance by hand: the app never infers when a trigger fired. */
+/**
+ * Countdowns advance by hand: the app never infers when a trigger fired.
+ *
+ * A loop countdown reaches 0 like every other kind and stays there until the
+ * next advance, which returns it to its start. SRD 2 p91: loop countdowns
+ * "reset to their starting value after their countdown effect is triggered" -
+ * after, not instead. This used to wrap on the same tap that reached 0, so the
+ * row never drew the 0, never drew SPENT, and the readout jumped 1 -> 3 under
+ * a GM watching for the moment the clock fires.
+ */
 export function tickCountdown(c: Countdown, delta: number): Countdown {
-  const next = c.value + delta;
-  if (c.kind === 'loop') {
-    // A loop countdown resets to its starting value when it runs out.
-    if (next <= 0) return { ...c, value: c.start };
-    return { ...c, value: Math.min(c.start, next) };
-  }
-  return { ...c, value: Math.max(0, Math.min(c.start, next)) };
+  if (c.kind === 'loop' && c.value === 0 && delta < 0) return { ...c, value: c.start };
+  return { ...c, value: Math.max(0, Math.min(c.start, c.value + delta)) };
 }
 
 export function makeCombatant(a: Adversary, index: number, partySize: number): SceneCombatant {
@@ -228,8 +232,8 @@ export function makeCombatant(a: Adversary, index: number, partySize: number): S
      * only one left.
      *
      * `Array.isArray`, not `=== null`, and the gap between the two is a crash.
-     * Absent thresholds are real: counted in `data/srd-1.0.json`, 16 of the 129
-     * adversaries have none, and they are exactly its 16 Minions - all 20 Solos
+     * Absent thresholds are real: counted in `data/srd-2.0.json`, 28 of the 264
+     * adversaries have none, and they are exactly its 28 Minions - all 51 Solos
      * carry a tuple, which is the half `Adversary.thresholds` got wrong and
      * this comment copied forward before it was measured. But `null` is only
      * one of the two ways the field goes missing. An adversary that exists only

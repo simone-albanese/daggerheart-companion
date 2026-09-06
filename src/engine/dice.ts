@@ -77,8 +77,20 @@ export interface DualityInput {
   disadvantage?: boolean;
   /** Experience bonuses the player chose to spend Hope on. */
   experienceBonus?: number;
-  /** Extra dice a feature grants, e.g. a Rally d6. */
+  /**
+   * Extra dice a feature grants and ADDS, e.g. a Rally d6, a Prayer d4, a
+   * Slayer d6, a Patron d8. Each is rolled and added on its own.
+   */
   bonusDice?: number[];
+  /**
+   * Advantage dice other players rolled for this roll - Help an Ally, SRD 2
+   * p49: *"they roll their own advantage die and apply it to an ally's action
+   * roll"*. They are NOT `bonusDice`: *"the player making the action roll adds
+   * only the highest result of all advantage dice rolled (including their own)
+   * and ignores the rest"*. So these and the roller's own advantage die form
+   * one pool of which the highest face is added once - see `highestAdvantage`.
+   */
+  helpDice?: number[];
   /**
    * A reaction roll: made in response to an attack or a hazard.
    *
@@ -87,14 +99,14 @@ export interface DualityInput {
    * characters can't aid you with Help an Ally... If you critically succeed on
    * a reaction roll, you don't clear a Stress or gain a Hope."
    *
-   * This is not a corner case. 38 of the 129 adversaries and 9 of the 19
+   * This is not a corner case. 97 of the 264 adversaries and 26 of the 47
    * environments call for one, and every non-leader roll in a Group Action
    * Roll is one - so a sheet that pays out on them hands the player several
    * Hope a session they never earned.
    */
   reaction?: boolean;
   /** Fixed die results, for a table rolling physical dice. */
-  fixed?: { hope?: number; fear?: number; advantage?: number; bonus?: number[] };
+  fixed?: { hope?: number; fear?: number; advantage?: number; bonus?: number[]; help?: number[] };
 }
 
 export interface DualityResult {
@@ -104,6 +116,15 @@ export interface DualityResult {
   advantageDie: number | null;
   advantageSign: 1 | -1 | 0;
   bonusDice: number[];
+  /** What each Help an Ally die rolled, in the order `helpDice` was given. */
+  helpDice: number[];
+  /**
+   * The one advantage die that reached the total: the highest of the roller's
+   * own advantage die and every Help die (p49). Null when there was no
+   * advantage die of any kind. A disadvantage die is subtracted on its own and
+   * is never in this pool.
+   */
+  highestAdvantage: number | null;
   modifier: number;
   experienceBonus: number;
   difficulty: number | null;
@@ -121,9 +142,20 @@ export interface DualityResult {
 
 /**
  * Advantage and disadvantage cancel one-for-one, so they are never both rolled.
- * They are booleans rather than counts because this is one dice pool: sources
- * that grant a die outside your pool - an ally's Help an Ally - stack instead,
- * and belong in `bonusDice`, where they are rolled and added on their own.
+ * They are booleans rather than counts because this is one dice pool: a second
+ * source of advantage does not add a second die. The exception the book makes
+ * is Help an Ally, and it is not a stacking exception - p49 says the roller
+ * "adds only the highest result of all advantage dice rolled (including their
+ * own)". So a Help die goes in `helpDice`, pooled with this one, and a die
+ * that is ADDED on its own - Rally, Prayer, Slayer, Patron - is a `bonusDice`
+ * entry. This docblock used to say Help dice "stack instead" and belong in
+ * `bonusDice`; that premise is the one p49 contradicts in two places, and the
+ * engine answered 23 on the book's own worked example, whose answer is 18.
+ *
+ * Whether a Help die cancels a DISADVANTAGE is left to the table: the sign
+ * here is the roller's own declaration, a disadvantage die is subtracted as
+ * declared, and the Help pool is added on top. A table that rules the Help
+ * cancels it drops the DIS.
  */
 function advantageSign(input: DualityInput): 1 | -1 | 0 {
   const adv = input.advantage === true;
@@ -140,6 +172,15 @@ export function rollDuality(input: DualityInput, rng: Rng = cryptoRng): DualityR
 
   const bonusSpec = input.bonusDice ?? [];
   const bonusDice = bonusSpec.map((sides, i) => input.fixed?.bonus?.[i] ?? rng(sides));
+  const helpSpec = input.helpDice ?? [];
+  const helpDice = helpSpec.map((sides, i) => input.fixed?.help?.[i] ?? rng(sides));
+
+  // p49: one advantage die reaches the total, the highest of the roller's own
+  // and every Help die. A disadvantage die is the roller's alone and is
+  // subtracted as before.
+  const advantagePool = [...(sign === 1 && advantageDie !== null ? [advantageDie] : []), ...helpDice];
+  const highestAdvantage = advantagePool.length === 0 ? null : Math.max(...advantagePool);
+  const disadvantage = sign === -1 ? -(advantageDie ?? 0) : 0;
 
   const experienceBonus = input.experienceBonus ?? 0;
   const total =
@@ -147,7 +188,8 @@ export function rollDuality(input: DualityInput, rng: Rng = cryptoRng): DualityR
     fear +
     input.modifier +
     experienceBonus +
-    (advantageDie ?? 0) * sign +
+    (highestAdvantage ?? 0) +
+    disadvantage +
     bonusDice.reduce((a, b) => a + b, 0);
 
   const critical = hope === fear;
@@ -170,6 +212,8 @@ export function rollDuality(input: DualityInput, rng: Rng = cryptoRng): DualityR
     advantageDie,
     advantageSign: sign,
     bonusDice,
+    helpDice,
+    highestAdvantage,
     modifier: input.modifier,
     experienceBonus,
     difficulty: input.difficulty,
@@ -234,26 +278,87 @@ export const outcomeDetail = (r: DualityResult): string =>
 // Damage
 // ---------------------------------------------------------------------------
 
-/** `2d6+3`, `d12`, `d10+2`, `1d20`. */
+/** A second kind of die in the same pool: the `d6` of `d8+d6`. */
+export interface DieGroup {
+  count: number;
+  sides: number;
+}
+
+/**
+ * `2d6+3`, `d12`, `d10+2`, `1d20` - and `d8+d6`.
+ *
+ * `also` is the pool's other dice, when it has any. Every weapon and every
+ * Beastform in the shipped dataset rolls one kind of die, so it is absent for
+ * all of them; the one pool in the book that rolls two is the Brawler's
+ * *Brawler's Strike* (SRD 2 p12), "d8+d6 physical damage using your
+ * Proficiency (both the d8 and d6 scale off your Proficiency)". `parseDamage`
+ * used to read that spec as `1d8` and drop the d6 without a word, which is
+ * why the field exists rather than a second parse: a reader that copies
+ * `count`, `sides` and `modifier` by name and forgets this one drops the d6
+ * the same way, so `diceOf` is the one place the pool is flattened and
+ * `rollDamage`, `highestDamage` and the face slots all read it.
+ */
 export interface DamageDice {
   count: number;
   sides: number;
   modifier: number;
+  also?: DieGroup[];
 }
 
+/**
+ * Read a damage spec: a die, then any number of `+` terms that are each a die
+ * or a flat number. Null when there is no die in it at all.
+ *
+ * `d8+d6` reads as one d8 and `also` one d6; `d8-d6` is not a pool and reads
+ * null rather than as a d8. The first die is found wherever it sits in the
+ * string - a layer spelling `1d8+2 mag` keeps working - and the terms after it
+ * are read only while they follow on directly, so trailing words are ignored
+ * the way they always were.
+ */
 export function parseDamage(spec: string): DamageDice | null {
-  const m = /(\d*)\s*d\s*(\d+)\s*([+-]\s*\d+)?/i.exec(spec.replace(/−/g, '-'));
-  if (!m) return null;
-  return {
-    count: m[1] ? Number(m[1]) : 1,
-    sides: Number(m[2]),
-    modifier: m[3] ? Number(m[3].replace(/\s+/g, '')) : 0,
-  };
+  const text = spec.replace(/−/g, '-');
+  const head = /(\d*)\s*d\s*(\d+)/i.exec(text);
+  if (!head) return null;
+  let modifier = 0;
+  const also: DieGroup[] = [];
+  const term = /\s*([+-])\s*(?:(\d*)\s*d\s*(\d+)|(\d+))/iy;
+  term.lastIndex = head.index + head[0].length;
+  for (let m = term.exec(text); m !== null; m = term.exec(text)) {
+    const sign = m[1] === '-' ? -1 : 1;
+    if (m[4] !== undefined) modifier += sign * Number(m[4]);
+    else if (sign === 1) also.push({ count: m[2] ? Number(m[2]) : 1, sides: Number(m[3]) });
+    else return null;
+  }
+  const out: DamageDice = { count: head[1] ? Number(head[1]) : 1, sides: Number(head[2]), modifier };
+  return also.length === 0 ? out : { ...out, also };
 }
 
 export function formatDamage(d: DamageDice): string {
   const mod = d.modifier === 0 ? '' : d.modifier > 0 ? `+${d.modifier}` : `${d.modifier}`;
-  return `${d.count}d${d.sides}${mod}`;
+  const also = (d.also ?? []).map((g) => `+${g.count}d${g.sides}`).join('');
+  return `${d.count}d${d.sides}${also}${mod}`;
+}
+
+/**
+ * Every die in the pool, as the number of faces each has, in the order they
+ * are rolled and typed: the main dice first, then each `also` group. The one
+ * flattening of a pool, so the roller, the critical bonus and the face slots
+ * cannot disagree about how many dice there are or which one is the d6.
+ */
+export function diceOf(d: DamageDice): number[] {
+  return [
+    ...Array.from({ length: d.count }, () => d.sides),
+    ...(d.also ?? []).flatMap((g) => Array.from({ length: g.count }, () => g.sides)),
+  ];
+}
+
+/**
+ * The highest the damage dice could have rolled, modifier excluded: what a
+ * critical adds. `count * sides` for a one-kind pool, and the d6s as well for
+ * the Brawler's.
+ */
+export function highestDamage(d: DamageDice): number {
+  return diceOf(d).reduce((a, b) => a + b, 0);
 }
 
 export interface DamageResult {
@@ -278,11 +383,11 @@ export function rollDamage(
   options: { critical?: boolean; extraModifier?: number; fixed?: number[] } = {},
   rng: Rng = cryptoRng,
 ): DamageResult {
-  const rolled = Array.from({ length: dice.count }, (_, i) =>
-    options.fixed?.[i] ?? rng(dice.sides),
-  );
+  // `diceOf`, so a `d8+d6` pool rolls its d6s too, after its d8s, and a
+  // `fixed` face lands on the die of the same index.
+  const rolled = diceOf(dice).map((sides, i) => options.fixed?.[i] ?? rng(sides));
   const modifier = dice.modifier + (options.extraModifier ?? 0);
-  const criticalBonus = options.critical === true ? dice.count * dice.sides : 0;
+  const criticalBonus = options.critical === true ? highestDamage(dice) : 0;
   return {
     dice: rolled,
     modifier,
@@ -293,7 +398,18 @@ export function rollDamage(
   };
 }
 
-/** Scale a weapon's damage by Proficiency: `d8+2` at Proficiency 3 -> `3d8+2`. */
+/**
+ * Scale a weapon's damage by Proficiency: `d8+2` at Proficiency 3 -> `3d8+2`,
+ * and `d8+d6` -> `3d8+3d6` - "both the d8 and d6 scale off your Proficiency"
+ * (SRD 2 p12).
+ */
 export function applyProficiency(dice: DamageDice, proficiency: number): DamageDice {
-  return { ...dice, count: Math.max(1, dice.count * Math.max(1, proficiency)) };
+  const scale = (count: number): number => Math.max(1, count * Math.max(1, proficiency));
+  return {
+    ...dice,
+    count: scale(dice.count),
+    ...(dice.also === undefined
+      ? {}
+      : { also: dice.also.map((g) => ({ ...g, count: scale(g.count) })) }),
+  };
 }

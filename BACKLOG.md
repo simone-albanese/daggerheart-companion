@@ -229,6 +229,12 @@ zeroes a *player's* HP.
 - [x] ~~**A pending debounced write can resurrect a just-deleted character.**~~
       — **done**, and before the database delete rather than after.
       `remove()` (`state.ts:221`) does not `pending.delete(id)`. *(trivial)*
+- [x] ~~**The same retry copy overwrites an import the user chose.**~~
+      — **done** (B2-1). `resolveImport`'s TAKE THEIRS and `importCharacters` in
+      replace mode wrote straight to `db.putCharacter`, so after a refused write of
+      the local copy the next flush put that copy back over the record the user had
+      just chosen. Both doors now go through `writeOver`, which is `remove()`'s two
+      steps for a put; `tests/store/importRefused.test.ts` pins both doors.
 - [x] ~~**One malformed record makes the whole library unreadable — usually.**~~
       — **done**, by reading database records through the same hardened reader the file path uses.
       What cannot be read is quarantined by name; what can be repaired is repaired, so a missing
@@ -348,7 +354,7 @@ Concrete: a sheet arrives from a newer device with its class ref parked as
 `?60007`. `deriveStats` cannot resolve the class and falls back to
 `startingHitPoints ?? 6` (`character.ts:187`), so the build derives `maxHp` 6
 while the stored `hp.max` stays at the wire's 12. The two disagree until the
-player next levels up or changes armor, and `validatePlan`'s at-maximum warnings
+player next levels up or changes armor or a weapon, and `validatePlan`'s at-maximum warnings
 (`levelUp.ts:306`) read the stored one.
 
 Three UI paths call `importCharacter` directly: `Settings.tsx:468` and `:675`,
@@ -596,6 +602,16 @@ to mark Stress if all of their Stress is marked."*
       be enforcing.~~
       — **done, `8a87433`**. `Cards.tsx:165` reads it and the button says `MARK n HP?` before the
       first tap, so the second one is the informed one. Not hard-blocked, as this asked.
+- [x] ~~The price was wrong: `markStress` marked one HP per Stress it could not
+      mark, so `n` above went up to 4.~~ — **done, fix-E1 (findings S8a-2, B1-3)**. SRD 2
+      p50, the sentence before the one quoted above: *"When a character must mark 1
+      or more Stress but can't, they mark 1 HP instead."* One Hit Point for the whole
+      shortfall, so `n` is always 1. The count above was SRD 1's; SRD 2 has 177 of 210
+      cards at a recall cost of 1 or more, 83 at 2 or more. The recall itself stays
+      allowed at a full track, as this item decided. The refusal sentence IS applied
+      where the book's own feature says "mark a Stress to": Beastform's picker refuses
+      the Stress path at a full track (`beastformCost`, finding B1-2) instead of
+      taking a Hit Point and, at 5/6 HP, dropping the form in the same tap.
 
 ### P1-3 · Proficiency can be taken twice in the same tier
 `src/engine/levelUp.ts:102-110, 271-277` · **trivial, 30 min**

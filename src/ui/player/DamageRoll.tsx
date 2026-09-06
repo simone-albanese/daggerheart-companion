@@ -31,7 +31,7 @@
  * every path through it.
  */
 import { useEffect, useRef, useState } from 'react';
-import { formatDamage, rollDamage, type DamageResult } from '../../engine/dice.ts';
+import { diceOf, formatDamage, rollDamage, type DamageResult } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
 import type { RollAffordance } from '../shared/rollAffordance.ts';
 import {
@@ -440,7 +440,9 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
     record(rollDamage(pool, { critical: attack.critical }));
   };
 
-  const slots = Array.from({ length: pool.count }, (_, i) => faces[i] ?? null);
+  // `diceOf`, so a Brawler's `2d8+2d6` has four slots and the last two are d6s.
+  const dice = diceOf(pool);
+  const slots = dice.map((_, i) => faces[i] ?? null);
 
   /*
    * A face picked by hand, and what happens when the last one lands.
@@ -602,7 +604,7 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
         <FaceKeypad
           index={editing}
           count={slots.length}
-          sides={pool.sides}
+          sides={dice[editing] ?? pool.sides}
           value={slots[editing] ?? null}
           onSet={(n) => setFace(editing, n)}
           onCancel={() => setEditing(null)}

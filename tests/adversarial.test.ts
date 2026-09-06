@@ -179,6 +179,7 @@ const planTo = (
   picks,
   newCardRef,
   exchange: null,
+  placement: 'vault',
 });
 
 /** A deterministic generator, so "random noise" is the same noise tomorrow. */
@@ -209,7 +210,7 @@ const varint = (value: number): number[] => {
 // ===========================================================================
 
 /**
- * `sampleMatrix` is the ninety-three-sheet cross-section the transfer tests
+ * `sampleMatrix` is the 133-sheet cross-section the transfer tests
  * already use. Corruption is swept over a spread of it rather than over one
  * wizard, because a format's weak spot is a *field*, and a field only exists on
  * the sheets that have it.
@@ -992,19 +993,24 @@ describe('a level-up plan that does not belong to this character', () => {
     expect(validatePlan(level4, planTo(5, [takes('multiclass', 3, full)])).ok).toBe(true);
   });
 
-  it('does not check the domain card at all - that guard lives in the picker', () => {
-    // UNGUARDED (finding). `validatePlan` never looks at `plan.newCardRef`, and
-    // never looks at a domain-card advancement's `cardRef`. A plan handing a
-    // two-domain class a card from a third domain, and a level 10 card to a
-    // level 3 character, is `ok: true` with no warnings, and `applyLevelUp` puts
-    // both in the vault.
+  it('checks the domain card only when handed the index the screen holds', () => {
+    // This used to be titled "does not check the domain card at all - that
+    // guard lives in the picker", and it was a finding: `validatePlan` never
+    // looked at `plan.newCardRef` or at a domain-card advancement's `cardRef`,
+    // so a plan handing a two-domain class a card from a third domain, and a
+    // level 10 card to a level 3 character, was `ok: true` and `applyLevelUp`
+    // put both in the vault. Only `CardPicker` in src/ui/build/LevelUp.tsx
+    // filtered, with the same rule `cardAvailability` states, and anything that
+    // built a plan by another route inherited no check at all.
     //
-    // What stops it in the app is the picker: `CardPicker` in
-    // src/ui/build/LevelUp.tsx lists only cards satisfying
-    // `stats.domains.includes(c.domain) && c.level <= stats.cardLevelCap(...)`,
-    // the same rule `cardAvailability` states. So the rule is enforced where the
-    // choice is offered and not where the plan is checked, and anything that
-    // builds a plan by another route inherits no check at all.
+    // Now the validator holds every card taken outright to step four's first
+    // sentence - "at your level or lower from one of your class's domains",
+    // folio 54 - WHEN it is handed a `PlanContext`. Without one the dataset
+    // half is not run: the simulator and the sample builder hold no index and
+    // choose their own cards out of the dataset, and refusing them every level
+    // for a fact they had already checked would leave both tools unable to
+    // level anyone. That is the one asymmetry with the exchange, which is
+    // refused outright without a context, and it is deliberate.
     const dataset = makeDataset({
       classes: [makeClass({ id: 'test-class', domains: ['blade', 'valor'] })],
       domainCards: [
@@ -1020,37 +1026,55 @@ describe('a level-up plan that does not belong to this character', () => {
       'too-high',
     );
 
-    const verdict = validatePlan(student, plan);
-    expect(verdict.errors).toEqual([]);
-    expect(verdict.warnings).toEqual([]);
-    expect(verdict.ok).toBe(true);
+    // Without the index: the dataset-free half only, and both cards are new,
+    // unowned and named once - so nothing to refuse.
+    const blind = validatePlan(student, plan);
+    expect(blind.errors).toEqual([]);
+    expect(blind.ok).toBe(true);
 
-    const after = applyLevelUp(student, plan);
-    expect(after.vault).toEqual(['off-domain', 'too-high']);
+    // With it, built the way the screen builds it - off the sheet the plan
+    // produces - both are refused, in words that name the card and the cap.
+    const after = deriveStats({ ...student, level: 3 }, dataset, index);
+    const verdict = validatePlan(student, plan, {
+      cards: index.cards,
+      domains: after.domains,
+      cardLevelCap: after.cardLevelCap,
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.errors).toEqual([
+      'Test Card is level 10, and at level 3 your cap in blade is 3.',
+      'off-domain is not in a domain you have access to.',
+    ]);
 
-    // TEETH for the finding: the layer that does know says both are illegal, in
-    // the words the card browser prints beside them. If `validatePlan` ever
-    // grows the check, `verdict.ok` above turns red and this comment is rewritten.
-    const rows = cardAvailability(after, deriveStats(after, dataset, index), dataset.domainCards);
+    // The picker's own words for the same two cards, which is the rule the
+    // validator now agrees with rather than the only place it was stated.
+    const banked = applyLevelUp(student, plan);
+    const rows = cardAvailability(banked, deriveStats(banked, dataset, index), dataset.domainCards);
     expect(rows.map((r) => [r.card.id, r.eligible, r.reason])).toEqual([
       ['off-domain', false, 'Not one of your domains'],
       ['too-high', false, 'Level 10 - your cap in blade is 3'],
     ]);
-    // Both are owned, which is the harm: they are on the sheet, and only a
-    // dimmed line in the browser says they should not be.
-    expect(rows.every((r) => r.owned)).toBe(true);
   });
 
-  it('cannot push the loadout past five, because a level-up only ever writes to the vault', () => {
+  it('cannot push the loadout past five, even when the plan asks for the loadout', () => {
+    // A level-up may put its cards straight into the loadout now (folio 54:
+    // "add it to your loadout or vault"), and the same sentence's second half
+    // is what this proves: "If your loadout is already full, you can't add
+    // the new card to it until you move another into your vault."
     const cards = ['c1', 'c2', 'c3', 'c4', 'c5'];
     const full = makeCharacter({ level: 2, loadout: cards, vault: [] });
-    const after = applyLevelUp(
-      full,
-      planTo(3, [takes('domain-card', 2, { cardRef: 'c6' }), takes('hit-point', 2)], 'c7'),
-    );
+    const asks: LevelUpPlan = {
+      ...planTo(3, [takes('domain-card', 2, { cardRef: 'c6' }), takes('hit-point', 2)], 'c7'),
+      placement: 'loadout',
+    };
+    const after = applyLevelUp(full, asks);
     expect(after.loadout).toEqual(cards);
     expect(after.loadout.length).toBe(MAX_LOADOUT);
-    expect(after.vault).toEqual(['c6', 'c7']);
+    // Step four's card is banked first, then the advancement's.
+    expect(after.vault).toEqual(['c7', 'c6']);
+    expect(validatePlan(full, asks).warnings).toContain(
+      'Your loadout is full (5), so the 2 cards this level takes go to the vault - move one out first to make space.',
+    );
   });
 
   it('is the only thing standing between a forged plan and the sheet', () => {
@@ -1115,11 +1139,13 @@ describe('a sixth card asked into a five-card loadout', () => {
     expect(canAddToLoadout(makeCharacter({ vault: ['x'] }), card('x')).allowed).toBe(true);
   });
 
-  it('lets an unaffordable recall through, and charges the shortfall in Hit Points', () => {
+  it('lets an unaffordable recall through, and charges one Hit Point for the shortfall', () => {
     // UNGUARDED, and deliberately so: `affordable` is advice, not a refusal. The
     // app proposes a cost and the player confirms it. Asserted here because a
     // reader who saw `affordable: false` would reasonably assume it blocked, and
-    // because the price of being wrong is three Hit Points nobody agreed to.
+    // because the price of being wrong is a Hit Point nobody agreed to. ONE Hit
+    // Point for a cost of 3, because SRD 2 p50 says "mark 1 HP instead" of the
+    // Stress that cannot be marked - not one per point.
     const spent = makeCharacter({
       vault: ['expensive'],
       stress: { marked: 6, max: 6 },
@@ -1132,8 +1158,8 @@ describe('a sixth card asked into a five-card loadout', () => {
     const paid = recallCard(spent, card('expensive', 3));
     expect(paid.character.loadout).toEqual(['expensive']);
     expect(paid.stressMarked).toBe(0);
-    expect(paid.hpMarked).toBe(3);
-    expect(paid.character.hp.marked).toBe(3);
+    expect(paid.hpMarked).toBe(1);
+    expect(paid.character.hp.marked).toBe(1);
   });
 });
 

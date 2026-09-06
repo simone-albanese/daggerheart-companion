@@ -205,7 +205,7 @@ function AddButton({
           fontSize: '0.625rem',
           color: inRoster > 0 ? 'var(--hope)' : 'var(--dim)',
           // One line or nothing. Wrapped, it would push the picker row taller
-          // than the 46px cell for one adversary out of 129.
+          // than the 46px cell for one adversary out of 264.
           whiteSpace: 'nowrap',
         }}
       >
@@ -542,9 +542,9 @@ function Adjustments({
       <span className="t-hint" style={{ color: 'var(--dim)' }}>
         {adjustments.damageBump
           ? bump === null
-            ? 'The damage bump is on; no rules layer here says what it adds'
+            ? 'The damage bump is on; this book does not say what it adds'
             : `This fight: ${bump}`
-          : 'Round circles are derived from the roster and cannot be toggled'}
+          : 'The round ones come from the roster · tap the square ones'}
       </span>
     </section>
   );
@@ -586,7 +586,7 @@ function Adjustments({
  * the clause after it says whose place it is. No environment is said as an
  * absence rather than left blank, because a blank beside a SEND reads as
  * "nothing to say" and this has something to say. A ref this dataset cannot
- * resolve prints the ref and `NOT IN THIS DATASET`, the same words the
+ * resolve prints the ref and `NOT IN THIS BOOK`, the same words the
  * unresolved roster row above uses and for the same reason: the record still
  * carries it, the fight still opens with it, and inventing a name for a record
  * this build cannot read would be the one dishonest option. That last state
@@ -604,12 +604,13 @@ function Adjustments({
  * So the wrap tolerance for that one branch has not been measured, and the old
  * conclusion that it "cannot have got worse" is withdrawn rather than patched.
  * What bounds it is that 64 is not the longest line this function puts on the
- * glass: the longest environment name in the shipped dataset is `Burning Heart
- * of the Woods` at 26, which makes `OPENS IN BURNING HEART OF THE WOODS ·
- * CARRIED OVER, NOT PICKED HERE` 67 characters, and this commit does not
- * touch that branch. So the new line sits three inside an envelope the span
- * already carried. Both figures are `len()` over the literals and over
- * `max(e['name'] for e in data/srd-1.0.json environments)`; neither is a
+ * glass: the longest environment name in the shipped dataset is `Convergence,
+ * the City of Portals` at 32, which makes `OPENS IN CONVERGENCE, THE CITY OF
+ * PORTALS · CARRIED OVER, NOT PICKED HERE` 73 characters, and this commit does
+ * not touch that branch. So the new line sits nine inside an envelope the span
+ * already carried. (It was `Burning Heart of the Woods`, 26 and 67, on SRD
+ * 1.0's nineteen.) Both figures are `len()` over the literals and over
+ * `max(e['name'] for e in data/srd-2.0.json environments)`; neither is a
  * rendered width, and the day this span's wrap actually matters it wants a
  * measurement in Chrome rather than a longer arithmetic.
  */
@@ -620,7 +621,7 @@ function opensIn(environment: Environment | undefined, ref: Ref | null, minting:
     return minting
       ? 'NO ENVIRONMENT ON THE BOARD · THIS FIGHT OPENS WITHOUT ONE'
       : 'THE OPEN SCENE HAS NO ENVIRONMENT · THIS FIGHT OPENS WITHOUT ONE';
-  return `OPENS IN ${ref} · NOT IN THIS DATASET`;
+  return `OPENS IN ${ref} · NOT IN THIS BOOK`;
 }
 
 function Roster({
@@ -715,7 +716,7 @@ function Roster({
           <span className="stack" style={{ flex: 1, minWidth: 'var(--control)', gap: 4 }}>
             <span style={{ font: '700 14px/1.15 var(--sans)', color: 'var(--muted)' }}>{ref}</span>
             <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
-              NOT IN THIS DATASET · COSTS NOTHING AND CANNOT BE SENT
+              NOT IN THIS BOOK · COSTS NOTHING AND CANNOT BE SENT
             </span>
           </span>
           <button

@@ -5,8 +5,10 @@
  * THREE FEATURES IN THE SRD HAND OUT A POOL OF DICE, and until now the app knew
  * about none of them. `ui/player/heldDice.ts` is a *tray*: a player picks a die
  * size by hand, holds it, and arms it into a Duality Roll. Its docblock is
- * explicit that it is not an inventory and that it deliberately knows nothing
- * about where a die came from. That is the right answer for a die somebody
+ * explicit that it is not an inventory and that it knows one bit about where
+ * a die came from - whether it is a Help an Ally die, because SRD 2 p49 adds
+ * only the highest advantage die and the engine has to be told which dice are
+ * in that pool - and nothing more. That is the right answer for a die somebody
  * hands you - the Rally Die a bard gives each ally, the d6 from Help an Ally,
  * an Unstoppable Die - and it stays exactly as it is.
  *
@@ -305,9 +307,10 @@ const POOLS: Record<string, PoolSpec> = {
      * The book's own limit is tighter and is NOT this number - "before making
      * an action roll... rolling your Patron Die" is one die for one roll. It is
      * not enforced and it is not meant to be: the tray this die is armed into
-     * knows nothing about where a die came from, by design and by its own
-     * docblock, so "one Patron Die per action roll" is not a question it can be
-     * asked. The limit the app CAN hold a player to is the one it takes the
+     * keeps one bit about a die's origin - whether it is a Help an Ally die,
+     * because the highest-only rule needs it - and nothing that says "patron",
+     * so "one Patron Die per action roll" is not a question it can be asked.
+     * The limit the app CAN hold a player to is the one it takes the
      * payment for, and that is the Favor track - which is where the screen
      * gates the control. Everything else in this file is the same bargain:
      * `NOTHING HERE DECIDES A RULE`, it prints the sentence and does the

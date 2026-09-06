@@ -40,11 +40,14 @@ import type {
   Weapon,
 } from '../../../shared/types.ts';
 import { beastformDamage } from '../../engine/beastform.ts';
+import { BRAWLERS_STRIKE, brawlersStrike } from '../../engine/brawler.ts';
 import { companionDamage, companionIsAway } from '../../engine/companion.ts';
-import type { DerivedStats } from '../../engine/character.ts';
+import type { DatasetIndex, DerivedStats } from '../../engine/character.ts';
 import { weaponDamage } from '../../engine/character.ts';
 import {
+  diceOf,
   formatDamage,
+  highestDamage,
   type DamageDice,
   type DamageResult,
   type RollOutcome,
@@ -63,6 +66,8 @@ export type AttackSource =
       damageType: 'phy' | 'mag';
     }
   | { kind: 'unarmed'; damage: DamageDice }
+  /** The Brawler's own primary weapon (SRD 2 p12), which is a rule and not an item. */
+  | { kind: 'brawler'; name: string; damage: DamageDice }
   | {
       kind: 'spellcast';
       /** Which trait the count came from, so the panel can name it. */
@@ -81,7 +86,7 @@ export type AttackSource =
       kind: 'companion';
       name: string;
       damage: DamageDice;
-      /** Their own, from the sheet: folio 18 asks the player to choose it. */
+      /** Their own, from the sheet: folio 21 asks the player to choose it. */
       damageType: 'phy' | 'mag';
     };
 
@@ -103,6 +108,11 @@ export type AttackSource =
  * `unarmed` carries nothing at all, because there is nothing to carry: the pool
  * is the character's own Proficiency and the trait is the GM's to pick.
  *
+ * `brawler` carries nothing for the same reason, and one more: the strike is
+ * equipped "while you have no other Active Weapons", so a weapon taken up in
+ * Build takes the offer away on the next render rather than leaving a fist
+ * armed beside a sword.
+ *
  * `companion` carries nothing for the same reason as `beastform`: there is one
  * companion on a sheet, their die is on their own sheet, and a Proficiency that
  * moves at a level-up must move the pool with it.
@@ -123,6 +133,7 @@ export type AttackSource =
 export type Declaration =
   | { kind: 'weapon'; ref: string }
   | { kind: 'unarmed' }
+  | { kind: 'brawler' }
   | { kind: 'spellcast'; sides: number }
   | { kind: 'beastform' }
   | { kind: 'companion' };
@@ -216,7 +227,14 @@ export function sourceFromWeapon(weapon: Weapon, stats: DerivedStats): AttackSou
     ref: weapon.id,
     name: weapon.name,
     trait: weapon.trait,
-    damage: { count: scaled.count, sides: scaled.sides, modifier: scaled.modifier },
+    damage: {
+      count: scaled.count,
+      sides: scaled.sides,
+      modifier: scaled.modifier,
+      // Carried by name, so a layer that prints a two-die weapon does not lose
+      // its second die here after `parseDamage` kept it.
+      ...(scaled.also === undefined ? {} : { also: scaled.also }),
+    },
     /*
      * An either-kind weapon deals the physical half, and that is a DEFAULT
      * rather than a reading.
@@ -255,6 +273,26 @@ export function unarmedSource(stats: DerivedStats): AttackSource {
     kind: 'unarmed',
     damage: { count: Math.max(1, stats.proficiency), sides: 4, modifier: 0 },
   };
+}
+
+/**
+ * *"You have a primary weapon called Brawler's Strike equipped while you have
+ * no other Active Weapons. It uses a trait of your choice, has Melee range,
+ * and deals d8+d6 physical damage using your Proficiency."* SRD 2 p12.
+ *
+ * Null for every sheet that is not a barehanded Brawler, so the row is not
+ * drawn; `brawlersStrike` in the engine is the gate and the arithmetic, and
+ * this is only the shape the offer takes. The trait is not decided here for
+ * the same reason `unarmedSource` does not decide it: "of your choice" is the
+ * player's, and the chip they pick completes the declaration.
+ */
+export function brawlerSource(
+  character: Character,
+  stats: DerivedStats,
+  ix: DatasetIndex,
+): AttackSource | null {
+  const damage = brawlersStrike(character, stats, ix);
+  return damage === null ? null : { kind: 'brawler', name: BRAWLERS_STRIKE, damage };
 }
 
 /**
@@ -364,10 +402,13 @@ export function beastformSource(stats: DerivedStats): AttackSource | null {
  * The attack the companion makes, or null when there is no companion.
  *
  * *"On a success, their damage roll uses your Proficiency and their damage
- * die."* Folio 18 - not 19, which is the Rogue and which `parseRules` refuses
- * on purpose (`shared/parsers/rules.ts`, pinned by `srdReference.test.ts`). All
- * four companion sections in the dataset carry `sourcePage: 18`, so a comment
- * citing 19 was pointing at a page this build deliberately never reads.
+ * die."* Folio 22 - where the Rogue also opens, in the next column, and where
+ * `parseRules` closes the island at that banner on purpose
+ * (`shared/parsers/rules.ts`, pinned by `srdReference.test.ts`). The dataset
+ * spreads the four companion sections over two folios - `ranger-companion`
+ * and `working-with-your-companion` carry `sourcePage: 21`,
+ * `companion-taking-damage` and `leveling-up-your-companion` 22 - so a
+ * comment citing 19 was pointing at a page no companion section comes from.
  * `companionDamage` has computed exactly that since the sheet
  * was built and `CompanionPanel` has printed it; what was missing was any way
  * to declare it, which `BACKLOG.md` P1-1 left out because it could not answer
@@ -449,8 +490,10 @@ export function experiencesFor(
 }
 
 /** A damage pool that can actually be rolled. */
-export const isRollableDamage = (d: DamageDice): boolean =>
-  d.count >= 1 && d.sides >= 2 && Number.isFinite(d.modifier);
+export const isRollableDamage = (d: DamageDice): boolean => {
+  const dice = diceOf(d);
+  return dice.length >= 1 && dice.every((sides) => sides >= 2) && Number.isFinite(d.modifier);
+};
 
 export interface DamageOffer {
   /** Whether a damage control is put in front of the player at all. */
@@ -492,7 +535,7 @@ export function damageOffer(attack: ArmedAttack): DamageOffer {
     // after Proficiency: 2d8+1 at Proficiency 3 is 6d8+1, so the critical adds
     // 48 and not 16. Printing the unscaled bonus would be a wrong number that
     // looks entirely plausible.
-    const bonus = attack.source.damage.count * attack.source.damage.sides;
+    const bonus = highestDamage(attack.source.damage);
     return {
       show: true,
       tone: 'hit',
@@ -545,13 +588,13 @@ export const sourceName = (source: AttackSource): string =>
  * Unless stated otherwise, mundane weapons and unarmed attacks deal physical
  * damage, and spells deal magic damage."*
  *
- * A weapon carries its own answer and it is read rather than guessed: 70 of the
- * 204 shipped weapons are `mag`, so "weapon means physical" would be wrong more
- * than a third of the time. A spell is the sentence's other half and is magic.
+ * A weapon carries its own answer and it is read rather than guessed: 136 of the
+ * 391 shipped weapons are `mag` and four more are `phy/mag`, so "weapon means
+ * physical" would be wrong more than a third of the time. A spell is the sentence's other half and is magic.
  * A companion carries its own answer too, and that one used to be a guess. This
  * branch returned `phy` for every companion under a comment calling it the
  * SRD's default - true of an unarmed attack, and never true of this sheet,
- * where folio 18 asks the player outright to *"choose whether they deal
+ * where folio 21 asks the player outright to *"choose whether they deal
  * physical or magic damage"*. The sheet has the field now and it is read.
  *
  * The two that state nothing take the default and only one of them could have

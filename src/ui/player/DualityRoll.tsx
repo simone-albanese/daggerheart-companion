@@ -448,13 +448,30 @@ function extraSlots(
         ]),
     ...dice.map((d) => ({
       key: `bonus:${d.id}` as const,
-      label: `+D${String(d.sides)}`,
+      // A Help die wears the word its chip wears: it is pooled with ADV and
+      // only the highest of them counts (p49), so `+D6` would promise a sum.
+      label: d.help === true ? `HELP D${String(d.sides)}` : `+D${String(d.sides)}`,
       sides: d.sides,
-      color: 'var(--text)',
+      color: d.help === true ? 'var(--ok)' : 'var(--text)',
       value: faces.bonus[d.id] ?? null,
     })),
   ];
 }
+
+/**
+ * The two lists a tray's armed dice become for the engine, in tray order.
+ *
+ * A Rally, Prayer, Slayer or Patron die is a `bonusDice` entry and is added
+ * on its own; a Help an Ally die is a `helpDice` entry and is pooled with the
+ * roller's own advantage die, highest counts - SRD 2 p49. Split in one place
+ * because `resolve` builds the engine's input from it AND writes the faces
+ * back by index, and `typedRoll` builds `fixed` from it: three splits would be
+ * three orderings eventually.
+ */
+const splitHeld = (dice: readonly HeldDie[]): { bonus: HeldDie[]; help: HeldDie[] } => ({
+  bonus: dice.filter((d) => d.help !== true),
+  help: dice.filter((d) => d.help === true),
+});
 
 /**
  * The instruction line, from the dice a roll is still waiting for.
@@ -1163,7 +1180,10 @@ export function DualityRoll({
     () => held.filter((d) => armedDice.includes(d.id)),
     [held, armedDice],
   );
-  const bonusDice = useMemo(() => armedHeld.map((d) => d.sides), [armedHeld]);
+  // Sizes for the shelf's labels only; `resolve` and `typedRoll` split the
+  // dice themselves, off the declaration they are handed.
+  const bonusDice = useMemo(() => splitHeld(armedHeld).bonus.map((d) => d.sides), [armedHeld]);
+  const helpDice = useMemo(() => splitHeld(armedHeld).help.map((d) => d.sides), [armedHeld]);
   const experienceBonus = armedList.reduce((sum, e) => sum + e.bonus, 0);
   /*
    * One Hope per Experience.
@@ -1216,13 +1236,15 @@ export function DualityRoll({
    */
   const resolve = useCallback(
     (
-      fixed?: { hope: number; fear: number; advantage?: number; bonus: number[] },
+      fixed?: { hope: number; fear: number; advantage?: number; bonus: number[]; help: number[] },
       decl: { sign: 0 | 1 | -1; dice: readonly HeldDie[] } = {
         sign: advantage,
         dice: armedHeld,
       },
     ) => {
-      const sides = decl.dice.map((d) => d.sides);
+      const split = splitHeld(decl.dice);
+      const sides = split.bonus.map((d) => d.sides);
+      const helpSides = split.help.map((d) => d.sides);
       const r = rollDuality({
         modifier: modifier.value,
         difficulty,
@@ -1231,6 +1253,7 @@ export function DualityRoll({
         reaction,
         experienceBonus,
         bonusDice: sides,
+        helpDice: helpSides,
         ...(fixed ? { fixed } : {}),
       });
       /*
@@ -1314,12 +1337,16 @@ export function DualityRoll({
        */
       const faces = {
         advantage: r.advantageDie,
-        bonus: Object.fromEntries(
-          decl.dice.flatMap((d, i) => {
+        bonus: Object.fromEntries([
+          ...split.bonus.flatMap((d, i) => {
             const face = r.bonusDice[i];
             return face === undefined ? [] : [[d.id, face] as const];
           }),
-        ),
+          ...split.help.flatMap((d, i) => {
+            const face = r.helpDice[i];
+            return face === undefined ? [] : [[d.id, face] as const];
+          }),
+        ]),
       };
       setManual({
         hope: r.hope,
@@ -1377,10 +1404,28 @@ export function DualityRoll({
       const signed = (n: number): string => `${n >= 0 ? '+' : '−'}${Math.abs(n)}`;
       const parts = [`${r.hope} / ${r.fear}`, signed(modifier.value)];
       if (hopeCost > 0) parts.push(`${signed(r.experienceBonus)} exp (−${hopeCost} Hope)`);
-      if (r.advantageDie !== null) {
+      /*
+       * The advantage pool as ONE term, because that is how it reaches the
+       * total: p49 adds the highest of the roller's own die and every Help
+       * die and ignores the rest. Every face is still printed - a table
+       * checking the app against its own dice sees the 2, the 3 and the 4 -
+       * but the line adds up only if the addend is the 4.
+       */
+      if (r.highestAdvantage !== null) {
+        const pool: Array<{ name: string; face: number }> = [
+          ...(r.advantageSign === 1 && r.advantageDie !== null
+            ? [{ name: 'ADV d6', face: r.advantageDie }]
+            : []),
+          ...r.helpDice.map((face, i) => ({ name: `HELP d${helpSides[i]}`, face })),
+        ];
         parts.push(
-          `${signed(r.advantageDie * r.advantageSign)} (${r.advantageSign === 1 ? 'ADV' : 'DIS'} d6)`,
+          pool.length === 1
+            ? `${signed(r.highestAdvantage)} (${pool[0]!.name})`
+            : `${signed(r.highestAdvantage)} (highest of ${pool.map((p) => `${p.name} ${p.face}`).join(', ')})`,
         );
+      }
+      if (r.advantageSign === -1 && r.advantageDie !== null) {
+        parts.push(`${signed(-r.advantageDie)} (DIS d6)`);
       }
       // Each held die prints what it rolled, so a table checking the app
       // against its own dice can see every number that went into the total.
@@ -1450,20 +1495,33 @@ export function DualityRoll({
     m: Manual,
     sign: 0 | 1 | -1,
     dice: readonly HeldDie[],
-  ): { hope: number; fear: number; advantage?: number; bonus: number[] } | null => {
+  ): { hope: number; fear: number; advantage?: number; bonus: number[]; help: number[] } | null => {
     if (m.hope === null || m.fear === null) return null;
     let advantageFace: number | undefined;
     if (sign !== 0) {
       if (m.advantage === null) return null;
       advantageFace = m.advantage;
     }
+    const split = splitHeld(dice);
     const bonus: number[] = [];
-    for (const d of dice) {
+    for (const d of split.bonus) {
       const face = m.bonus[d.id];
       if (face === undefined) return null;
       bonus.push(face);
     }
-    return { hope: m.hope, fear: m.fear, ...(advantageFace === undefined ? {} : { advantage: advantageFace }), bonus };
+    const help: number[] = [];
+    for (const d of split.help) {
+      const face = m.bonus[d.id];
+      if (face === undefined) return null;
+      help.push(face);
+    }
+    return {
+      hope: m.hope,
+      fear: m.fear,
+      ...(advantageFace === undefined ? {} : { advantage: advantageFace }),
+      bonus,
+      help,
+    };
   };
 
   /*
@@ -1673,6 +1731,7 @@ export function DualityRoll({
     ),
     ...(hopeCost > 0 ? [`${hopeCost} HOPE`] : []),
     ...bonusDice.map((sides) => `+D${sides}`),
+    ...helpDice.map((sides) => `HELP D${sides}`),
   ].join(' · ');
 
   /*
@@ -1898,6 +1957,7 @@ export function DualityRoll({
     advantage === 1 ? 'ADV' : advantage === -1 ? 'DIS' : null,
     difficulty === null ? null : `DIFF ${String(difficulty)}`,
     ...bonusDice.map((sides) => `+D${String(sides)}`),
+    ...helpDice.map((sides) => `HELP D${String(sides)}`),
     trait === 'spellcast' ? 'SPELLCAST' : null,
   ].filter((x): x is string => x !== null);
 
@@ -1992,7 +2052,7 @@ export function DualityRoll({
       held={held}
       armedDice={armedDice}
       toggleDie={toggleDie}
-      addDie={(sides) => characterId !== null && addDie(characterId, sides)}
+      addDie={(sides, help) => characterId !== null && addDie(characterId, sides, help)}
       discardDie={dropDie}
     />
   );
@@ -2021,7 +2081,7 @@ export function DualityRoll({
          * The modifier row, which is not drawn when it has nothing to say.
          *
          * Giorgio asked twice for this row to be removed. P5-1 refused with an
-         * argument that still holds - 38 adversaries and 9 environments call
+         * argument that still holds - 97 adversaries and 26 environments call
          * for a reaction roll, the SRD makes you declare every modifier before
          * the dice, and an app you cannot roll with advantage in is wrong at
          * the table - and then shipped the wrong answer to it: a permanent
@@ -2973,7 +3033,8 @@ interface ControlProps {
   held: HeldDie[];
   armedDice: string[];
   toggleDie: (id: string) => void;
-  addDie: (sides: (typeof DIE_SIZES)[number]) => void;
+  /** `help` marks a Help an Ally d6: pooled with ADV, highest counts (p49). */
+  addDie: (sides: (typeof DIE_SIZES)[number], help?: boolean) => void;
   discardDie: (id: string) => void;
 }
 
@@ -3028,8 +3089,12 @@ function HeldDieChip({
       type="button"
       className="chip"
       aria-pressed={armed}
-      aria-label={`d${die.sides} held die - tap to add it to the next roll, hold to discard it`}
-      title="Tap to add it to the next roll · hold to discard"
+      aria-label={`${die.help === true ? 'Help an Ally ' : ''}d${die.sides} held die - tap to add it to the next roll, hold to discard it`}
+      title={
+        die.help === true
+          ? 'Help an Ally: only the highest advantage die counts, yours included · hold to discard'
+          : 'Tap to add it to the next roll · hold to discard'
+      }
       onPointerDown={() => {
         discarded.current = false;
         timer.current = setTimeout(() => {
@@ -3053,7 +3118,7 @@ function HeldDieChip({
         fontWeight: armed ? 700 : 600,
       }}
     >
-      {armed ? '+' : ''}d{die.sides}
+      {die.help === true ? `${armed ? '+' : ''}HELP d${die.sides}` : `${armed ? '+' : ''}d${die.sides}`}
     </button>
   );
 }
@@ -3226,6 +3291,29 @@ function ControlRow({
             d{sides}
           </button>
         ))}
+        {/*
+         * The Help an Ally d6 is its own button because the engine needs to
+         * know: p49 pools it with the roller's own advantage die and adds
+         * only the highest, where every other held die is added on its own.
+         */}
+        <button
+          type="button"
+          className="chip"
+          onClick={() => {
+            addDie(6, true);
+            setPicking(false);
+          }}
+          title="An ally's advantage die: only the highest of all advantage dice counts, yours included"
+          style={{
+            flex: '1 0 auto',
+            minHeight: 'var(--control)',
+            minWidth: 'var(--control)',
+            background: 'var(--raised)',
+            color: 'var(--ok)',
+          }}
+        >
+          HELP d6
+        </button>
         <button
           type="button"
           className="chip"
@@ -3266,7 +3354,7 @@ function ControlRow({
     */
     <div className="row" style={{ minWidth: 0, gap: 6, flexWrap: 'wrap' }}>
       {/* A reaction roll resolves the same way and pays nothing: no Hope, no
-          Fear, and no cleared Stress on a critical. 38 adversaries and 9
+          Fear, and no cleared Stress on a critical. 97 adversaries and 26
           environments call for one, so this is a switch, not a footnote, and
           it leads the row because on a phone it is also the only thing
           saying which kind of roll this is. It still takes Experiences - the
@@ -3336,7 +3424,7 @@ function ControlRow({
         onClick={() => setPicking(true)}
         disabled={held.length >= MAX_HELD}
         aria-label="Hold a die for later rolls"
-        title="A Rally, Prayer, Slayer or Patron Die, or the d6 from Help an Ally"
+        title="A Rally, Prayer, Slayer or Patron Die added on its own, or a Help an Ally d6 - of which only the highest advantage die counts"
         style={{
           flex: 'none',
           minHeight: 'var(--control)',

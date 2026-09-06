@@ -68,7 +68,13 @@ import {
   SlotBoxes,
   Stepper as BuildStepper,
 } from '../../src/ui/build/parts.tsx';
-import { StepCards, StepEquipment, StepExperiences, Wizard } from '../../src/ui/build/Wizard.tsx';
+import {
+  StepCards,
+  StepEquipment,
+  StepExperiences,
+  StepRecord,
+  Wizard,
+} from '../../src/ui/build/Wizard.tsx';
 import { emptyDraft } from '../../src/ui/build/creation.ts';
 import { AddSheet } from '../../src/ui/gm/AddSheet.tsx';
 import { AdversaryRow, FilterBar, NO_FILTER } from '../../src/ui/gm/AdversaryList.tsx';
@@ -153,6 +159,7 @@ import { Onboarding } from '../../src/ui/onboarding/Onboarding.tsx';
 import { AnswerRow } from '../../src/ui/onboarding/parts.tsx';
 import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
+import { FeatureText } from '../../src/ui/shared/FeatureText.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { NameRefusal } from '../../src/ui/shared/NameRefusal.tsx';
@@ -540,7 +547,7 @@ const blockWithTable = (id: string): SectionBlock => {
   if (block === undefined) throw new Error(`the shipped ${id} section carries no table`);
   return block;
 };
-/** The Average Costs table, p.69: two columns, twelve rows. */
+/** The Average Costs table, p.91: two columns, twelve rows. */
 const costsTable = (): RuleTable => {
   const part = blockWithTable('giving-out-gold-equipment-and-loot').parts.find(
     (p) => p.kind === 'table',
@@ -591,6 +598,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // The gear step, with the class in hand: it is the class that decides whether
   // the burden sentence is true of this character, so a fixture without one
   // would mount the step with the one input its notes read left undefined.
+  'build/Wizard.tsx::StepRecord': () => <StepRecord draft={emptyDraft()} klass={dataset.classes[0]} />,
   'build/Wizard.tsx::StepEquipment': () => (
     <StepEquipment draft={emptyDraft()} set={noop} klass={dataset.classes[0]} />
   ),
@@ -911,6 +919,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'shared/CompatibleMark.tsx::CompatibleIcon': () => <CompatibleIcon />,
   'shared/CompatibleMark.tsx::Attribution': () => <Attribution />,
   'shared/DomainCardView.tsx::CardText': () => <CardText text="Mark a Stress to do a thing." />,
+  'shared/FeatureText.tsx::FeatureText': () => (
+    <FeatureText text={'You know these poisons:\n- Ghost Petal: Vulnerable.\n- Grave Spore: a Stress.'} />
+  ),
   'shared/DomainCardView.tsx::DomainCardView': () => <DomainCardView card={card()} />,
   'shared/DomainCardView.tsx::CardReader': () => <CardReader card={card()} onClose={noop} />,
   'shared/DomainMark.tsx::DomainMark': () => <DomainMark domain="blade" />,

@@ -237,7 +237,7 @@ describe('the grant table in cardAllowance.ts', () => {
      * card". So the two mechanisms are held apart on purpose, and the reasoning
      * is written out above companionUpgrades in src/ui/shared/srdReference.ts,
      * which is where the eight options moved when the rules stream reached
-     * folio 18.
+     * folio 22.
      *
      * The list is pinned rather than merely counted so that a revision adding a
      * third companion-training feature lands here, in front of somebody, rather

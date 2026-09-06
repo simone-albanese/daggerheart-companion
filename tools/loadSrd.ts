@@ -295,7 +295,8 @@ export async function loadSrd(options: LoadOptions = {}): Promise<LoadedSrd> {
    * and U+200B "the characters that actually break a name comparison". Measured
    * on both books, they break nothing - SRD 2.0 holds one and four of them in
    * 224 pages, none inside any parsed name, and folding them into an 849-name
-   * census buys zero extra hits. The character that buys hits is U+2011. This
+   * census (SRD 1.0's record count; the run was not repeated over SRD 2.0's
+   * 1451) buys zero extra hits. The character that buys hits is U+2011. This
    * is a text repair worth three visible defects, not a matching fix.
    *
    * A no-op on SRD 1.0, which contains neither, so `data/srd-1.0.json` is

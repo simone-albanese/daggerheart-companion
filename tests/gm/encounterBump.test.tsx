@@ -135,7 +135,7 @@ describe('what the builder says the bump does', () => {
 
   it('says the derived line instead when the bump is off', () => {
     render(createElement(Encounter, { phone: false }));
-    expect(text()).toContain('derived from the roster and cannot be toggled');
+    expect(text()).toContain('The round ones come from the roster');
     expect(text()).not.toContain(`This fight: ${BUMP!}`);
   });
 });

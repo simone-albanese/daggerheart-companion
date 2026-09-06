@@ -89,8 +89,8 @@ export function Recovery(): React.JSX.Element {
           did not come across on its own.
         </p>
         <p className="t-hint" style={{ marginTop: 10, color: 'var(--muted)' }}>
-          In Safari: <strong style={{ color: 'var(--text-2)' }}>Menu → Characters → Copy all
-          characters</strong>. Then come back here and tap Paste.
+          In Safari: <strong style={{ color: 'var(--text-2)' }}>Settings → Characters and backup →
+          Copy all characters</strong>. Then come back here and tap Paste.
         </p>
       </div>
 

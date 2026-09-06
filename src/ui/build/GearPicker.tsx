@@ -1,7 +1,7 @@
 /**
- * Picking gear out of 204 weapons, 34 armors and 120 items.
+ * Picking gear out of 391 weapons, 85 armors and 240 items.
  *
- * The card browser already answered this question for 189 domain cards, so
+ * The card browser already answered this question for 210 domain cards, so
  * this is that screen again rather than a second idea of what a filter looks
  * like: a search box, segmented controls, chip rows where empty means "any", a
  * count of what survived, and a CLEAR FILTERS that only exists once something
@@ -30,14 +30,14 @@
  * over in the fiction. What is refused is this app being the thing that puts
  * it on.
  *
- * TWO OF THE THREE PICKERS CAN ROLL. Weapons and armor carry a tier - all 204
- * and all 34 of them - so both take an `Rng` and put a RANDOM button in the
+ * TWO OF THE THREE PICKERS CAN ROLL. Weapons and armor carry a tier - all 391
+ * and all 85 of them - so both take an `Rng` and put a RANDOM button in the
  * count row, which draws from the rows the filters left standing THAT THIS
  * CHARACTER CAN EQUIP: dice in front of an act do not change what the act is,
  * and a randomiser that could equip what a tap cannot would be a second door
  * around the refusal, one control to the left of it. Loot and
  * consumables carry no tier at all, so `ItemPicker` takes no dice and offers
- * no such button: a "randomise by tier" control over 120 items with no tier
+ * no such button: a "randomise by tier" control over 240 items with no tier
  * would be a filter the dataset cannot honour, which on this screen is the
  * same defect as implying an absence that is not real. The counts and the
  * distribution are in `src/engine/randomGear.ts`; the placement, its cost and
@@ -50,9 +50,10 @@
  * (`PickerRow`'s `stamp`); the module axis also gets a two-state `Seg`
  * (`ModuleFilter`), and the product axis deliberately does not, because
  * `DECISIONI-SRD-2` §4 gives that one to Settings. Neither draws anything on
- * `data/srd-1.0.json`, which fences nothing: the 204 weapons, 34 armors and
- * 120 items above carry no `set` and no `module`, so this file is unchanged to
- * the pixel on the book it ships.
+ * `data/srd-1.0.json`, which fences nothing: its 204 weapons, 34 armors and
+ * 120 items carry no `set` and no `module`, so this file was unchanged to
+ * the pixel on that book. The shipped `data/srd-2.0.json` puts a `module` on
+ * 76 of the 391 weapons and 16 of the 85 armors, and a `set` on all 240 items.
  */
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
@@ -332,7 +333,7 @@ function PickerDialog({
           // What `max-height` was buying - a panel that shrinks to a short
           // list - it was not delivering: a flex item with `flex-basis: 0` and
           // `grow: 1` still contributes its max-content to the container's
-          // intrinsic height, so filtering 204 weapons to 5 left the panel at
+          // intrinsic height, so filtering SRD 1.0's 204 weapons to 5 left the panel at
           // 832 of 830 and Done at y788-832 on both sides of this change,
           // measured. The behaviour could only differ once the whole list fits,
           // and there `100%` is the one to want anyway: Done keeps its y
@@ -865,8 +866,8 @@ function ModuleFilter({
  *
  * Band 3 also happens to be where this control's *subject* is written down.
  * The randomiser draws from the rows the filters left standing, and the row it
- * sits in says how many those are - `12 OF 204`, an arm's length to its left.
- * "RANDOM" beside "12 OF 204" reads as "one of these twelve", which is exactly
+ * sits in says how many those are - `12 OF 391`, an arm's length to its left.
+ * "RANDOM" beside "12 OF 391" reads as "one of these twelve", which is exactly
  * what it does, and it needs no second copy of the tier that the lit TIER
  * chips are already showing. The screen reader, which gets no adjacency, gets
  * the whole sentence in `aria-label` - see `tierPhrase` in `gear.ts`.
@@ -887,7 +888,7 @@ function ModuleFilter({
  * overlay padding - 2 of border - 24 of band padding = **274px**; the two
  * buttons take 93.51 + 6 + 49.62 = 149.13 with a filter set, plus the spread's
  * own `--s3` gap of 8; and the longest count this dialog draws -
- * `204 OF 204 · DAMAGE AT PROFICIENCY 3`, 36 characters, 237.6px - wraps into
+ * `391 OF 391 · DAMAGE AT PROFICIENCY 3`, 36 characters, 237.6px - wraps into
  * the remaining 116.87px in three lines of 10px. 30px against a 44px floor.
  * (`RANDOM` is 6 characters of the 9.5px/0.06em `.chip` had then, which this
  * file derives at 6.27px each (7.26 at the 11px it is on a phone since the
@@ -972,7 +973,7 @@ function CountRow({
    *
    * Absent for loot and consumables, and absent by omission rather than by a
    * flag this row could get wrong: `ItemPicker` has no dice to pass in, because
-   * not one of the 60 loot entries or 60 consumables in `data/srd-1.0.json`
+   * not one of the 120 loot entries or 120 consumables in `data/srd-2.0.json`
    * carries a tier. See `randomGear.ts` for the counts.
    */
   random?: React.ReactNode;
@@ -1680,7 +1681,7 @@ export function GearSlot({
   empty: string;
   /**
    * The slot holds a ref this dataset does not print, with the words to say so
-   * - `WEAPON NOT IN THIS BUILD`, the same form the Play sheet uses for an
+   * - `WEAPON NOT IN THIS BOOK`, the same form the Play sheet uses for an
    * armor and a domain card. Null when the slot is genuinely empty, which is a
    * different fact and must not read as this one.
    */

@@ -25,6 +25,7 @@ import { COUNTDOWN_BEATS_MAX, COUNTDOWN_TEXT_MAX } from '../../shared/campaigns.
 import type { Adversary, Character } from '../../shared/types.ts';
 import { NO_FIGHT, combatant, sceneWith } from '../fixtures/factories.ts';
 import { newCharacter } from '../../src/engine/character.ts';
+import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 
 type Gm = typeof import('../../src/ui/gm/gmStore.ts');
 type Store = typeof import('../../src/store/campaigns.ts');
@@ -264,6 +265,7 @@ describe('the fight survives a reload, which is the promise this file has always
   it('collapses a burst of taps into one write', async () => {
     const spy = vi.spyOn(store, 'putCampaign');
     const s = gm.useGm.getState();
+    s.setFear(0); // the pool opens at 1 per PC (S8c-3); this counts taps from 0
     for (let i = 0; i < 8; i += 1) s.nudgeFear(1);
     await gm.flushGm();
     expect(spy).toHaveBeenCalledTimes(1);
@@ -489,7 +491,8 @@ describe('more than one campaign', () => {
     s().spawn(dungeon, adversary, 4);
 
     const second = await s().createCampaign('Ashes of Rivermarch');
-    expect(s().fear).toBe(0);
+    // S8c-3: a campaign opens at 1 Fear per PC (p87), read off the preference.
+    expect(s().fear).toBe(DEFAULT_PREFS.gmPartySize);
     // A new campaign has no plan, so it has nowhere a fight could be: the
     // pointer is null and the selector answers for it rather than throwing.
     expect(s().session).toEqual([]);
@@ -525,7 +528,7 @@ describe('more than one campaign', () => {
     expect(s().fear).toBe(6);
     const onDisk = (await store.readCampaigns()).campaigns;
     expect(onDisk.find((c) => c.id === first)!.fear).toBe(6);
-    expect(onDisk.find((c) => c.id === second.id)!.fear).toBe(0);
+    expect(onDisk.find((c) => c.id === second.id)!.fear).toBe(DEFAULT_PREFS.gmPartySize);
   });
 
   it('does nothing when asked to switch to a campaign that is not here', async () => {
@@ -900,8 +903,8 @@ describe('the snapshot the backup reads', () => {
       'acid-burrower',
     ]);
     // The debounce is 400 ms and nothing has flushed, so the disk still holds
-    // the campaign as it was created.
-    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(0);
+    // the campaign as it was created - at 1 Fear per PC (S8c-3).
+    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(DEFAULT_PREFS.gmPartySize);
 
     await gm.flushGm();
     expect(gm.snapshotCampaigns()!.campaigns[0]!.fear).toBe(9);
@@ -919,7 +922,7 @@ describe('the snapshot the backup reads', () => {
     expect(s().writeError).not.toBeNull();
 
     expect(gm.snapshotCampaigns()!.campaigns[0]!.fear).toBe(9);
-    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(0);
+    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(DEFAULT_PREFS.gmPartySize);
     spy.mockRestore();
   });
 

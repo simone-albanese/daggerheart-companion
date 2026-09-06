@@ -17,14 +17,18 @@ export interface SwapCheck {
   /** True when the player has the Stress to pay - they may still choose to. */
   affordable: boolean;
   /**
-   * Hit Points this recall would mark, because the Stress track is full.
+   * Hit Points this recall would mark, because the Stress track cannot take
+   * the whole cost.
    *
-   * `markStress` spends Stress until the track is full and then spends Hit
-   * Points, which is the SRD's rule for marking Stress you cannot pay - and it
-   * is the half of the cost `affordable` only hints at. No UI read `affordable`
-   * for the first year of this file's life, so a recall at 6/6 Stress marked
-   * HP without asking; at 5/6 HP that is the sixth Hit Point, `hasFallen`, and
-   * a death move offered for tapping a card. 158 of the 189 SRD cards have a
+   * `markStress` marks the Stress that fits and then ONE Hit Point for the
+   * rest, whatever its size - SRD 2 p50: *"When a character must mark 1 or
+   * more Stress but can't, they mark 1 HP instead."* So this is 1 or 0, never
+   * the size of the shortfall; it used to be the shortfall, which overcharged
+   * by up to 3 HP (83 of the 210 SRD 2 cards recall for 2 or more). It is the
+   * half of the cost `affordable` only hints at. No UI read `affordable` for
+   * the first year of this file's life, so a recall at 6/6 Stress marked HP
+   * without asking; at 5/6 HP that is the sixth Hit Point, `hasFallen`, and a
+   * death move offered for tapping a card. 177 of the 210 SRD 2 cards have a
    * recall cost of 1 or more, so this is not a corner.
    *
    * Zero whenever `affordable` is true, and zero whenever the recall is not
@@ -61,17 +65,22 @@ export function canAddToLoadout(
   const free = Math.max(0, c.stress.max - c.stress.marked);
   /*
    * Costed the way `markStress` actually spends, rather than by a second rule
-   * that agrees with it today. Stress first, then Hit Points, and the Hit
-   * Points stop at the end of the track: a character with nothing left to mark
-   * pays nothing more, which is `markStress`'s own behaviour and not a
-   * rounding of it.
+   * that agrees with it today. Stress first, then one Hit Point for any
+   * remainder (p50), and that Hit Point is not promised when the HP track is
+   * already full: a character with nothing left to mark pays nothing more,
+   * which is `markStress`'s own behaviour and not a rounding of it.
+   *
+   * Still `allowed` with the Stress track full. BACKLOG P1-2 decided that:
+   * whether a vault recall is a "move" under p50's *"can't use a move that
+   * requires them to mark Stress"* is a table ruling, so the screens ask for
+   * an informed second tap rather than refusing.
    */
   const overflow = Math.max(0, stressCost - free);
   return {
     allowed: true,
     stressCost,
     affordable: overflow === 0,
-    hpCost: Math.min(overflow, Math.max(0, c.hp.max - c.hp.marked)),
+    hpCost: overflow > 0 && c.hp.marked < c.hp.max ? 1 : 0,
     reason: null,
   };
 }

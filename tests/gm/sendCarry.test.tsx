@@ -216,7 +216,7 @@ describe('what SEND says about where the fight opens', () => {
     render(createElement(Encounter, { phone: false }));
     const seen = text();
     expect(seen).toContain('a-layer-not-loaded');
-    expect(seen).toContain('NOT IN THIS DATASET');
+    expect(seen).toContain('NOT IN THIS BOOK');
     // Not one of the nineteen it *could* have reached for. The board still
     // carries the ref and the fight still opens with it; what this build cannot
     // do is say the place's name, and it does not.
@@ -369,7 +369,7 @@ describe('the sentence and the button agree', () => {
 
     const seen = text();
     expect(seen).toContain('OPENS IN a-layer-not-loaded');
-    expect(seen).toContain('NOT IN THIS DATASET');
+    expect(seen).toContain('NOT IN THIS BOOK');
     // Neither destination's clause. This is the branch that does not split,
     // and asserting the absence of both is what says so.
     expect(seen).not.toContain("THE OPEN SCENE'S OWN PLACE");
@@ -463,9 +463,9 @@ describe('the bestiary’s own way onto the table', () => {
  * tests, which mount the same screen for an unrelated reason.
  *
  * What is pinned is that the row states a Difficulty it cannot give as a
- * number instead of dropping the field. Two environments print
- * `Difficulty: Special` in the book, Ambushed and Ambushers, and
- * `shared/parsers/environments.ts:37-43` stores that as 0 because
+ * number instead of dropping the field. Three environments print
+ * `Difficulty: Special` in SRD 2.0 - Ambushed and Ambushers (p161) and Duel
+ * (p168) - and `shared/parsers/environments.ts` stores that as 0 because
  * `Environment.difficulty` is a `number`. A row that answered by going quiet
  * read as a row whose data had gone missing.
  */
@@ -492,7 +492,7 @@ describe('what the environment list says about a Difficulty it has no number for
     return found;
   };
 
-  it('is the two the book writes as Special, and only those two', () => {
+  it('is the three the book writes as Special, and only those three', () => {
     // The fixture is the shipped SRD, so this is the dataset's own answer and
     // not a hand-kept list. If a layer ever adds a third, the row below covers
     // it too - what would break here is only this test's own arithmetic.
@@ -504,7 +504,7 @@ describe('what the environment list says about a Difficulty it has no number for
     openList();
     for (const e of special) {
       expect(rowFor(e.name).textContent, `${e.name} said nothing about its Difficulty`).toContain(
-        'DIF SPECIAL',
+        'DIFF SPECIAL',
       );
     }
   });
@@ -512,7 +512,7 @@ describe('what the environment list says about a Difficulty it has no number for
   it('never prints a 0 anybody could read as a Difficulty', () => {
     openList();
     for (const e of special) {
-      expect(rowFor(e.name).textContent).not.toContain('DIF 0');
+      expect(rowFor(e.name).textContent).not.toContain('DIFF 0');
     }
   });
 
@@ -527,7 +527,7 @@ describe('what the environment list says about a Difficulty it has no number for
     expect(events.length).toBe(10);
     for (const e of numbered) {
       expect(rowFor(e.name).textContent, `${e.name} lost its Difficulty`).toContain(
-        `DIF ${String(e.difficulty)}`,
+        `DIFF ${String(e.difficulty)}`,
       );
     }
   });

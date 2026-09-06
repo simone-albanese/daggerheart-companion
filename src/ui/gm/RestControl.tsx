@@ -1,7 +1,7 @@
 /**
  * The rest, from the GM's side of the table.
  *
- * `downtime` p.41: *"On a short rest, the GM gains 1d4 Fear. On a long rest,
+ * `downtime` p.52: *"On a short rest, the GM gains 1d4 Fear. On a long rest,
  * they gain Fear equal to 1d4 + the number of PCs, and they can advance a
  * long-term countdown of their choice."* Both halves of that sentence are the
  * GM's, and until now neither of them arrived here. `Rest.tsx` on the player's

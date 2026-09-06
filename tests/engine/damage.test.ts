@@ -373,28 +373,46 @@ describe('markStress', () => {
     expect(r.character.stress.marked).toBe(1);
   });
 
-  it('converts to HP once every Stress slot is full', () => {
+  /*
+   * SRD 2 p50, Stress: "When a character must mark 1 or more Stress but can't,
+   * they mark 1 HP instead." One Hit Point stands in for the WHOLE unpayable
+   * obligation, not for each point of it. This used to loop per point, so a
+   * cost of 2 at a full track marked 2 HP and a cost of 3 at 5/6 marked
+   * 1 Stress and 2 HP - a harsher rule than the sentence states, and one no
+   * docblock had chosen on purpose.
+   */
+  it('marks exactly one HP for an obligation it cannot pay at all (p50)', () => {
     const c = makeCharacter({
       stress: { marked: 6, max: 6 },
       hp: { marked: 0, max: 6 },
     });
     const r = markStress(c, 2);
     expect(r.stressMarked).toBe(0);
-    expect(r.hpMarked).toBe(2);
-    expect(r.character.hp.marked).toBe(2);
+    expect(r.hpMarked).toBe(1);
+    expect(r.character.hp.marked).toBe(1);
     expect(r.character.stress.marked).toBe(6);
   });
 
-  it('fills the Stress track first and spills the rest into HP', () => {
+  it('marks the Stress it can and then one HP for the remainder, whatever its size (p50)', () => {
     const c = makeCharacter({
       stress: { marked: 5, max: 6 },
       hp: { marked: 0, max: 6 },
     });
     const r = markStress(c, 3);
     expect(r.stressMarked).toBe(1);
-    expect(r.hpMarked).toBe(2);
+    expect(r.hpMarked).toBe(1);
     expect(r.character.stress.marked).toBe(6);
-    expect(r.character.hp.marked).toBe(2);
+    expect(r.character.hp.marked).toBe(1);
+  });
+
+  it('marks no HP at all when the whole cost fits in Stress', () => {
+    const c = makeCharacter({
+      stress: { marked: 3, max: 6 },
+      hp: { marked: 0, max: 6 },
+    });
+    const r = markStress(c, 3);
+    expect(r.stressMarked).toBe(3);
+    expect(r.hpMarked).toBe(0);
   });
 
   it('stops at the last Hit Point rather than going past it', () => {
@@ -480,11 +498,12 @@ describe('combatantHit', () => {
   });
 
   /*
-   * The no-thresholds branch. Sixteen adversaries in the shipped dataset carry
-   * `thresholds: null` and every one of them is a Minion; what the book says
-   * about them is that any damage defeats one, which is not a rung on the
-   * ladder. So `severity` is null rather than a severity this file made up,
-   * and one point of damage takes the whole track.
+   * The no-thresholds branch. Twenty-eight adversaries in the shipped SRD 2.0
+   * dataset carry `thresholds: null` and every one of them is a Minion; what
+   * the book says about them (p94) is that any damage defeats one, which is
+   * not a rung on the ladder. So `severity` is null rather than a severity
+   * this file made up, and - for a body nobody is counting - one point of
+   * damage takes the whole track. A counted group is the case after this one.
    */
   it('defeats an adversary with no thresholds on any damage at all, and gives it no severity', () => {
     const hit = combatantHit(1, { thresholds: null, hp: { marked: 0, max: 1 } }, {
@@ -547,16 +566,64 @@ describe('combatantHit', () => {
     expect(hit.minionsRemaining).toBe(0);
   });
 
-  it('does no Minion arithmetic at all without a divisor', () => {
+  /*
+   * A counted group and no divisor - the adversary this dataset cannot
+   * resolve. This used to pin `minionsDefeated: 0`, "no Minion arithmetic at
+   * all", and that was the divisor's rule applied to a number that is not the
+   * divisor's: the body that took the hit falls under p94's "defeated when
+   * they take any damage" whatever N is. What stays guessed-at-nothing is the
+   * OVERKILL - `floor(amount / N)` needs an N, and without one 9 and 30 defeat
+   * exactly as many as 1 does.
+   */
+  it('defeats one body without a divisor, and guesses no overkill', () => {
     for (const amount of [1, 9, 30]) {
       const hit = combatantHit(
         amount,
         { thresholds: null, hp: { marked: 0, max: 1 }, minionsRemaining: 4 },
         { massiveDamageRule: false },
       );
-      expect(hit.minionsDefeated).toBe(0);
-      expect(hit.minionsRemaining).toBe(4);
+      expect(hit.minionsDefeated).toBe(1);
+      expect(hit.minionsRemaining).toBe(3);
     }
+  });
+
+  /*
+   * The group's HP track is the one box each body has, and a hit on the group
+   * takes a body, not the box. Before this the first point of damage filled
+   * the track (`marked: 1` of 1) with three bodies still standing, and the
+   * card read DEFEATED off that box; and when the count did reach 0 the box
+   * was still empty, so it never read DEFEATED at all. `defeated` on a counted
+   * group is the count reaching 0, and nothing else.
+   */
+  it('leaves a counted group’s HP track alone and reads defeat off the count', () => {
+    const one = combatantHit(
+      1,
+      { thresholds: null, hp: { marked: 0, max: 1 }, minionsRemaining: 4 },
+      { massiveDamageRule: false, minionGroup: 3 },
+    );
+    expect(one.hp).toBe(0);
+    expect(one.marked).toBe(0);
+    expect(one.minionsDefeated).toBe(1);
+    expect(one.minionsRemaining).toBe(3);
+    expect(one.defeated).toBe(false);
+    expect(one.explanation).toContain('a body falls');
+
+    const all = combatantHit(
+      30,
+      { thresholds: null, hp: { marked: 0, max: 1 }, minionsRemaining: 4 },
+      { massiveDamageRule: false, minionGroup: 3 },
+    );
+    expect(all.marked).toBe(0);
+    expect(all.minionsRemaining).toBe(0);
+    expect(all.defeated).toBe(true);
+
+    // And a group already at 0 is defeated before any number is typed.
+    const spent = combatantHit(
+      0,
+      { thresholds: null, hp: { marked: 0, max: 1 }, minionsRemaining: 0 },
+      { massiveDamageRule: false, minionGroup: 3 },
+    );
+    expect(spent.defeated).toBe(true);
   });
 
   it('leaves `minionsRemaining` undefined when nothing was counting them', () => {
@@ -587,7 +654,7 @@ describe('combatantHit', () => {
  * file already answers, free to drift from the player's side of the same
  * screen.
  *
- * That an adversary gets the condition at all is a reading of p.71 rather than
+ * That an adversary gets the condition at all is a reading of p.93 rather than
  * a quotation, taken by the owner on 2026-08-26
  * (`DECISIONI-2026-08-25.md` section 17). The dataset carries both halves: the
  * `stress` section says a character who marks their last Stress becomes

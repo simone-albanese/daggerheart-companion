@@ -2,9 +2,9 @@
 /**
  * RANDOM, on the two pickers whose data can honour it.
  *
- * The feature is deliberately narrower than its name. `data/srd-1.0.json`
- * gives all 204 weapons and all 34 sets of armor a tier and gives none of the
- * 60 loot entries or 60 consumables one - counted in
+ * The feature is deliberately narrower than its name. `data/srd-2.0.json`
+ * gives all 391 weapons and all 85 sets of armor a tier and gives none of the
+ * 120 loot entries or 120 consumables one - counted in
  * `tests/engine/randomGear.test.ts`, which is where that premise is pinned -
  * so a "randomise by tier" control over loot would be offering a filter the
  * dataset cannot answer. This file holds the surface to that: the button is on
@@ -184,7 +184,7 @@ const weapons = dataset.weapons;
 const armors = dataset.armors;
 /**
  * The picker opens on a slot and pre-applies it - `weaponQuery('primary')` -
- * so 167 of the 204 weapons are on screen before anything is tapped. Every
+ * so 291 of the 391 weapons are on screen before anything is tapped. Every
  * count below is against that, because that is what the dialog is showing.
  */
 const primaries = weapons.filter((w) => w.slot === 'primary');
@@ -270,7 +270,7 @@ describe('which pickers offer it', () => {
   });
 
   /**
-   * The glass says "one of these 12" by putting RANDOM next to `12 OF 204`. A
+   * The glass says "one of these 12" by putting RANDOM next to `12 OF 391`. A
    * screen reader is read the label and never the neighbour, so the label has
    * to carry both facts on its own.
    *

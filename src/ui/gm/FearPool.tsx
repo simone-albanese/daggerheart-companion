@@ -196,6 +196,14 @@ export function FearBoard({ phone }: { phone: boolean }): React.JSX.Element {
           MAXIMUM {MAX_FEAR} · TAP TO SET
         </span>
       </div>
+      {/* The one thing the pool's own rules say about its opening value, said
+          where the GM sets it: a new campaign is minted at 1 Fear per PC
+          (`openingFear` in the store), and a GM who resets the pool by hand
+          should know what the book opens it at. The app's words; the
+          sentence itself is quoted one fold down. */}
+      <span className="t-meta" style={{ color: 'var(--muted)' }}>
+        A NEW CAMPAIGN OPENS AT 1 FEAR PER PC, AS THE BOOK SAYS
+      </span>
       {/* Twelve in a row across a phone is a 21px target. Two rows of six is
           the same pool at 50-odd px, and 6 + 6 still reads as one twelve. */}
       <div className={phone ? 'stack' : 'row'} style={{ gap: phone ? 10 : 14 }}>

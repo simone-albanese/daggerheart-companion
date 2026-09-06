@@ -128,22 +128,23 @@ export type CardVariant = 'showcase' | 'reading';
  *
  * Counted in lines rather than pixels because the thing that decides whether a
  * card fits is its measure, not its height, and the measure is set by whatever
- * grid the card lands in. Measured against the real SRD - 189 cards, median
- * 275 characters, longest 655 - at 13px Archivo, which was `--read-size` when
- * the count was chosen:
+ * grid the card lands in. Measured against the real SRD - 210 cards, median
+ * 278 characters, longest 655 - at 13px Archivo, which was `--read-size` when
+ * the count was chosen, with the wrapping model in
+ * `tests/ui/domainCardView.test.ts`:
  *
  *   text column                | 10 lines |  12  |  14  |  16
  *   -------------------------- | -------- | ---- | ---- | ----
- *   155px (2 up on a phone)         41%   |  56% |  63% |  67%
- *   295px (3 up on a desktop)       81%   |  89% |  96% | 100%
- *   342px (1 up on a phone)         81%   |  93% | 100% | 100%
+ *   155px (2 up on a phone)         40%   |  53% |  60% |  70%
+ *   295px (3 up on a desktop)       77%   |  90% |  97% | 100%
+ *   342px (1 up on a phone)         83%   |  93% | 100% | 100%
  *
- * (share of the 27 level 1 cards - the ones creation actually offers - shown
+ * (share of the 30 level 1 cards - the ones creation actually offers - shown
  * whole.) Fourteen is where a one-column phone shows every candidate entire
- * and a three-column desktop shows all but one. Two of the 189 - the two
- * longest Grimoires - still run over at any measure a card grid can give
- * them, which is why the reader stays and why the "there is more" line is not
- * dead code.
+ * and a three-column desktop shows all but one. One of the 210 - Book of
+ * Vagras, the longest Grimoire - still runs over at any measure a card grid
+ * can give it, which is why the reader stays and why the "there is more" line
+ * is not dead code.
  *
  * THE TABLE IS AT 13PX AND THE ROLE IS 16PX NOW (15 from 720px). The
  * readability ramp raised `--read-size` from 13px to 1rem and `--read-lh`

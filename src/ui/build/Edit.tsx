@@ -233,15 +233,20 @@ export function Edit({
                     primary,
                     level: character.level,
                     ignoresBurden: ignoring,
+                    spellcastTrait: stats.spellcastTrait,
                   })}
                   empty={`Search ${dataset.weapons.length} weapons`}
                   unresolved={
                     missing.primary === null
                       ? null
-                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.primary }
+                      : { banner: 'WEAPON NOT IN THIS BOOK', ref: missing.primary }
                   }
                   onOpen={() => setPicking('primary')}
-                  onClear={() => patch({ activePrimaryWeapon: null })}
+                  onClear={() => {
+                    patch({ activePrimaryWeapon: null });
+                    // A Protective axe put down is Armor Score gone: resync.
+                    normalizeActive();
+                  }}
                 />
                 <GearSlot
                   label="Secondary weapon"
@@ -262,15 +267,20 @@ export function Edit({
                     primary,
                     level: character.level,
                     ignoresBurden: ignoring,
+                    spellcastTrait: stats.spellcastTrait,
                   })}
                   empty="Optional"
                   unresolved={
                     missing.secondary === null
                       ? null
-                      : { banner: 'WEAPON NOT IN THIS BUILD', ref: missing.secondary }
+                      : { banner: 'WEAPON NOT IN THIS BOOK', ref: missing.secondary }
                   }
                   onOpen={() => setPicking('secondary')}
-                  onClear={() => patch({ activeSecondaryWeapon: null })}
+                  onClear={() => {
+                    patch({ activeSecondaryWeapon: null });
+                    // A shield put down is Armor Score gone: resync.
+                    normalizeActive();
+                  }}
                 />
                 <GearSlot
                   label="Armor"
@@ -281,7 +291,7 @@ export function Edit({
                   unresolved={
                     stats.unresolvedArmor === null
                       ? null
-                      : { banner: 'ARMOR NOT IN THIS BUILD', ref: stats.unresolvedArmor }
+                      : { banner: 'ARMOR NOT IN THIS BOOK', ref: stats.unresolvedArmor }
                   }
                   onOpen={() => setPicking('armor')}
                   onClear={() => {
@@ -373,6 +383,20 @@ export function Edit({
                   ? { activePrimaryWeapon: ref }
                   : { activeSecondaryWeapon: ref },
               );
+              /*
+               * THE ARMOR TRACK FOLLOWS THE HANDS AS WELL AS THE ARMOR.
+               *
+               * `deriveStats` prices a shield's Barrier and a Labrys Axe's
+               * Protective into `armorScore` (the register in
+               * `engine/modifiers.ts`), and the header above reads that number
+               * live. Play's ARMOR counter and the damage calculator read the
+               * STORED `armorSlots.max`, which only `syncCounters` writes - and
+               * this pick ran `patch()` alone, where the armor pick below has
+               * always run `normalizeActive()` too. So a Tower Shield taken here
+               * left the header on 5 and the track on 3, and putting it down
+               * left two slots nothing was worn for. Same call, same reason.
+               */
+              normalizeActive();
               setPicking(null);
             }}
             onClose={() => setPicking(null)}
@@ -468,7 +492,7 @@ function TransformationSection({
           style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
         >
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
-            TRANSFORMATION NOT IN THIS BUILD
+            TRANSFORMATION NOT IN THIS BOOK
           </span>
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {ref}
@@ -849,7 +873,8 @@ function StancesSection({
    * and that half is the one that matters, because a hard gate on the subclass
    * would make those refs invisible AND UNDROPPABLE. A sheet that arrived from
    * another device, or one whose subclass was chosen differently, would keep
-   * writing `stanceRefs` to storage with no screen willing to show them. That
+   * writing `stanceRefs` to storage with no screen willing to show them - the
+   * printed sheet lists them, and a page is not somewhere to drop one. That
    * is the same rule the unresolved-ref rows below are built on: nothing this
    * app cannot use is hidden, because hidden is how a thing becomes impossible
    * to remove.
@@ -973,7 +998,7 @@ function StancesSection({
           style={{ gap: 5, padding: '10px 12px', borderLeft: '3px solid var(--damage)' }}
         >
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
-            STANCE NOT IN THIS BUILD
+            STANCE NOT IN THIS BOOK
           </span>
           <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
             {ref}
@@ -992,7 +1017,7 @@ function StancesSection({
             className="btn btn-ghost"
             aria-label={
               isArmed(ref)
-                ? `Drop it — tap again to confirm. This ref cannot be added back.`
+                ? `Drop it — tap again to confirm. It cannot be added back on this screen.`
                 : `Drop it`
             }
             style={{
@@ -1074,7 +1099,7 @@ function StancesSection({
                     className="btn btn-ghost"
                     aria-label={
                       live
-                        ? `Drop ${s.name} — tap again to confirm. This sheet has no picker to put it back.`
+                        ? `Drop ${s.name} — tap again to confirm. It cannot be added back on this screen.`
                         : `Drop ${s.name}`
                     }
                     onClick={() => {
@@ -1107,8 +1132,8 @@ function StancesSection({
                       className="t-meta"
                       style={{ flex: '0 0 100%', color: 'var(--damage)', lineHeight: 1.4 }}
                     >
-                      TAP ✕ AGAIN TO DROP {s.name.toUpperCase()} — THIS SHEET HAS NO PICKER TO PUT
-                      IT BACK
+                      TAP ✕ AGAIN TO DROP {s.name.toUpperCase()} — IT CANNOT BE ADDED BACK ON THIS
+                      SCREEN
                     </span>
                   )}
                 </div>
