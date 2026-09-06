@@ -10,7 +10,7 @@
  * when there is a countdown for a button to move. Those are the questions a GM
  * knows they have. This is the other kind: a phrase off a page, half
  * remembered, wanted now. It covers every section `dataset.rules` carries -
- * sixty-nine in the shipped SRD - and draws every one of them through
+ * eighty-two in the shipped SRD - and draws every one of them through
  * `BlockView`, which is already this app's single drawing of a section
  * somebody chose: the GM chapter's five folds use it, the adversary
  * Experiences put their lead block through it, the costs topic beside them
@@ -84,15 +84,15 @@
  * they take it on purpose.
  *
  * **A block was as fine as this landed, and where the SRD draws a section as
- * one block that was the section's top.** 34 of the 69 shipped sections resolve
- * to a single block - 33 carry no `## ` at all, and `the-basics` opens with its
+ * one block that was the section's top.** 42 of the 82 shipped sections resolve
+ * to a single block - 41 carry no `## ` at all, and `the-basics` opens with its
  * only one, so it has no prose above the heading to make a second - so a hit
  * inside one arrived at the block the section had already begun with, and the
  * GM was brought to the top of their section rather than to their line. That is
  * what the `land` prop ends: the ref goes on the `<p>` or the `<li>` the line
  * actually is, and the widest of those sections - `using-fear`, one block of
  * twelve parts - is twelve parts the GM no longer scrolls past.
- * `ruleSearch.test.tsx` pins the 34 rather than leaving it to age.
+ * `ruleSearch.test.tsx` pins the 42 rather than leaving it to age.
  *
  * **"A *bullet* could be landed on ... while a prose *line* could not be landed
  * on at all until that `<p>` stops being one node per paragraph" is withdrawn,
@@ -138,8 +138,8 @@
  * anyway.
  *
  * The middle band came with the multi-term matcher, and it earns a header
- * rather than being folded into the text: the SRD keeps 156 `## ` subheads
- * across 36 of its 69 sections, so `fear` now draws three bands where it drew
+ * rather than being folded into the text: the SRD keeps 179 `## ` subheads
+ * across 41 of its 82 sections, so `fear` now draws three bands where it drew
  * two, and a subhead names a rule in the same way a title does. `searchRules`
  * argues that at greater length; this file pays for it in a 10px header.
  *
@@ -164,7 +164,7 @@
  *
  * **It is above rather than below, and that is the whole of it.** The band
  * exists for the query this search answers correctly and uselessly: `surrender`
- * is in none of the sixty-nine sections, and so are `concede`, `chase`,
+ * is in none of the eighty-two sections, and so are `concede`, `chase`,
  * `difficulty roll`, `nearly impossible` and `lines and veils` - all six
  * measured against the shipped text, all six things a GM says out loud at a
  * table. Below the list, a question a GM has to scroll nineteen hits to reach
@@ -377,7 +377,7 @@
  *
  * ## The preview is windowed around every mark, bounded, and says where it cut
  *
- * 255 of the 869 non-empty body lines in the shipped SRD are longer than the
+ * 296 of the 961 non-empty body lines in the shipped SRD are longer than the
  * 150 characters `BEFORE + AFTER` keeps, and the longest is 747. (It was 294 of
  * 969 and 780 while the dataset still carried the Witherwild frame; the three
  * counts are re-taken against the file that ships, and only the counts moved.
@@ -388,9 +388,9 @@
  * front of a line, and it skips a pipe row outright rather than stripping it -
  * `if (text.startsWith('|')) { inTable = true; continue; }` - so a table row
  * never becomes a `line` and never reaches this function. In the unit `preview`
- * actually receives, then, the population is **769** lines, **227** of them
+ * actually receives, then, the population is **861** lines, **268** of them
  * over 150, and the longest is **745**: the two characters off 747 are the
- * bullet on `Avoid Death:`, and the hundred lines off 869 are the book's pipe
+ * bullet on `Avoid Death:`, and the hundred lines off 961 are the book's pipe
  * rows. It read "253 lines over 150, counted the way `preview` sees them",
  * which is a third unit - markup stripped but pipe rows still counted - and one
  * `preview` never sees either.)
@@ -434,10 +434,10 @@
  * not in it**. What pays for a line whose words are far apart is the book
  * *between* the marks: `shares` hands the gaps whatever the budget has left,
  * `bridge` elides what will not fit, and every word the GM typed and the line
- * carries is still drawn, marked, in the book's own case. Swept over **2,142**
+ * carries is still drawn, marked, in the book's own case. Swept over **2,382**
  * queries built from every body line the shipped file has, the longest preview
  * is **199** characters where the old window drew **745**, no preview keeps
- * more than 150 characters of book, and not one of the 2,142 loses a mark.
+ * more than 150 characters of book, and not one of the 2,382 loses a mark.
  * `ruleSearch.test.tsx` runs that sweep on every run, which is why those are
  * the figures quoted here rather than the ones a probe took once.
  *
@@ -682,10 +682,10 @@ function shares(gaps: readonly number[], budget: number): number[] {
  *    spent first because it is the only part of the preview that carries none
  *    of the GM's words and does not join two that it carries.
  *
- * Swept over 2,142 queries built from every body line in the shipped file - the
+ * Swept over 2,382 queries built from every body line in the shipped file - the
  * sweep is in `ruleSearch.test.tsx` and runs on every test run - the longest
  * preview this draws is **199** characters against the old window's **745**, no
- * preview keeps more than 150 characters of book, and not one of the 2,142
+ * preview keeps more than 150 characters of book, and not one of the 2,382
  * loses a mark. A second pair stood in front of that, 189 against 407, counted
  * over the thirty-query set instead; both are withdrawn with the rest of that
  * set's figures, because the set is not in this repository and the sweep beside
@@ -886,7 +886,7 @@ export function RuleSearchField({
    * The app's word and never the book's, like every other label here. The
    * default is what the GM sheet has always said - and it is worth writing
    * down that the default *undercounts* what that sheet searches, because the
-   * same field has driven the 780 records since the index landed. Correcting
+   * same field has driven the index's records - 780 when it landed, 1369 now. Correcting
    * it is a change to the GM screen's copy rather than to this door, and it is
    * pinned by `ruleSearch.test.tsx`; it is named here so the next reader finds
    * it noted rather than finds it new.
@@ -1247,8 +1247,8 @@ function useAskCatalogue(enabled: boolean): readonly AskEntry[] {
  *
  * ## Two searches, and which one gets the sections
  *
- * `searchRules` keeps the 69 rules sections and `searchSrd` takes the other
- * 780, and that split is not bookkeeping. A rules hit can be **landed in**: the
+ * `searchRules` keeps the 82 rules sections and `searchSrd` takes the other
+ * 1369, and that split is not bookkeeping. A rules hit can be **landed in**: the
  * band promises a subhead or a line, `landingIn` finds where that line is drawn
  * inside `ruleSection`'s blocks, and `BlockView` scrolls the GM to it and lights
  * their words in it. All of that machinery is about a `SectionView`, which is
@@ -1258,7 +1258,7 @@ function useAskCatalogue(enabled: boolean): readonly AskEntry[] {
  * to meet it.
  *
  * The index is filtered rather than the hits, and one line of filter saves the
- * expensive half of the work: searching all 849 would re-split the 100,165
+ * expensive half of the work: searching all 1451 would re-split the 113,840
  * characters of section bodies on every keystroke to produce hits this
  * component would then throw away.
  *
@@ -1352,7 +1352,7 @@ export function RuleSearchResults({
   const dataset = useApp((s) => s.dataset);
   const rules = dataset.rules;
   /*
-   * All sixty-nine, always. This searched a scoped subset for one release -
+   * All eighty-two, always. This searched a scoped subset for one release -
    * the search screen opened narrowed to the character's own material - and
    * the owner took that back: the search is global, and a screen that reads
    * the book reads the book.
@@ -1417,7 +1417,7 @@ export function RuleSearchResults({
     () => (browsing ? membership : searchRules(searched, query)),
     [searched, query, browsing, membership],
   );
-  // The 780 the rules search cannot reach. See the header for why the index is
+  // The 1369 the rules search cannot reach. See the header for why the index is
   // filtered here rather than the hits it returns.
   const beyondRules = useMemo(
     () => srdIndex(dataset).filter((record) => record.kind !== 'rules'),
@@ -1682,7 +1682,7 @@ export function RuleSearchResults({
                   key={key}
                   hit={hit}
                   // Resolved only for the row that is open, which is at most
-                  // one: a walk of 780 per row per keystroke would be paying
+                  // one: a walk of 1369 per row per keystroke would be paying
                   // for twenty records to draw the fields of one.
                   record={
                     key === openId

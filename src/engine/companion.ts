@@ -27,7 +27,7 @@ import type { DatasetIndex } from './character.ts';
 import { characterFeatures } from './features.ts';
 import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
 
-/** Folio 18, steps 2-4: what a companion starts with. */
+/** Folio 21, steps 2-4: what a companion starts with. */
 export const COMPANION_START = {
   evasion: 10,
   /** Printed as checkboxes on the sheet, so it is editable rather than fixed. */
@@ -131,7 +131,7 @@ export function companionUpgradeAllowance(c: Character, ix: DatasetIndex): numbe
 /**
  * *"When they mark their last Stress, they drop out of the scene (by hiding,
  * fleeing, or a similar action). They remain unavailable until the start of
- * your next long rest, where they return with 1 Stress cleared."* Folio 18.
+ * your next long rest, where they return with 1 Stress cleared."* Folio 22.
  *
  * DERIVED AND NOT STORED. A full Stress track *is* the state - there is no
  * second way to be out of the scene and no way to be in it with the track full
@@ -151,7 +151,7 @@ export const companionIsAway = (companion: CompanionState): boolean =>
 
 /**
  * *"When you choose a downtime move that clears Stress on yourself, your
- * companion clears an equal number of Stress."* Folio 18.
+ * companion clears an equal number of Stress."* Folio 22.
  *
  * WHICH NUMBER, because the sentence does not quite say. "An equal number" can
  * be read as the number the move produced - `1d4+Tier`, whether or not you had

@@ -63,7 +63,7 @@
  *   with no rank at all.
  * - Three real openers are not drops. `INTRODUCTION` and `CHARACTER CREATION`
  *   are kept as sections, and `CORE MATERIALS` never reaches `SPECS` because
- *   folios 7-11 and 13-17 are outside `RANGES`.
+ *   folios 7-12, 14 and 16-20 are outside `rules.ts`'s `ISLANDS`.
  *
  * The parser matches heading *text*; chapters are a matter of heading *rank*.
  * So a hand-authored table is required, and the guard that keeps it honest is

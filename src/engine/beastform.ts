@@ -87,7 +87,7 @@ export function evolutionFeature(c: Character, ix: DatasetIndex): Feature | null
  * The damage a worn form's attack rolls, with Proficiency applied.
  *
  * *"When you make an attack while transformed, you use the creature's listed
- * range, trait, and damage dice, but you use your Proficiency"* - folio 12,
+ * range, trait, and damage dice, but you use your Proficiency"* - folio 15,
  * which the dataset carries as `beastform-options`. So a form's printed
  * `d12+10` is a die and a flat bonus exactly the way a weapon's is, and it goes
  * through the same two calls a weapon does. That is deliberate: `weaponDamage`

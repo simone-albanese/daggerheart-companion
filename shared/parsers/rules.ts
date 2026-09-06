@@ -492,13 +492,13 @@ const SPECS: readonly Spec[] = [
     start: 'DROPPING OUT OF STANCES',
   },
 
-  // Folio 12. The preamble only; `TIER 1` opens the stat cards, which are
+  // Folio 15. The preamble only; `TIER 1` opens the stat cards, which are
   // `parseBeastforms`'s and would otherwise flow into this section.
   { id: 'beastform-options', title: 'Beastform Options', start: 'BEASTFORM OPTIONS' },
   { start: 'TIER 1', drop: true },
 
-  // Folio 18, in the order the page is read: the sheet down column one, then
-  // the two boxes down column two.
+  // Folios 21-22, in the order the pages are read: the sheet down folio 21,
+  // then the two boxes down the left column of folio 22.
   { id: 'ranger-companion', title: 'Ranger Companion', start: 'RANGER COMPANION' },
   {
     id: 'working-with-your-companion',
@@ -731,8 +731,9 @@ const SPECS: readonly Spec[] = [
    *
    * One `drop` covers all eleven because the frame is the last thing in the
    * stream and every unit after this heading falls into it. What bounds that
-   * is not luck: `RANGES` ends at folio 118, so nothing past the frame is ever
-   * read. Extend the range and this spec starts swallowing whatever follows.
+   * is not luck: the last island ends at folio 189, so nothing past the frame
+   * is ever read. Extend the range and this spec starts swallowing whatever
+   * follows.
    */
   { start: 'The Witherwild', drop: true },
 ];

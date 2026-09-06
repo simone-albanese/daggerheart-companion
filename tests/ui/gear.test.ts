@@ -163,7 +163,7 @@ const search = (text: string): WeaponQuery => ({ ...weaponQuery(), search: text 
 // ---------------------------------------------------------------------------
 
 describe('the armoury these filters run over', () => {
-  it('is the whole SRD: 204 weapons, 34 armors, 60 pieces of loot and 60 consumables', () => {
+  it('is the whole SRD: 391 weapons, 85 armors, 120 pieces of loot and 120 consumables', () => {
     expect(weapons.length).toBe(391);
     expect(armors.length).toBe(85);
     expect(dataset.loot.length).toBe(120);
@@ -1169,7 +1169,7 @@ describe('the count on screen and the CLEAR FILTERS chip', () => {
     expect(weaponQueryChanged(base, base)).toBe(false);
     expect(filterWeapons(weapons, base, 1)).toHaveLength(100);
     // Widening to "Any" is a change, and clearing puts the slot back rather
-    // than opening the whole 204 onto an off-hand picker.
+    // than opening the whole 391 onto an off-hand picker.
     const widened: WeaponQuery = { ...base, slot: 'all' };
     expect(weaponQueryChanged(widened, base)).toBe(true);
     expect(filterWeapons(weapons, widened, 1)).toHaveLength(391);

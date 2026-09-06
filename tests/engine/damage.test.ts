@@ -654,7 +654,7 @@ describe('combatantHit', () => {
  * file already answers, free to drift from the player's side of the same
  * screen.
  *
- * That an adversary gets the condition at all is a reading of p.71 rather than
+ * That an adversary gets the condition at all is a reading of p.93 rather than
  * a quotation, taken by the owner on 2026-08-26
  * (`DECISIONI-2026-08-25.md` section 17). The dataset carries both halves: the
  * `stress` section says a character who marks their last Stress becomes

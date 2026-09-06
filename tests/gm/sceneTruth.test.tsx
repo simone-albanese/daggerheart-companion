@@ -209,7 +209,7 @@ describe('what the card says the thing wants, and where it says it', () => {
   });
 
   it('prints them for every adversary the book ships, not just the first', () => {
-    // 129 of 129 carry motives, which is what makes this one line rather than
+    // 264 of 264 carry motives, which is what makes this one line rather than
     // a line plus an empty arm nobody would ever see.
     expect(dataset.adversaries.filter((a) => a.motives.length > 0)).toHaveLength(
       dataset.adversaries.length,

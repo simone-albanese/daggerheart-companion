@@ -324,7 +324,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         or over 44. The floor is real - `minHeight: 44`, written on that button
         a few lines up this file - but only the three-line jump clears it, and
         three lines is not reachable at the wording that ships: the string runs
-        57 characters at its shortest and 118 at its longest over the whole
+        53 characters at its shortest and 124 at its longest over the whole
         book (the budget is worked out below), which is one line or two. So
         what the gate actually moved the grid by was up to 41.74px - 95% of a
         whole touch target, not more than one.
@@ -376,20 +376,22 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
         characters, and 63 even at a pessimistic 5.75 (367/5.75 = 63.8; it read
         64 while the column read 369). The longest string this can build over
-        the shipped book is 118: a three-digit count and `Burning Heart of the
-        Woods`, the longest of the 19 environment names. 118 is inside both
-        2 x 65 and 2 x 63, so it is still two lines at either figure, the
-        permanent cost is still 31.74px and 41.74 with the gap, and it still
+        the shipped book is 124: a three-digit count and `Convergence, the
+        City of Portals`, the longest of the 47 environment names. 124 is
+        inside both 2 x 65 and 2 x 63 - by two characters at the pessimistic
+        figure - so it is still two lines at either figure, the permanent cost
+        is still 31.74px and 41.74 with the gap, and it still
         never becomes three. The two pixels moved the character budget and left
         every conclusion drawn from it standing.
 
         Two lines is what the wording buys. The old sentence gave the
         environment its own clause - "X stays the environment. Fear and the
         countdowns stay as they are." - which over the same worst case (a
-        three-digit count and the same environment name) is 152 characters,
+        three-digit count and the same environment name) is 158 characters,
         past 2 x 65 and past 2 x 63 alike, so three lines at either figure.
-        ("151" stood here and was one character short.) Naming it inside the
-        list of what stays says the same thing in 118. The band directly above
+        ("152" stood here, measured over SRD 1.0's 19 names; "151" before it
+        was one character short.) Naming it inside the list of what stays says
+        the same thing in 124. The band directly above
         is labelled Environment and carries that name, so the list needs no
         second label for it.
 
@@ -731,9 +733,10 @@ function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Ele
  * A Minion group is the only combatant carrying a number no other card carries:
  * how many bodies are still standing. It had a row of its own - a `Stepper`
  * from the encounter builder, 60 tall, plus the card's 10px gap - and that put
- * the shut card at "541.00", 43 past the panel, on 16 of the book's 129
- * adversaries. That figure was written down here rather than fixed, because
- * choosing where the control went was a decision this lane had not been given.
+ * the shut card at "541.00", 43 past the panel, on 16 of SRD 1.0's 129
+ * adversaries (28 of SRD 2.0's 264 are Minions). That figure was written down
+ * here rather than fixed, because choosing where the control went was a
+ * decision this lane had not been given.
  *
  * IT WAS GIVEN ON 2026-08-25: the count joins DIF and the thresholds instead of
  * taking a row. The reason is conceptual before it is geometric - how many are
@@ -1058,7 +1061,7 @@ function CombatantCard({
           the same two-number test the player's own sheet reads through
           `isVulnerableFromStress`, so a full Stress track means the same thing
           on both sides of the screen - which is the whole of the owner's
-          decision 17 of 2026-08-26, and a reading of p.71 rather than a
+          decision 17 of 2026-08-26, and a reading of p.93 rather than a
           quotation.
 
           IT COSTS NO ROW, AND THAT IS MEASURED RATHER THAN HOPED. The band is
@@ -1283,17 +1286,17 @@ function CombatantCard({
         the one field. Every step of that is now gone. Nothing can import a
         rulebook, no new layer can be made, and version 3 deletes the layers
         devices were still carrying, so `s.dataset.adversaries` is exactly the
-        129 - verified, and none of the 129 has an empty `motives` or an empty
+        264 - verified, and none of the 264 has an empty `motives` or an empty
         `features`. Both single-word arms are dead, and so is the outer guard's
         false side.
 
         Kept because collapsing them would be a bet on the dataset, and there
-        is a known change to it in flight: the SRD 2 work brings 311 statblocks
-        against these 148, on parsers that do not exist yet. A branch that is
-        unreachable because of what the data happens to hold is not the same as
-        one that is unreachable by construction, and this is the first kind.
-        Deleting it would have to be undone by whoever finds the first statblock
-        that carries one field.
+        was a known change to it in flight when this was written: the SRD 2
+        work was to bring 311 statblocks against SRD 1.0's 148, on parsers
+        that did not exist yet. A branch that is unreachable because of what
+        the data happens to hold is not the same as one that is unreachable by
+        construction, and this is the first kind. Deleting it would have to be
+        undone by whoever finds the first statblock that carries one field.
 
         A fold labelled for what is not inside it is worse than one word longer.
         The guard is the same shape: no motives and no features, no fold.
@@ -1365,7 +1368,7 @@ function CombatantCard({
             The conclusion survives without it. The stack is short of the column
             by at least 80px of declared chrome plus the chip's widest label -
             nine characters, since pressed it reads SPOTLIT and gives two back -
-            and the motives line runs to 92 characters (below) where the name
+            and the motives line runs to 123 characters (below) where the name
             above it is already `whiteSpace: 'nowrap'` with an ellipsis. A
             sentence that long wants the widest column on the card, which is the
             full 341 and not the remainder of a shared row. Inside the fold it
@@ -1403,8 +1406,8 @@ function CombatantCard({
             `ReferenceTables.tsx` uses for this class - so 341 holds 51
             characters a line, which is exactly what 343 held: 51 characters
             want 336.6px and 52 want 343.2, and both columns fall in that gap.
-            No conclusion moves with the width: 37 is one line, 58 and 92 are
-            both two. Two lines at 1.5 is 30px.
+            No conclusion moves with the width: 34 is one line, 63 is two and
+            123 is three. Three lines at 1.5 is 45px.
 
             "Whether two cards still read on one screen after that is
             PROGETTO-GM §7 item 3, and it has not been in a browser" ended this

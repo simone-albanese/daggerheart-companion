@@ -267,7 +267,7 @@ describe('how many dice a spell rolls', () => {
 describe('which of the two damage types', () => {
   it('reads a weapon rather than assuming weapons are physical', () => {
     // "Unless stated otherwise, mundane weapons and unarmed attacks deal
-    // physical damage, and spells deal magic damage." 70 of the 204 shipped
+    // physical damage, and spells deal magic damage." 140 of the 391 shipped
     // weapons state otherwise, so the weapon is asked.
     expect(damageTypeOf(weaponSource('d10+3', 3))).toBe('phy');
     const magic = sourceFromWeapon(
@@ -291,7 +291,7 @@ describe('which of the two damage types', () => {
 
   it('reads a companion’s own answer, which the sheet now asks for', () => {
     // This branch used to return `phy` for every companion under a comment
-    // calling it the SRD's default. It is not: folio 18 asks the player to
+    // calling it the SRD's default. It is not: folio 21 asks the player to
     // "choose whether they deal physical or magic damage", and a raven who
     // deals magic damage was being reduced by the wrong resistances at the
     // table and printing PHY in the log.
@@ -360,7 +360,7 @@ describe('the line the damage roll writes', () => {
  * The strip at the top of Play has always shown `ATTACK d12+10 · MELEE ·
  * STRENGTH`, and there was no `Declaration` that could arm it - so a Druid in a
  * bear could roll the greatsword the rule had just taken away, and not the
- * bear. The rule is folio 12's: *"you use the creature's listed range, trait,
+ * bear. The rule is folio 15's: *"you use the creature's listed range, trait,
  * and damage dice, but you use your Proficiency."*
  */
 describe('the attack a worn Beastform makes', () => {
@@ -430,10 +430,10 @@ describe('the attack a worn Beastform makes', () => {
  * The companion's attack, and the two sentences that unblocked it.
  *
  * `BACKLOG.md` P1-1 left this out because it could not answer "whose
- * Proficiency and whose roll". Folio 18 answers both - *"Make a Spellcast Roll
- * to connect with your companion"*, *"their damage roll uses your Proficiency
- * and their damage die"* - and it was unreachable prose until `parseRules`
- * reached the folio.
+ * Proficiency and whose roll". Folios 21-22 answer both - *"Make a Spellcast
+ * Roll to connect with your companion"*, *"their damage roll uses your
+ * Proficiency and their damage die"* - and it was unreachable prose until
+ * `parseRules` reached the folios.
  */
 describe('the attack the companion makes', () => {
   const ash = (over: Partial<CompanionState> = {}): CompanionState => ({

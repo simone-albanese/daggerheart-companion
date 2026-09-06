@@ -547,7 +547,7 @@ const blockWithTable = (id: string): SectionBlock => {
   if (block === undefined) throw new Error(`the shipped ${id} section carries no table`);
   return block;
 };
-/** The Average Costs table, p.69: two columns, twelve rows. */
+/** The Average Costs table, p.91: two columns, twelve rows. */
 const costsTable = (): RuleTable => {
   const part = blockWithTable('giving-out-gold-equipment-and-loot').parts.find(
     (p) => p.kind === 'table',

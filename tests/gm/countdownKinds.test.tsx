@@ -3,8 +3,9 @@
  * Two lists, one sentence, and the retired claim that was in both of them.
  *
  * The `long-term` hint said *"Advances across downtime and between sessions."*
- * That is not what the book says about a clock. `between sessions` occurs twice
- * in all 69 shipped sections and both are in the Hope and Fear prose; the
+ * That is not what the book says about a clock. `between sessions` occurs three
+ * times in all 82 shipped sections - twice in the Hope and Fear prose and once
+ * in Using Fear, where it is Fear that carries over; the
  * `countdowns` section's own line is about advancing after rests instead of
  * action rolls. So the hint attributed to the clocks a property the SRD gives
  * to another resource - on the one screen whose first paragraph is about not

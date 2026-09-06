@@ -30,14 +30,14 @@
  * over in the fiction. What is refused is this app being the thing that puts
  * it on.
  *
- * TWO OF THE THREE PICKERS CAN ROLL. Weapons and armor carry a tier - all 204
- * and all 34 of them - so both take an `Rng` and put a RANDOM button in the
+ * TWO OF THE THREE PICKERS CAN ROLL. Weapons and armor carry a tier - all 391
+ * and all 85 of them - so both take an `Rng` and put a RANDOM button in the
  * count row, which draws from the rows the filters left standing THAT THIS
  * CHARACTER CAN EQUIP: dice in front of an act do not change what the act is,
  * and a randomiser that could equip what a tap cannot would be a second door
  * around the refusal, one control to the left of it. Loot and
  * consumables carry no tier at all, so `ItemPicker` takes no dice and offers
- * no such button: a "randomise by tier" control over 120 items with no tier
+ * no such button: a "randomise by tier" control over 240 items with no tier
  * would be a filter the dataset cannot honour, which on this screen is the
  * same defect as implying an absence that is not real. The counts and the
  * distribution are in `src/engine/randomGear.ts`; the placement, its cost and
@@ -50,9 +50,10 @@
  * (`PickerRow`'s `stamp`); the module axis also gets a two-state `Seg`
  * (`ModuleFilter`), and the product axis deliberately does not, because
  * `DECISIONI-SRD-2` §4 gives that one to Settings. Neither draws anything on
- * `data/srd-1.0.json`, which fences nothing: the 204 weapons, 34 armors and
- * 120 items above carry no `set` and no `module`, so this file is unchanged to
- * the pixel on the book it ships.
+ * `data/srd-1.0.json`, which fences nothing: its 204 weapons, 34 armors and
+ * 120 items carry no `set` and no `module`, so this file was unchanged to
+ * the pixel on that book. The shipped `data/srd-2.0.json` puts a `module` on
+ * 76 of the 391 weapons and 16 of the 85 armors, and a `set` on all 240 items.
  */
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
@@ -863,8 +864,8 @@ function ModuleFilter({
  *
  * Band 3 also happens to be where this control's *subject* is written down.
  * The randomiser draws from the rows the filters left standing, and the row it
- * sits in says how many those are - `12 OF 204`, an arm's length to its left.
- * "RANDOM" beside "12 OF 204" reads as "one of these twelve", which is exactly
+ * sits in says how many those are - `12 OF 391`, an arm's length to its left.
+ * "RANDOM" beside "12 OF 391" reads as "one of these twelve", which is exactly
  * what it does, and it needs no second copy of the tier that the lit TIER
  * chips are already showing. The screen reader, which gets no adjacency, gets
  * the whole sentence in `aria-label` - see `tierPhrase` in `gear.ts`.
@@ -884,7 +885,7 @@ function ModuleFilter({
  * overlay padding - 2 of border - 24 of band padding = **274px**; the two
  * buttons take 93.51 + 6 + 49.62 = 149.13 with a filter set, plus the spread's
  * own `--s3` gap of 8; and the longest count this dialog draws -
- * `204 OF 204 · DAMAGE AT PROFICIENCY 3`, 36 characters, 237.6px - wraps into
+ * `391 OF 391 · DAMAGE AT PROFICIENCY 3`, 36 characters, 237.6px - wraps into
  * the remaining 116.87px in three lines of 10px. 30px against a 44px floor.
  * (`RANDOM` is 6 characters of `.chip`'s 9.5px/0.06em, which this file derives
  * at 6.27px each, plus its own 6px of padding either side: **49.62px**, so the

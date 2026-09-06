@@ -61,7 +61,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   /*
    * The card whose recall is waiting for a second tap, because it would be
    * paid in Hit Points rather than in Stress. One at a time: two primed
-   * controls in a grid of 189 is worse than none.
+   * controls in a grid of 210 is worse than none.
    */
   const [armed, setArmed] = useState<string | null>(null);
   /*
@@ -382,7 +382,8 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * and it buys back more than it spends even measured only in reach: those
    * chips were behind a horizontal scroll with `scrollbar-width: none`, so at
    * 393 the whole RECALL group sat 447px off the right edge of a 369px rail
-   * with nothing on screen saying so, and 7 of 9 domains with it. Wrapped
+   * with nothing on screen saying so, and 7 of SRD 1.0's 9 domains with it
+   * (seven of ten on SRD 2.0's strip, measured above). Wrapped
    * inside the fold they are all on the glass. And the state is never silent:
    * the door reads FILTERS 2 with the count in bold, the readout beside it
    * says how many of the 210 survived, and CLEAR FILTERS is drawn the moment
@@ -517,7 +518,8 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           and their content is a constant 853px and 816px against a port of the
           viewport less 24 on a phone and less 40 at 720 and up. Measured: at
           393 that hid 484 and 447 - the whole RECALL group, its divider, its
-          label and all six cost buttons, plus 7 of the 9 domains - and left no
+          label and all six cost buttons, plus 7 of SRD 1.0's 9 domains (seven
+          of ten on SRD 2.0's strip) - and left no
           cut chip at either fold to say so; at 744 it still hid 149 and 112.
           Wrapping costs the wide band 100px at 744x1133, of a 1046px port, and
           nothing at all at 890 and above, where the rails already fitted.

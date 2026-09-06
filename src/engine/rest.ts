@@ -173,7 +173,7 @@ export const fearFromRest = (rest: RestKind, roll: number, partySize: number): n
  * AN ANIMAL WHO HAS LEFT THE SCENE IS NOT CLEARED, AND THAT IS A DELIBERATE
  * DEVIATION RATHER THAN THE RULE ABOVE BEING APPLIED CARELESSLY.
  *
- * Folio 18 says two things and this is where they meet. The sentence quoted
+ * Folio 22 says two things and this is where they meet. The sentence quoted
  * above carries no exception; three paragraphs earlier the same folio says
  * *"when they mark their last Stress, they drop out of the scene... They
  * remain unavailable until the start of your next long rest, WHERE THEY RETURN

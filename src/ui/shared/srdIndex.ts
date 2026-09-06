@@ -432,7 +432,7 @@ const build = (
  * changing the identity of `dataset`. Searching it costs what `searchRules`
  * costs and less: the reject is one `includes` per term against a haystack that
  * is a few hundred characters where a section's is a few thousand, and 1369
- * short rejects are cheaper than 69 long ones.
+ * short rejects are cheaper than 82 long ones.
  */
 export function srdIndex(dataset: Dataset): SrdRecord[] {
   const out: SrdRecord[] = [];

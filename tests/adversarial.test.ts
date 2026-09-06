@@ -210,7 +210,7 @@ const varint = (value: number): number[] => {
 // ===========================================================================
 
 /**
- * `sampleMatrix` is the ninety-three-sheet cross-section the transfer tests
+ * `sampleMatrix` is the 133-sheet cross-section the transfer tests
  * already use. Corruption is swept over a spread of it rather than over one
  * wizard, because a format's weak spot is a *field*, and a field only exists on
  * the sheets that have it.

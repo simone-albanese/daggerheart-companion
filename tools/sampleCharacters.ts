@@ -1,19 +1,19 @@
 /**
  * A cross-section of the game, built the way the app builds one character.
  *
- *   npx tsx tools/sampleCharacters.ts        # print the cross-section (93 rows)
- *   npx tsx tools/sampleCharacters.ts --full # print the full matrix (3240 rows)
+ *   npx tsx tools/sampleCharacters.ts        # print the cross-section (133 rows)
+ *   npx tsx tools/sampleCharacters.ts --full # print the full matrix (6240 rows)
  *
  * The transfer layer carries months of somebody's play between their own
  * devices, so proving it on one wizard proves it on one wizard. This walks all
- * nine classes up all ten levels through the real path - `newCharacter`, then
+ * thirteen classes up all ten levels through the real path - `newCharacter`, then
  * `availableOptions` / `validatePlan` / `applyLevelUp` a level at a time, then
  * `recallCard` to fill the loadout - and hangs on each sheet the fields a
  * fixture usually forgets: a companion, an active Beastform, scars, inventory
  * notes, connections, references a device could not name, and free text in
  * scripts that are not ASCII.
  *
- * Nothing is invented: every ref comes out of `data/srd-1.0.json`, so a size
+ * Nothing is invented: every ref comes out of `data/srd-2.0.json`, so a size
  * measured here is a size somebody's phone will really have to send.
  *
  * Deterministic on purpose. Ids, timestamps and every choice are functions of
@@ -196,7 +196,7 @@ const idFor = (n: number): string => `a1c7ed00-0000-4000-8000-${String(n).padSta
 /**
  * Where a row's ids live. Character ids come from `idFor(base)` and the two
  * Experiences from `idFor(1000 + base * 2)` upwards, so the two spaces only
- * stay apart while `base` is under a thousand. `sampleMatrix` builds ninety
+ * stay apart while `base` is under a thousand. `sampleMatrix` builds 133
  * rows and is safe; `fullMatrix` builds thousands and moves its base clear.
  */
 const EXPERIENCE_ID_FLOOR = 1000;
@@ -216,7 +216,7 @@ interface PlanContext {
    * How far down the eligible list a card *bought with an advancement* may
    * reach. Four is a player's instinct - take one of the best cards on offer -
    * and is what every sample has always done. Zero means the whole eligible
-   * list, which is how a matrix of thousands touches all 189 cards instead of
+   * list, which is how a matrix of thousands touches all 210 cards instead of
    * the same two dozen. The free card a level brings is always one of the best
    * on offer regardless, because that is what a player takes.
    */
@@ -228,7 +228,7 @@ interface PlanContext {
    * being left. This is what the level-up screen does - `LevelUp.tsx` hands its
    * card picker `deriveStats(applyLevelUp(character, plan), ...)`, so a player
    * stepping up to level 10 is offered the level 10 cards. Left off, the last
-   * eighteen cards in the game are unreachable by any climb.
+   * twenty cards in the game are unreachable by any climb.
    *
    * Off by default only so the published byte counts of `sampleMatrix` keep
    * meaning the same thing run to run.
@@ -260,7 +260,7 @@ function eligibleCards(c: Character, ctx: PlanContext, taken: Set<Ref>): DomainC
  */
 const BEST_ON_OFFER = 4;
 
-/** The best card on offer, varied a little so nine wizards are not one wizard. */
+/** The best card on offer, varied a little so thirteen wizards are not one wizard. */
 function nextCard(
   c: Character,
   ctx: PlanContext,
@@ -703,7 +703,7 @@ function decorate(
          * which is also what the 4->5 converter seeds and what the QR reader
          * invents when the field is not on the wire - so the matrix could not
          * tell "carried exactly" from "dropped and defaulted back". A sweep of
-         * 3240 sheets that cannot distinguish those two is blind to the field
+         * 6240 sheets that cannot distinguish those two is blind to the field
          * it is sweeping. The previous bump did exactly this work for
          * `consecutiveShortRests`, four lines up.
          *

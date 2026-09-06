@@ -5,11 +5,12 @@
  *
  * The owner's decision named the class. The same control clipped three pickers
  * and blanked a fourth, and the two the decision did not name are the worse
- * pair: measured in Chrome at 375x667 before this change, an ancestry card hid
+ * pair: measured in Chrome at 375x667 before this change, on SRD 1.0's lists,
+ * an ancestry card hid
  * 111-285px and a community card 158-253px, against 95-158px on a class card -
  * longer text under a *tighter* clamp, two lines rather than three, across
  * eighteen cards and nine instead of nine. The SRD's own figures say the same
- * thing: 509-1243 characters per ancestry against 518-763 per class.
+ * thing: 509-1469 characters per ancestry against 518-916 per class in SRD 2.0.
  *
  * Mixed Ancestry was not clipped, it was empty. The two mixed grids pass no
  * `body`, so one tap on the Segmented control took a player from two clipped
@@ -124,7 +125,7 @@ const toCommunity = (): void => {
   clickSaying('Next');
 };
 
-describe('the eighteen ancestry cards', () => {
+describe('the twenty-four ancestry cards', () => {
   beforeEach(toAncestry);
 
   it('arrives on the step this file is about', () => {
@@ -140,7 +141,7 @@ describe('the eighteen ancestry cards', () => {
     }
   });
 
-  it('holds all eighteen descriptions back until one is asked for', () => {
+  it('holds all twenty-four descriptions back until one is asked for', () => {
     for (const a of dataset.ancestries) expect(text()).not.toContain(a.description.slice(-60));
   });
 
@@ -173,7 +174,7 @@ describe('Mixed Ancestry, which showed no words at all', () => {
   });
 
   it('gives both columns the reader the single-ancestry list has', () => {
-    // Two grids of eighteen. Each card is its own decision - one lineage for
+    // Two grids of twenty-four. Each card is its own decision - one lineage for
     // the first feature, one for the second - so each carries its own evidence
     // rather than sending the player back to the other mode to find it.
     expect(readers()).toHaveLength(dataset.ancestries.length * 2);
@@ -206,7 +207,7 @@ describe('Mixed Ancestry, which showed no words at all', () => {
   });
 });
 
-describe('the nine community cards', () => {
+describe('the fifteen community cards', () => {
   beforeEach(toCommunity);
 
   it('arrives on the step this file is about', () => {
@@ -222,7 +223,7 @@ describe('the nine community cards', () => {
     }
   });
 
-  it('holds all nine descriptions back until one is asked for', () => {
+  it('holds all fifteen descriptions back until one is asked for', () => {
     for (const c of dataset.communities) expect(text()).not.toContain(c.description.slice(-60));
   });
 

@@ -446,7 +446,7 @@ describe('checkEntry, against entries bent on purpose', () => {
  *
  * The count that circulates is stale and must not be copied: the journal's "145
  * anchors across the 46 mid-scene ones" was taken over a dataset of 80 sections
- * that no longer exists. The shipped dataset carries 69.
+ * that no longer exists. The shipped dataset carries 82.
  *
  * So the list below is written here, and the owner corrects it
  * (`DECISIONI-2026-08-25.md` §5). Getting a line of it wrong is cheap by

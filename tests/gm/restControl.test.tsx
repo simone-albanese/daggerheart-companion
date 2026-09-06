@@ -2,7 +2,7 @@
 /**
  * The rest, from the GM's side, and the four numbers it is allowed to produce.
  *
- * `downtime` p.41 gives the GM 1d4 Fear on a short rest, 1d4 + PCs on a long
+ * `downtime` p.52 gives the GM 1d4 Fear on a short rest, 1d4 + PCs on a long
  * one, and one long-term countdown of their choice on the long one. Until this
  * panel none of it arrived on the GM's screen: `Rest.tsx` computed the Fear and
  * wrote it into a log line on the player's phone.

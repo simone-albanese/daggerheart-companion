@@ -924,7 +924,7 @@ export interface GmBoard {
  * and it is the one test the mutant kills.
  *
  * Used, the capacity is not small. `makeCombatant` over the shipped dataset's
- * 129 adversaries mints a body of 171 to 267 bytes of JSON, median 208; the
+ * 264 adversaries mints a body of 170 to 267 bytes of JSON, median 205; the
  * Acid Burrower is 201. A scene row with a roster and no fight is 253 bytes,
  * and the same row with five bodies on it is 1262 - the fight is four times the
  * row it is fought in. A modelled sitting of six rows, four of them fought

@@ -121,7 +121,7 @@
  * in: the sections the ADD sheet offers that carry a bullet list or a pipe
  * table printed a literal `- ` down the left of every list and every table as
  * raw pipes. The renderer is shared rather than copied, and the
- * `SRD 1.0 · P.n` stamp comes with it - the licence rule in `ReferenceTables`
+ * `SRD 2.0 · P.n` stamp comes with it - the licence rule in `ReferenceTables`
  * is that the stamp sits on the text it belongs to, and the SRD's tables are
  * now drawn here too.
  *

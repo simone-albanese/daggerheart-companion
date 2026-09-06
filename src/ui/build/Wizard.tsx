@@ -144,7 +144,7 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * The reader is a `Fold` and not a bigger clamp, a `title` or an overlay:
  *
  *   - a bigger clamp is the same defect with a different number, and no number
- *     fits thirty-six descriptions that run 509-1243 characters;
+ *     fits fifty-two descriptions that run 509-1469 characters;
  *   - it cannot go *inside* the `Choice`, whose root is a `<button>`
  *     (parts.tsx) - a button inside a button is invalid HTML and this repo has
  *     already been bitten by it twice, recorded at parts.tsx and
@@ -169,7 +169,8 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * wrote the rule this follows: a screen may grow underneath a hand, never
  * beneath it.
  *
- * What the shut card costs, measured at 393x852, one column: 104.8px, against
+ * What the shut card costs, measured at 393x852, one column, on SRD 1.0's
+ * lists: 104.8px, against
  * 108.38 for a three-line clamp and 92.52 for a two-line one. So the class step
  * came out 33px SHORTER (1497 -> 1464 of scroll) and the two two-line steps
  * came out longer - ancestry 2179 -> 2401 (+222 over eighteen cards), community
@@ -942,8 +943,9 @@ function AncestryFeature({ ancestry, which }: { ancestry: Ancestry; which: 0 | 1
 /**
  * Ancestry and community are the SRD's one heritage step, and they are two
  * screens here for the same reason the class and its subclass are: eighteen
- * ancestry cards stood between the top of the page and the nine communities,
- * so the second of the step's required choices was a long scroll past the
+ * ancestry cards - SRD 1.0's count; SRD 2.0's is twenty-four - stood between
+ * the top of the page and the nine communities, fifteen now, so the second
+ * of the step's required choices was a long scroll past the
  * point where the page looked finished.
  */
 function StepAncestry({
@@ -1655,8 +1657,8 @@ function StepConnections({
  * one: the caution against a too-broad Experience was a paraphrase of a rule -
  * which is how a house rule gets written by accident, and is the thing
  * `shared/ruleText.ts` exists to stop - and the five examples beside it were
- * five names out of about ninety, transcribed into a `.tsx` file. The SRD
- * carries the rule and all ninety, and the app ships the SRD.
+ * five names out of seventy-nine, transcribed into a `.tsx` file. The SRD
+ * carries the rule and all seventy-nine, and the app ships the SRD.
  *
  * So the rule is read out of `character-creation` at render time and the
  * examples are behind a fold. Note what does *not* change: this is not a second

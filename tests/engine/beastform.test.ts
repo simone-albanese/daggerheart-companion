@@ -303,7 +303,7 @@ describe('the Hybrid surcharge', () => {
 
 /**
  * *"When you make an attack while transformed, you use the creature's listed
- * range, trait, and damage dice, but you use your Proficiency."* Folio 12,
+ * range, trait, and damage dice, but you use your Proficiency."* Folio 15,
  * which the dataset now carries as `beastform-options`.
  *
  * The rule is the same shape as a weapon's and a companion's, so the arithmetic

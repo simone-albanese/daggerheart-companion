@@ -297,7 +297,7 @@ export function onboardedByDoing(prefs: Prefs, characterCount: number): boolean 
  * It was the literal `wanted !== 'gm'`, and a literal was right while exactly
  * one screen had earned it. The search screen earns it by the same sentence,
  * word for word: it has never needed a character and is fully usable without
- * one. Its subject is the book - 849 records the app ships whatever is in the
+ * one. Its subject is the book - 1451 records the app ships whatever is in the
  * library - and `Search.tsx` opens on the whole of it when there is nobody to
  * narrow to, which is the case `RICERCA-SRD §4.5` calls correct and not empty.
  * Sending that person to the character wizard would be the same defect the GM

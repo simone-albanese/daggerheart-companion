@@ -132,8 +132,8 @@ export function adversaryBenchmarks(rules: RulesSection[]): BenchmarkTable {
 
 /**
  * `rules['adapting-environments']`, p.159. The same question for the room the
- * fight is in, and the SRD keeps it in a different chapter sixty pages away -
- * which is exactly the kind of hand-search a reference screen is for.
+ * fight is in, and the SRD keeps it in a different chapter sixty-four pages
+ * away - which is exactly the kind of hand-search a reference screen is for.
  */
 export function environmentBenchmarks(rules: RulesSection[]): BenchmarkTable {
   return benchmarkTable(rules, 'adapting-environments');
@@ -915,7 +915,7 @@ export interface PlayerExperiences {
 const NO_PLAYER_EXAMPLES: PlayerExperiences = { lead: null, title: '', groups: [], page: null };
 
 /**
- * `rules['character-creation']`, p.4 - step 7's rule, and the ninety-odd
+ * `rules['character-creation']`, p.4 - step 7's rule, and the seventy-nine
  * examples under it.
  *
  * Found as **the first block that is nothing but labelled bullets**. The
@@ -1206,9 +1206,9 @@ export function wholeWordIn(low: string, term: string): boolean {
  * recorded 0.172 ms in this docblock when it was taken on its own day, which is
  * the size of the noise between two runs on one machine and the reason a single
  * figure from either is not worth arguing with. The dataset under both is
- * **sixty-nine** sections - **107,884** bytes of JSON, **35,936** of it gzipped
- * at zlib's default level - inside a chunk `index.html` already preloads, the
- * Witherwild frame having been dropped.
+ * SRD 1.0's **sixty-nine** sections - **107,884** bytes of JSON, **35,936** of
+ * it gzipped at zlib's default level - inside a chunk `index.html` already
+ * preloads, the Witherwild frame having been dropped.
  *
  * The multi-term matcher is the slower of the two and it is worth saying where
  * the time went, because it is not the AND. It is the **line split**: the cheap
@@ -1231,10 +1231,11 @@ export function wholeWordIn(low: string, term: string): boolean {
  * enough to be worth re-taking: they counted the Witherwild frame this dataset
  * no longer carries. **Collapsing the body's whitespace before matching costs
  * 2.14 ms** - nine times the whole scan - because it allocates a rewritten copy
- * of all **100,165** body characters on every keystroke, and it buys nothing:
- * not one of the **869** non-empty body lines in the shipped file carries two
- * spaces in a row, a tab, a carriage return or trailing space, and the
- * paragraphs are one line each, hard-wrapped nowhere. (It read 1.05 ms over
+ * of all **100,165** body characters on every keystroke (the milliseconds were
+ * taken on SRD 1.0's 100,165, not re-taken on SRD 2.0's 113,840), and it buys
+ * nothing: not one of the **961** non-empty body lines in the shipped file
+ * carries two spaces in a row, a tab, a carriage return or trailing space, and
+ * the paragraphs are one line each, hard-wrapped nowhere. (It read 1.05 ms over
  * 122,437 characters and 969 lines before the frame was dropped. The
  * conclusion did not need re-taking; the three numbers did.) The query is
  * collapsed, because a person types the double space; the book is not, because

@@ -149,8 +149,8 @@ describe('the line budget, against the cards the SRD actually offers', () => {
   /*
    * Wrapping, modelled the way CardText lays a card out: one block per
    * blank-line paragraph, one more per bullet, and a 0.75em gap between
-   * paragraphs. 0.452em is Archivo's mean advance measured over all 189 card
-   * texts, so a character costs 0.452 x the font size.
+   * paragraphs. 0.452em is Archivo's mean advance measured over all of SRD
+   * 1.0's 189 card texts, so a character costs 0.452 x the font size.
    */
   const AVG_ADVANCE_EM = 0.452;
 
@@ -191,8 +191,9 @@ describe('the line budget, against the cards the SRD actually offers', () => {
   });
 
   it('leaves a tail long enough that the reader is still worth having', () => {
-    // The two longest Grimoires run over at any measure a card grid can give
-    // them, which is why the "there is more" affordance is not dead code.
+    // One of the 210 - Book of Vagras, the longest Grimoire - runs over at any
+    // measure a card grid can give it, which is why the "there is more"
+    // affordance is not dead code.
     expect(whole(cards, 342)).toBeLessThan(1);
     expect(whole(cards, 342)).toBeGreaterThan(0.95);
   });

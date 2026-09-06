@@ -138,7 +138,7 @@ describe('the action on a card', () => {
   it('does not call a free recall a downtime, in the middle of a scene', () => {
     /*
      * The log line used to read "Free during downtime" for any recall that
-     * cost nothing, and this screen has no downtime in it: 31 of the 189 SRD
+     * cost nothing, and this screen has no downtime in it: 33 of the 210 SRD
      * cards have a Recall Cost of 0, so a third of a vault wrote a sentence
      * about a rest that had not happened. Both surfaces now go through
      * `useRecall`, which says which of the two zeroes this was.
@@ -289,7 +289,7 @@ describe('the card browser draws inside its own box', () => {
    * that last property is harmless on a flex item and not on a grid one: it
    * sets the item's automatic minimum size to zero, so the auto row's base
    * size is zero, and a row grows towards its growth limit only out of free
-   * space - which a grid of 189 cards in a 438px port has none of. Measured in
+   * space - which a grid of 210 cards in a 438px port has none of. Measured in
    * Chrome at 320x568 with `.stack` on this div: row 1 was 0px and the block's
    * 62px of controls were painted over the first card.
    *
@@ -356,7 +356,8 @@ describe('the filters, on a screen that cannot afford four rows of them', () => 
 
   /*
    * Both rails were `overflowX: 'auto', scrollbarWidth: 'none'` over a
-   * constant 853px and 816px of chips. Measured in Chrome: at 393 that hid 484
+   * constant 853px and 816px of chips, on SRD 1.0's nine domains. Measured in
+   * Chrome: at 393 that hid 484
    * and 447 - the whole RECALL group and 7 of 9 domains - with no cut chip at
    * either fold to say so, and at 744 it still hid 149 and 112. jsdom cannot
    * measure a scrollWidth, so this asserts the two declarations that produce

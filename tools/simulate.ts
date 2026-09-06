@@ -1,7 +1,7 @@
 /**
  * The whole matrix, played out.
  *
- * 18 subclasses x 18 ancestries x 10 levels: 3240 characters, every one of
+ * 26 subclasses x 24 ancestries x 10 levels: 6240 characters, every one of
  * them built the way a player builds one - level 1 out of `newCharacter`, then
  * walked up a level at a time through `availableOptions`, `validatePlan` and
  * `applyLevelUp`. A hand-written level 8 sheet proves nothing: if play cannot
@@ -158,7 +158,7 @@ const rotate = <T,>(list: readonly T[], by: number): T[] =>
  *
  * `any` is the seeded rng, for what only has to vary. `sweep` is a cursor that
  * starts at this character's place in the matrix and steps on with every call,
- * for what has to be *covered*: 3240 characters walk the whole weapon rack
+ * for what has to be *covered*: 6240 characters walk the whole weapon rack
  * instead of clustering on the dice's favourites. Each purpose keeps its own
  * cursor, offset by the purpose's name, so its k-th call is always the same
  * distance from the start and two lists never move in lockstep - the offhand

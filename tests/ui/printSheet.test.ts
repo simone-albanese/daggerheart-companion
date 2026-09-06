@@ -847,7 +847,7 @@ describe('the companion page', () => {
      * for one good reason - a ballot glyph prints as tofu wherever the print
      * font does not carry U+2610 - and taking them out took the checkbox with
      * them, so the seven unmarked options printed as a bare name under a
-     * heading reading "1 marked · 4 earned". Folio 18 says "mark it on your
+     * heading reading "1 marked · 4 earned". Folio 22 says "mark it on your
      * sheet", and there was nowhere left to make the mark.
      *
      * `.dhc-tick` is the page's own checkbox and was already in the stylesheet,

@@ -1755,15 +1755,18 @@ function derivationOf(total: number, rows: readonly Contribution[]): string | un
  *
  * WIDTH. The meta line is `.t-meta` - 10px mono - at `letter-spacing: 0.05em`,
  * so about 6.5px a character, inside a panel that is the column less 22 of
- * padding. Taken over all 204 shipped weapons the longest line this can now
- * produce is `ARMED · STRENGTH · VERY CLOSE 5-10 FT · PHYSICAL` - 48 characters
- * and about 312px, and it is the *shortest* distance that makes it, because
- * VERY CLOSE is the longest range name. The 393px phone has 347 and the cockpit
- * more, so it is one line there; at 320 the column is 296 and the panel 274,
- * and that worst case wraps to a second 10px line. It is allowed to: this block
- * scrolls, the row's floor is `var(--tap)` and a wrapped meta line grows the
- * row rather than clipping it, and the alternative was to keep the number off
- * the screen at every width in order to protect the narrowest one.
+ * padding. Taken over all 391 shipped weapons the longest line this can now
+ * produce is 48 characters, and 36 of the 391 reach it - `ARMED · STRENGTH ·
+ * VERY CLOSE 5-10 FT · PHYSICAL` (the Halberd) and `ARMED · AGILITY · VERY FAR
+ * 100-300 FT · PHYSICAL` (the Longbow) among them - and about 312px; the
+ * *shortest* distance makes it because VERY CLOSE is the longest range name,
+ * and the longest makes it back with a trait one letter shorter. The 393px
+ * phone has 347 and the cockpit more, so it is one line there; at 320 the
+ * column is 296 and the panel 274, and that worst case wraps to a second 10px
+ * line. It is allowed to: this block scrolls, the row's floor is `var(--tap)`
+ * and a wrapped meta line grows the row rather than clipping it, and the
+ * alternative was to keep the number off the screen at every width in order to
+ * protect the narrowest one.
  */
 /**
  * What a piece of gear is worth to the numbers, taken from the sum itself.

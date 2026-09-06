@@ -3,7 +3,7 @@
  *
  * *"Acquire a new domain card at your level or lower... You can also exchange
  * one domain card you've previously acquired for a different domain card of the
- * same level or lower."* Folio 53, and `applyLevelUp` did only the first half.
+ * same level or lower."* Folio 54, and `applyLevelUp` did only the first half.
  *
  * Three things are being asserted here and they pull in different directions:
  *

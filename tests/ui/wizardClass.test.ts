@@ -41,10 +41,10 @@ const escaped = (s: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;');
 
-describe('the nine class cards', () => {
+describe('the thirteen class cards', () => {
   it('finds the classes it is about', () => {
-    // The whole file is driven off the dataset rather than off a list of nine
-    // names, so an imported dataset with a tenth class is swept up by every
+    // The whole file is driven off the dataset rather than off a list of thirteen
+    // names, so an imported dataset with a fourteenth class is swept up by every
     // assertion below the day it arrives.
     expect(classes.length).toBeGreaterThan(1);
   });
@@ -72,11 +72,11 @@ describe('the nine class cards', () => {
 
   it('holds the description back until it is asked for, rather than showing more of it', () => {
     // This is the assertion the pre-fix build fails hardest: the clamp was CSS
-    // over markup that carried all 518-763 characters of every description, so
+    // over markup that carried all 518-916 characters of every description, so
     // the words were in the page and only the browser was hiding them.
     //
     // It is also the assertion that refuses a fix that simply deletes the
-    // paragraph - the one above requires nine readers, this one requires the
+    // paragraph - the one above requires thirteen readers, this one requires the
     // text not to be printed unasked, and only opening one satisfies both.
     for (const c of classes) {
       expect(c.description.length).toBeGreaterThan(60);
@@ -87,7 +87,7 @@ describe('the nine class cards', () => {
   it('keeps the facts a class is compared on outside the reader, where they were', () => {
     // `meta` was never inside the clamp and is not inside the fold either. The
     // clamp hid flavour; Evasion, Hit Points and the two domains are what a
-    // player scans nine cards for and they are still printed on every card.
+    // player scans thirteen cards for and they are still printed on every card.
     for (const c of classes) {
       expect(opening).toContain(
         `EVASION ${String(c.startingEvasion)} · ${String(c.startingHitPoints)} HP`,

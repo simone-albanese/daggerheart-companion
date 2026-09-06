@@ -64,7 +64,7 @@ export function FilterBar({
   placeholder?: string;
 }): React.JSX.Element {
   // The count comes from the dataset that is actually loaded; a layer on top of
-  // the SRD changes it, and a placeholder that says 129 anyway is a small lie.
+  // the SRD changes it, and a placeholder that hard-codes the count is a small lie.
   const hint = placeholder ?? `Search ${total} adversaries`;
   return (
     <div className="stack" style={{ gap: 8, flex: 'none' }}>

@@ -265,7 +265,7 @@ export interface LevelUpPlan {
    * Step four's second sentence: one card given up for one card taken.
    *
    * *"You can also exchange one domain card you've previously acquired for a
-   * different domain card of the same level or lower."* Folio 53. Separate from
+   * different domain card of the same level or lower."* Folio 54. Separate from
    * `newCardRef` because they are two different offers in the same step - a
    * level grants the new card whether or not anything is exchanged - and
    * because only this one has a rule attached that something has to enforce.
@@ -713,7 +713,7 @@ function bank(next: Character, plan: LevelUpPlan, ref: Ref): Character {
  * The one rule step four's second sentence carries, enforced rather than said.
  *
  * *"You can also exchange one domain card you've previously acquired for a
- * different domain card of the same level or lower."* Folio 53. Four clauses,
+ * different domain card of the same level or lower."* Folio 54. Four clauses,
  * and each is a refusal because each is a rule of construction rather than a
  * ruling a table makes:
  *
@@ -915,7 +915,7 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
     };
     /*
      * *"Whenever you gain a new Experience, your companion also gains one. All
-     * new Experiences start at +2."* Folio 18.
+     * new Experiences start at +2."* Folio 21.
      *
      * Applied rather than offered, because the sentence offers nothing: it is
      * the same shape as the Stress a transformation costs. What the player
@@ -930,7 +930,7 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
      * IT IS NOT THE ONLY PLACE A CHARACTER GAINS A NEW ONE, and this comment
      * used to say it was. `ExperienceEditor` has an "Add an Experience" button
      * (`src/ui/build/parts.tsx`), reachable from Build and from the wizard, and
-     * folio 22's *"whenever"* covers that route too. Nothing there hands the
+     * folio 21's *"whenever"* covers that route too. Nothing there hands the
      * companion anything, so a hand-added Experience quietly leaves the animal
      * one behind. That is a real gap in the rule and not a decision; it is
      * written down here because the false sentence was hiding it.

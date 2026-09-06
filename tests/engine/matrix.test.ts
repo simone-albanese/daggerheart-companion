@@ -2,8 +2,8 @@
  * Every character the game can make, and the engine's arithmetic over all of them.
  *
  * The other files in this directory prove one rule each on a fixture built to
- * show it. This one proves them on 3240 sheets: all eighteen subclasses crossed
- * with all eighteen ancestries at all ten levels, and every single one of them
+ * show it. This one proves them on 6240 sheets: all twenty-six subclasses crossed
+ * with all twenty-four ancestries at all ten levels, and every single one of them
  * started blank at level 1 and walked up through `validatePlan` and then
  * `applyLevelUp`, one level at a time, the way somebody actually plays. Nothing
  * here is written out by hand. A sheet you cannot reach by playing is not a
@@ -16,7 +16,7 @@
  * up armor is wrong for exactly one person, in the one moment they are counting
  * HP, and they will believe it. So will their GM.
  *
- * What is proved for each of the 3240: the Proficiency the level and the
+ * What is proved for each of the 6240: the Proficiency the level and the
  * advancements actually taken add up to; the damage thresholds, from the armor
  * that is really equipped; that no maximum in the game is exceeded; that Hope
  * is six minus the scars; that there is not one NaN, Infinity, undefined or
@@ -77,7 +77,7 @@ let deriveMs = 0;
 // ---------------------------------------------------------------------------
 // Reporting
 //
-// Every assertion below runs over all 3240 rows and collects what went wrong
+// Every assertion below runs over all 6240 rows and collects what went wrong
 // rather than throwing on the first one, because "one row is broken" and "every
 // row at level 8 is broken" are different bugs and the difference is the count.
 // ---------------------------------------------------------------------------
@@ -143,9 +143,9 @@ interface Hole {
  */
 const NULLABLE_ON_A_CHARACTER: ReadonlySet<string> = new Set([
   'communityRef',
-  // Null on all 3240, and it has to be: a transformation is granted by the GM
-  // from the sheet, not taken by any advancement the matrix walks, and SRD 1.0
-  // prints none to take.
+  // Null on all 6240, and it has to be: a transformation is granted by the GM
+  // from the sheet, not taken by any advancement the matrix walks, and SRD 2.0's
+  // six are all the GM's to give out (folio 42), so the matrix takes none.
   'transformationRef',
   'multiclassRef',
   'multiclassDomain',
@@ -160,7 +160,7 @@ const NULLABLE_ON_A_CHARACTER: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * `unresolvedArmor` is null on all 3240 of these and has to be: every row wears
+ * `unresolvedArmor` is null on all 6240 of these and has to be: every row wears
  * armor this dataset holds, so a ref parked here would mean the matrix built a
  * sheet pointing at armor that does not exist. Null is the answer that says the
  * thresholds beside it are the real ones.
@@ -337,8 +337,8 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
     const built = fullMatrix(dataset);
     buildMs = Date.now() - builtAt;
     const derivedAt = Date.now();
-    // Derived once here and read by every assertion below: 3240 full climbs is
-    // the cost of this file, and paying it per test would be paying it nine times.
+    // Derived once here and read by every assertion below: 6240 full climbs is
+    // the cost of this file, and paying it per test would be paying it sixteen times.
     rows = built.map((row) => ({ ...row, stats: deriveStats(row.character, dataset, index) }));
     deriveMs = Date.now() - derivedAt;
   }, 300_000);
@@ -748,12 +748,14 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
        *
        * "Unarmored is level and twice level" was written as a bare equality and
        * it stopped being true the day the ledger started reaching the
-       * thresholds. 28 of the 3240 rows break it and every one of them is
+       * thresholds. 107 of the 6240 rows break it and every one of them is
        * right to: a Galapa's `Shell` adds their Proficiency to both halves
        * whether or not they are wearing anything, a Stalwart's three features
-       * stack to +6, a Winged Sentinel's `Ascendant` puts +4 on Severe, and a
-       * Bravesword adds +3 to Severe from the primary weapon slot - none of
-       * which is armour, and none of which the old sentence had a term for.
+       * stack to +6, a Winged Sentinel's `Ascendant` puts +4 on Severe, a
+       * Bravesword adds +3 to Severe from the primary weapon slot, and SRD 2.0's
+       * Earthkin `Stoneskin`, Juggernaut `Rugged` and Fighting Cloaks add their
+       * own terms - none of which is armour, and none of which the old sentence
+       * had a term for.
        *
        * So the quoted rule is what a sheet with an EMPTY LEDGER reads, and that
        * is what is asserted. Splitting the population this way is worth more

@@ -6,7 +6,7 @@
  * separately: WHICH domains get a chip, and in WHAT ORDER the chips come.
  *
  * The first is the one the SRD 2.0 work broke. `DOMAINS` gained `dread` while
- * the app still ships `data/srd-1.0.json`, and the strip mapped the constant -
+ * the app still shipped `data/srd-1.0.json`, and the strip mapped the constant -
  * so the shipped build drew a Dread chip whose only possible outcome was "No
  * cards match those filters." (Measured in Chrome on the running app at
  * 1440x900: the readout goes `42 OF 189` to `0 OF 189`.) The list has to come

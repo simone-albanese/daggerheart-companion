@@ -1183,7 +1183,7 @@ function GrantedCard({
  * Step four's SECOND sentence: one card given up for one card taken.
  *
  * *"You can also exchange one domain card you've previously acquired for a
- * different domain card of the same level or lower."* Folio 53.
+ * different domain card of the same level or lower."* Folio 54.
  *
  * ## Why it is inside step four's own Section and not beside it
  *

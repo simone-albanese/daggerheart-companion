@@ -414,9 +414,10 @@ describe('the Spellcast trait, in the class info', () => {
   });
 
   it('says a class has none rather than leaving an absence to explain itself', () => {
-    // Four of the eighteen shipped subclasses carry no Spellcast trait - both
-    // Guardian subclasses and both Warrior ones - and for those characters the
-    // whole Spellcast row is missing from Equipped. A blank explains nothing.
+    // Six of the twenty-six shipped subclasses carry no Spellcast trait - both
+    // Brawler subclasses, both Guardian ones and both Warrior ones - and for
+    // those characters the whole Spellcast row is missing from Equipped. A blank
+    // explains nothing.
     setViewport(1280);
     const c = asSubclass(subclassWith(false));
     play(c);

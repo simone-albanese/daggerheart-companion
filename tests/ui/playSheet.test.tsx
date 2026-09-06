@@ -2916,7 +2916,7 @@ describe('the vault', () => {
   it('does not call a recall that cost nothing a downtime', () => {
     // The log line read "Free during downtime" whenever the price was zero,
     // and nothing had ever passed `{ downtime: true }` - so the only way to
-    // reach it was one of the 31 SRD cards whose Recall Cost is 0, in the
+    // reach it was one of the 33 SRD cards whose Recall Cost is 0, in the
     // middle of a scene. Two zeroes, two reasons, and now two sentences.
     const free = dataset.domainCards.find((k) => k.recallCost === 0);
     expect(free, 'the shipped dataset has no card with a Recall Cost of 0').toBeDefined();
@@ -3225,7 +3225,7 @@ describe('the carried items, out loud', () => {
  * `▶ MODIFIERS … NONE`, the band Giorgio wanted back, spent on announcing that
  * nothing is happening.
  *
- * The capability stays - 38 adversaries and 9 environments call for a reaction
+ * The capability stays - 97 adversaries and 26 environments call for a reaction
  * roll, and an app you cannot roll with advantage in is wrong at the table -
  * so the controls move behind MODS on the roll bar, which costs no height at
  * all beside a 56px ROLL. The whole risk of that is the same as the fold's:
@@ -4006,7 +4006,7 @@ describe('what the attack is made with', () => {
   it('lets go of a weapon that comes off in Build', () => {
     /*
      * The declaration is a ref, and a ref has to be resolved against something.
-     * Resolved against `index.weapons` - the 204 shipped weapons, which is
+     * Resolved against `index.weapons` - the 391 shipped weapons, which is
      * where a weapon's dice live and therefore the obvious place to look - the
      * lookup answers "yes, a Battleaxe exists" to the question "is this
      * character holding a Battleaxe". So the fold went on saying ARMED ·

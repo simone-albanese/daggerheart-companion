@@ -897,7 +897,7 @@ export type AdvancementKind =
    * Step Four's second sentence, which is not an advancement.
    *
    * *"You can also exchange one domain card you've previously acquired for a
-   * different domain card of the same level or lower."* Folio 53. It sits in
+   * different domain card of the same level or lower."* Folio 54. It sits in
    * this union because it is a `levelUpHistory` entry - one line of the record
    * of what a level did - and `LevelUpChoice.kind` is typed off this. It is NOT
    * an `AdvancementOption`: `optionsForTier` never offers it, `slotUsage` never
@@ -932,7 +932,7 @@ export interface CompanionState {
   /**
    * Physical or magic, which the player chooses.
    *
-   * Folio 18, step 4: *"Choose whether they deal physical or magic damage."*
+   * Folio 21, step 4: *"Choose whether they deal physical or magic damage."*
    * Until this field existed `damageTypeOf` answered `phy` for every companion
    * and a comment called it the SRD's default - which is true of an unarmed
    * attack and was never true of this sheet, where the book asks the question
@@ -962,8 +962,8 @@ export interface Character {
   communityRef: Ref | null;
   /**
    * The transformation card this character holds, or `null`. SRD 2.0 prints
-   * six (folios 43-45); SRD 1.0 prints none, so on the dataset the app ships
-   * today this is `null` on every sheet and nothing can set it.
+   * six (folios 43-45; SRD 1.0 printed none). The GM grants it from `Edit`;
+   * no advancement sets it.
    *
    * ## Shaped after `communityRef`, and standing here for the same reason
    *

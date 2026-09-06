@@ -12,7 +12,7 @@
  * and tables out of `paragraphs()` until the pipes showed up on screen.
  *
  * **It is not one drawing of each, and this header used to claim it was.** The
- * `ADD -> LINK -> Rule` door offers all sixty-nine sections, so a GM can link
+ * `ADD -> LINK -> Rule` door offers all eighty-two sections, so a GM can link
  * `countdowns`, `using-fear`, `difficulty-benchmarks`,
  * `adversary-stat-block-benchmarks` or `adapting-environments` and get the
  * generic `RuleTableView`, while the reference region draws those same tables
@@ -40,7 +40,7 @@
  *
  * `SRD 2.0 · P.95` is drawn beside the table it belongs to and is read from
  * that section's own `sourcePage`. The improvise topic composes two tables
- * sixty pages apart - adversaries on 95, environments on 159 - so a single
+ * sixty-four pages apart - adversaries on 95, environments on 159 - so a single
  * stamp at the top of the topic would print one page number over text that is
  * not on it. That is the licence version of the rule this app keeps everywhere
  * else: the screen does not get to claim something that is not so.

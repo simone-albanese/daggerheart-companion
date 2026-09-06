@@ -881,7 +881,7 @@ describe('validatePlan: a black-boxed option marks both of its boxes', () => {
 
 /**
  * *"Whenever you gain a new Experience, your companion also gains one. All new
- * Experiences start at +2."* Folio 18.
+ * Experiences start at +2."* Folio 21.
  *
  * A tier achievement is the only place a character gains a *new* Experience -
  * the `experience` advancement raises two they already have, which is not what
